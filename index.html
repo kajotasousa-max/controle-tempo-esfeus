@@ -268,13 +268,13 @@
   .a-quick-start { background: #16a34a; }
   .a-quick-stop { background: #dc2626; }
   .a-quick-next { background: #2563eb; }
-  .a-quick-finish { background: #7c3aed; }
   .a-quick-actions button:hover { filter: brightness(.92); }
   .a-help { padding: 9px 10px; margin: -4px 0 12px; background: #f8fafc; border-radius: 5px; color: #64748b; font-size: 11px; line-height: 1.4; }
   .a-activity-panel { padding: 12px; margin: 4px 0 14px; background: #111827; color: white; border-radius: 8px; text-align: center; }
   .a-activity-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: .7; }
   .a-activity-status { font-size: 14px; font-weight: bold; margin-top: 4px; }
   .a-activity-clock { font-family: monospace; font-size: 26px; font-weight: bold; letter-spacing: 1px; margin-top: 6px; }
+  .a-activity-feedback { min-height: 18px; margin-top: 6px; color: #bbf7d0; font-size: 11px; }
   @media (max-width: 900px) {
     .stage-row { grid-template-columns: 1fr 1fr; }
     .stage-row .stage-remove { justify-self: end; }
@@ -290,7 +290,7 @@
     <h1>ESFEUS FERRAMENTARIA · Gestão de Serviços</h1>
     <div class="config-mini">
       <span>URL visualizador:</span>
-      <input type="text" id="base-url" placeholder="https://kajotasousa-max.github.io/controle-tempo-esfeus/">
+      <input type="text" id="base-url" value="https://kajotasousa-max.github.io/controle-tempo-esfeus/" placeholder="https://kajotasousa-max.github.io/controle-tempo-esfeus/">
       <button onclick="saveBaseUrl()">Salvar</button>
     </div>
   </div>
@@ -596,30 +596,21 @@
         </select>
       </div>
       <div class="a-field">
-        <label>Evento da atividade <span class="req">*</span></label>
-        <select id="a-status">
-          <option value="">— selecione —</option>
-          <option>Iniciando</option><option>Concluído Parcial</option>
-          <option>Finalizado</option><option>Parado</option>
-        </select>
-      </div>
-      <div class="a-field">
         <label>Qtd peças</label>
         <input type="number" id="a-qtd" placeholder="opcional" min="0">
       </div>
-      <div class="a-help">Cada toque registra um evento com data e hora. <strong>Iniciar/retomar</strong> começa a contagem; <strong>pausar</strong> interrompe; <strong>pronta para próxima etapa</strong> encerra esta operação.</div>
+      <div class="a-help">Preencha uma vez. Cada toque registra um evento com data e hora: <strong>Iniciar / retomar</strong> começa ou continua a contagem; <strong>Pausar</strong> interrompe; <strong>Pronta para próxima etapa</strong> encerra a operação.</div>
       <div class="a-quick-actions">
         <button type="button" class="a-quick-start" onclick="registrarRapido('Iniciando')">▶ Iniciar / retomar</button>
         <button type="button" class="a-quick-stop" onclick="registrarRapido('Parado')">⏸ Pausar</button>
         <button type="button" class="a-quick-next" onclick="registrarRapido('Concluído Parcial')">✓ Pronta para próxima etapa</button>
-        <button type="button" class="a-quick-finish" onclick="registrarRapido('Finalizado')">■ Finalizar operação</button>
       </div>
       <div class="a-activity-panel">
         <div class="a-activity-label">Controle da operação</div>
         <div id="a-activity-status" class="a-activity-status">Selecione operação, máquina e operador</div>
         <div id="a-activity-clock" class="a-activity-clock">00:00:00</div>
+        <div id="a-activity-feedback" class="a-activity-feedback"></div>
       </div>
-      <button class="a-submit" onclick="registrarApontamento()">Registrar apontamento</button>
     </div>
   </div>
   <div class="a-card" id="aponta-success-container" style="display:none;">
@@ -1761,33 +1752,48 @@ function activateApontaMode(data) {
   document.title = 'Apontamento ' + osFull + ' — ESFEUS';
 }
 
-function registrarApontamento() {
+function registrarApontamento(statusOverride) {
   const etapa = document.getElementById('a-etapa').value;
   const operacao = document.getElementById('a-operacao').value;
   const maquina = document.getElementById('a-maquina').value;
   const operador = document.getElementById('a-operador').value;
-  const status = document.getElementById('a-status').value;
   const qtd = document.getElementById('a-qtd').value;
-  if (!operacao || !maquina || !operador || !status) { alert('Preencha todos os campos obrigatórios (*)'); return; }
+  const status = statusOverride || ((document.getElementById('a-status') || {}).value || '');
+  if (!operacao || !maquina || !operador || !status) { alert('Preencha operação, máquina e operador antes de iniciar.'); return; }
+  const antes = estadoAtividadeMelhoria();
+  const feedback = document.getElementById('a-activity-feedback');
+  if (status === 'Iniciando' && antes.running) {
+    if (feedback) feedback.textContent = 'Esta operação já está em andamento.';
+    return;
+  }
+  if (status === 'Parado' && !antes.running) {
+    if (feedback) feedback.textContent = 'Não há uma atividade em andamento para pausar.';
+    return;
+  }
+  if (status === 'Concluído Parcial' && !antes.eventos.length) {
+    if (feedback) feedback.textContent = 'Inicie a operação antes de encerrá-la.';
+    return;
+  }
+  if (status === 'Iniciando' && antes.lastStatus === 'Concluído Parcial') {
+    if (feedback) feedback.textContent = 'Esta operação já foi encerrada. Use a próxima etapa.';
+    return;
+  }
   const now = new Date(), pad = n => String(n).padStart(2, '0');
   const timestamp = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
   const osFull = (apontamentoDados.os || '') + (apontamentoDados.it ? '/' + apontamentoDados.it : '');
   const apontamento = { timestamp, os: osFull, etapa, cliente: apontamentoDados.cliente || '', oc: apontamentoDados.oc || '', descricao: apontamentoDados.desc || '', operacao, maquina, operador, status, qtd: qtd || '' };
   saveApontamento(apontamento);
   atualizarPainelAtividade();
-  const details = document.getElementById('a-success-details');
-  details.innerHTML = '<div><strong>OS:</strong> ' + escMelhoria(osFull) + '</div>' +
-    (etapa ? '<div><strong>Etapa:</strong> ' + escMelhoria(etapa) + '</div>' : '') +
-    '<div><strong>Operação:</strong> ' + escMelhoria(operacao) + '</div><div><strong>Máquina:</strong> ' + escMelhoria(maquina) + '</div>' +
-    '<div><strong>Operador:</strong> ' + escMelhoria(operador) + '</div><div><strong>Status:</strong> ' + escMelhoria(status) + '</div>' +
-    (qtd ? '<div><strong>Qtd:</strong> ' + escMelhoria(qtd) + '</div>' : '') + '<div><strong>Hora:</strong> ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '</div>';
-  document.getElementById('aponta-form-container').style.display = 'none';
-  document.getElementById('aponta-success-container').style.display = 'block';
+  const nomes = {
+    'Iniciando': 'Início/retomada registrada',
+    'Parado': 'Pausa registrada',
+    'Concluído Parcial': 'Operação encerrada — pronta para a próxima etapa'
+  };
+  if (feedback) feedback.textContent = (nomes[status] || 'Evento registrado') + ' às ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '.';
 }
 
 function registrarRapido(status) {
-  document.getElementById('a-status').value = status;
-  registrarApontamento();
+  registrarApontamento(status);
 }
 
 function novoApontamento() {
