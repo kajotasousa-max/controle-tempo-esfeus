@@ -313,7 +313,7 @@
       <input type="text" id="base-url" value="https://kajotasousa-max.github.io/controle-tempo-esfeus/" placeholder="https://kajotasousa-max.github.io/controle-tempo-esfeus/" style="width:220px;">
       <button onclick="saveBaseUrl()">Salvar</button>
       <span style="margin-left:12px;">URL Apps Script:</span>
-      <input type="text" id="sync-url" placeholder="https://script.google.com/macros/s/AKfyc.../exec" style="width:220px;">
+      <input type="text" id="sync-url" placeholder="(padrão embutido — só preencha se quiser trocar)" style="width:220px;">
       <button onclick="saveSyncUrl()">Salvar</button>
     </div>
   </div>
@@ -1772,13 +1772,19 @@ function registrarRapido(status) {
 
 
 /* =============== SYNC COM GOOGLE SHEETS =============== */
+// URL padrão do Apps Script Web App. Todos os dispositivos usam essa
+// por padrão. Se quiser trocar sem republicar o HTML, salve outra
+// URL no campo do topo (fica salva no localStorage daquele dispositivo).
+const DEFAULT_SYNC_URL = 'https://script.google.com/macros/s/AKfycbwkg4X6qWDF04pEqGfr0SyT3WfrNyoN_dr8oWUc89erGexKEHDPysmujXGS4IxxPRLx/exec';
+
 const SYNC_QUEUE_KEY = 'esfeus_sync_queue';
 const SYNC_URL_KEY = 'esfeus_sync_url';
 let syncTimer = null;
 let syncingNow = false;
 
 function getSyncUrl() {
-  return (localStorage.getItem(SYNC_URL_KEY) || '').trim();
+  const custom = (localStorage.getItem(SYNC_URL_KEY) || '').trim();
+  return custom || DEFAULT_SYNC_URL;
 }
 
 function saveSyncUrl() {
