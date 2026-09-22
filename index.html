@@ -113,9 +113,9 @@
   body.viewer-mode .app { display: none; }
   body.viewer-mode #viewer-app { display: block; }
 
-  .v-card { max-width: 520px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.12); overflow: hidden; }
-  .v-header { padding: 28px 20px 20px; text-align: center; background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%); border-bottom: 3px solid #1e5aa8; }
-  .v-logo { max-width: 360px; width: 92%; height: auto; display: block; margin: 0 auto; border-radius: 50%; }
+  .v-card { max-width: 460px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.12); overflow: hidden; }
+  .v-header { padding: 24px 20px 18px; text-align: center; background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%); border-bottom: 3px solid #1e5aa8; }
+  .v-logo { max-width: 280px; width: 85%; height: auto; display: block; margin: 0 auto; border-radius: 50%; }
   .v-title { font-size: 15px; font-weight: 900; color: #1e5aa8; margin-top: 14px; letter-spacing: 2px; text-transform: uppercase; }
   .v-data { padding: 4px 0; }
   .v-row { display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f0f0f0; gap: 12px; }
@@ -170,56 +170,50 @@
   /* ===== Etiqueta interna (padrão ESFEUS: logo + OS + QR + info) ===== */
   .etq-interna {
     background: white;
-    border: 1.5px solid #000;
+    border: 2px solid #000;
     text-align: center;
-    padding: 4mm;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     page-break-inside: avoid;
     font-family: Arial, sans-serif;
     color: #000;
-    max-width: 60mm;
+    max-width: 90mm;
     margin: 0 auto;
   }
   .etq-interna .etq-logo {
     display: block;
-    max-width: 85%;
+    max-width: 70%;
     height: auto;
-    margin: 0 auto 3mm;
+    margin: 0 auto 6px;
   }
   .etq-interna .etq-os {
     background: #1a1a1a;
     color: white;
-    padding: 2mm 1mm;
-    font-size: 13pt;
+    padding: 8px 4px;
+    font-size: 22pt;
     font-weight: 900;
-    letter-spacing: .5px;
-    margin: 1mm 0;
-    border-radius: 1mm;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+    letter-spacing: 1px;
+    margin: 4px 0;
+    border-radius: 3px;
   }
   .etq-interna .etq-qr {
-    padding: 2mm 0;
-  }
-  .etq-interna .etq-qr .qr-wrap {
-    display: block;
-    margin: 0 auto;
+    padding: 8px 0;
   }
   .etq-interna .etq-qr img,
   .etq-interna .etq-qr canvas {
     display: block;
     margin: 0 auto;
-    max-width: 45mm;
+    max-width: 70mm;
     height: auto;
   }
   .etq-interna .etq-footer {
-    font-size: 7.5pt;
+    font-size: 10pt;
     font-weight: bold;
-    padding-top: 2mm;
+    padding-top: 6px;
     border-top: 1px solid #999;
-    line-height: 1.3;
+    line-height: 1.4;
   }
   .etq-interna .etq-footer .row1 { margin-bottom: 2px; }
   .etq-interna .etq-footer .sep { color: #999; margin: 0 6px; }
@@ -265,27 +259,6 @@
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
   body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
 
-  /* ===== Aba Materiais ===== */
-  .mat-empty { padding: 40px; text-align: center; color: #999; font-size: 13px; }
-  .mat-row.alert td { background: #fef3c7 !important; }
-  .mat-row.critical td { background: #fee2e2 !important; }
-  .mat-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
-  .mat-badge.ok { background: #d1fae5; color: #065f46; }
-  .mat-badge.alerta { background: #fef3c7; color: #92400e; }
-  .mat-badge.zerado { background: #fee2e2; color: #b91c1c; }
-  .mat-badge.inativo { background: #e5e7eb; color: #6b7280; }
-  .mat-panel { margin-top: 16px; border: 2px solid #1e5aa8; border-radius: 8px; padding: 16px; background: #f8faff; }
-  .mat-panel-head { display: flex; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5; }
-  .mat-panel-head h3 { font-size: 14px; color: #1e5aa8; flex: 1; }
-  .mat-section { background: white; border-radius: 6px; padding: 12px; margin-top: 12px; }
-  .mat-section h4 { font-size: 12px; color: #555; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
-  .mat-history { max-height: 240px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; font-size: 11px; }
-  .mat-history table { width: 100%; border-collapse: collapse; }
-  .mat-history th { background: #f5f7fa; padding: 5px 8px; text-align: left; font-size: 10px; text-transform: uppercase; color: #666; }
-  .mat-history td { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; }
-  .mat-history .tipo-entrada { color: #16a34a; font-weight: bold; }
-  .mat-history .tipo-saida { color: #dc2626; font-weight: bold; }
-
   #print-area { display: none; }
 
   /* ===== Etiqueta completa (impressão física com dados + QR) ===== */
@@ -330,18 +303,10 @@
     #print-area.single .print-qr .qr-info { font-size: 12px; margin-top: 6mm; }
     #print-area.single .print-qr .qr-info strong { font-size: 16px; }
     @page { margin: 0; size: A4; }
-    /* Etiqueta interna: grade 3 colunas em A4 quando várias, centralizada quando 1 */
+    /* Etiqueta interna: grade 2x4 em A4 quando várias, centralizada quando 1 */
     #print-area .etq-interna { page-break-inside: avoid; }
-    #print-area:not(.single):not(.etq-full-mode) { grid-template-columns: repeat(3, 1fr); gap: 4mm; padding: 6mm; }
-    #print-area.single .etq-interna { max-width: 90mm; }
-    /* Força cores dos overlays saírem no print */
-    #print-area * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    #print-area .qr-wrap { position: relative !important; display: inline-block !important; line-height: 0 !important; }
-    #print-area .qr-wrap .qr-overlay { position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important; }
-    #print-area .qr-wrap.externo .qr-overlay { background: white !important; border-radius: 50% !important; padding: 3px !important; width: 22% !important; height: 22% !important; box-shadow: 0 0 0 2px #1e5aa8, 0 0 0 4px white !important; }
-    #print-area .qr-wrap.externo .qr-overlay img { width: 100% !important; height: 100% !important; border-radius: 50% !important; object-fit: cover !important; display: block !important; }
-    #print-area .qr-wrap.interno .qr-overlay { background: #f59e0b !important; border-radius: 6px !important; width: 24% !important; height: 24% !important; box-shadow: 0 0 0 3px white, 0 0 0 5px #f59e0b !important; }
-    #print-area .qr-wrap.interno .qr-overlay svg { width: 65% !important; height: 65% !important; fill: white !important; }
+    #print-area:not(.single):not(.etq-full-mode) { grid-template-columns: repeat(2, 1fr); gap: 6mm; padding: 8mm; }
+    #print-area.single .etq-interna { max-width: 130mm; }
     /* Etiqueta completa: uma por página */
     #print-area.etq-full-mode { display: block !important; grid-template-columns: none !important; padding: 8mm !important; }
     #print-area.etq-full-mode .etq-full-wrap { page-break-after: always; }
@@ -389,6 +354,26 @@
     .stage-row { grid-template-columns: 1fr 1fr; }
     .stage-row .stage-remove { justify-self: end; }
   }
+  /* ==================== MATERIAIS ==================== */
+  .materials-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .materials-kpi { padding: 12px; background: #f8fafc; border: 1px solid #dbe3ef; border-radius: 6px; }
+  .materials-kpi .label { color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+  .materials-kpi .value { color: #1e5aa8; font-size: 22px; font-weight: bold; margin-top: 4px; }
+  .materials-layout { display: grid; grid-template-columns: minmax(320px, .85fr) minmax(420px, 1.15fr); gap: 14px; margin-bottom: 14px; }
+  .materials-card { padding: 12px; background: #fff; border: 1px solid #dbe3ef; border-radius: 6px; }
+  .materials-card h3 { color: #1e5aa8; font-size: 13px; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
+  .materials-card .help { color: #64748b; font-size: 11px; line-height: 1.4; margin: -4px 0 10px; }
+  .materials-card textarea { width: 100%; min-height: 54px; resize: vertical; padding: 7px 9px; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: 12px; }
+  .materials-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+  .materials-table-wrap { max-height: 330px; overflow: auto; border: 1px solid #eef1f5; border-radius: 4px; }
+  .materials-table-wrap table.data th { position: sticky; top: 0; z-index: 1; }
+  .material-low { color: #b91c1c; font-weight: bold; }
+  .material-ok { color: #15803d; font-weight: bold; }
+  .material-inactive { color: #94a3b8; text-decoration: line-through; }
+  @media (max-width: 900px) {
+    .materials-kpis { grid-template-columns: repeat(2, 1fr); }
+    .materials-layout { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -410,9 +395,9 @@
 
   <div class="tabs">
     <div class="tab active" data-tab="servicos" onclick="switchTab('servicos')">📋 Serviços</div>
+    <div class="tab" data-tab="materiais" onclick="switchTab('materiais')">📦 Materiais</div>
     <div class="tab" data-tab="apontamentos" onclick="switchTab('apontamentos')">⏱️ Apontamentos</div>
     <div class="tab" data-tab="analise" onclick="switchTab('analise')">📊 Análise por OS</div>
-    <div class="tab" data-tab="materiais" onclick="switchTab('materiais')">📦 Materiais</div>
   </div>
 
   <!-- ==================== ABA: SERVIÇOS ==================== -->
@@ -493,7 +478,12 @@
           <div class="field-grid">
             <div class="field wide"><label>Descrição</label><input id="f-desc" oninput="updateServico()"></div>
             <div class="field"><label>Quantidade</label><input id="f-qty" oninput="updateServico()"></div>
-            <div class="field"><label>Material</label><input id="f-material" oninput="updateServico()"></div>
+            <div class="field"><label>Material</label>
+              <select id="f-material" onchange="updateServico()">
+                <option value="">— selecione um material —</option>
+              </select>
+              <div style="font-size:10px; color:#888; margin-top:2px;">Puxa da aba 📦 Materiais. Se faltar, cadastre lá primeiro.</div>
+            </div>
             <div class="field"><label>Tratamento térmico</label><input id="f-tratamento" oninput="updateServico()"></div>
             <div class="field"><label>Tipo de embalagem</label><input id="f-emb" oninput="updateServico()"></div>
             <div class="field"><label>Prazo de entrega</label><input type="date" id="f-prazo" oninput="updateServico()"></div>
@@ -538,10 +528,111 @@
             </div>
             <div class="print-buttons">
               <button class="btn-warning btn-sm" onclick="printSelecionadas('interno')">🖨 Etiqueta interna (chão de fábrica)</button>
+              <button class="btn-success btn-sm" onclick="printSelecionadas('completa')">🖨 Etiqueta completa (dados + QR)</button>
               <button class="btn-primary btn-sm" onclick="printSelecionadas('externo')">🖨 QR externo (cliente)</button>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ABA: MATERIAIS ==================== -->
+  <div class="tab-content" id="tab-materiais">
+    <div class="toolbar">
+      <button class="btn-success" onclick="novoMaterial()">+ Novo material</button>
+      <button class="btn-secondary btn-sm" onclick="materiaisSyncing=false; fetchMateriaisFromSheets().then(() => { atualizarSelectMateriais(); renderMateriais(); })" title="Buscar novamente do Sheets">🔄 Atualizar</button>
+      <input type="text" class="search" id="search-material" placeholder="🔍 buscar por código, descrição, lote, dimensão..." oninput="renderMateriais()">
+      <select id="filter-material-status" onchange="renderMateriais()">
+        <option value="">Todos os materiais</option>
+        <option value="estoque">Com estoque</option>
+        <option value="baixo">Abaixo do mínimo</option>
+        <option value="sem">Sem estoque</option>
+        <option value="inativo">Inativos</option>
+      </select>
+      <div class="spacer"></div>
+      <span class="count" id="material-count">0 materiais</span>
+      <button class="btn-secondary btn-sm" onclick="exportarEstoqueMateriais()">Exportar estoque</button>
+      <button class="btn-primary btn-sm" onclick="exportarMovimentosMateriais()">Exportar movimentações</button>
+    </div>
+
+    <div class="materials-kpis">
+      <div class="materials-kpi"><div class="label">Materiais cadastrados</div><div class="value" id="mat-kpi-total">0</div></div>
+      <div class="materials-kpi"><div class="label">Com saldo</div><div class="value" id="mat-kpi-com-saldo">0</div></div>
+      <div class="materials-kpi"><div class="label">Abaixo do mínimo</div><div class="value" id="mat-kpi-baixo">0</div></div>
+      <div class="materials-kpi"><div class="label">Movimentações</div><div class="value" id="mat-kpi-mov">0</div></div>
+    </div>
+
+    <div class="materials-layout">
+      <div class="materials-card">
+        <h3 id="material-form-title">Cadastro do material</h3>
+        <div class="help">Cadastre uma vez. O saldo é calculado pelas movimentações; não altere o saldo manualmente.</div>
+        <div class="field-grid cols-2">
+          <div class="field"><label>Código</label><input id="m-codigo" placeholder="Ex.: ACO-050"></div>
+          <div class="field"><label>Unidade</label>
+            <select id="m-unidade">
+              <option value="">— selecione —</option>
+              <option>kg</option><option>barra</option><option>peça</option><option>metro</option><option>chapa</option><option>litro</option><option>unidade</option>
+            </select>
+          </div>
+          <div class="field wide"><label>Descrição</label><input id="m-descricao" placeholder="Ex.: Aço 1045 redondo"></div>
+          <div class="field wide"><label>Especificação / dimensão padrão</label><input id="m-especificacao" placeholder="Ex.: Ø50 mm, barra de 3 m"></div>
+          <div class="field"><label>Estoque mínimo</label><input type="number" id="m-minimo" min="0" step="0.001" placeholder="0"></div>
+          <div class="field"><label>Localização</label><input id="m-localizacao" placeholder="Ex.: Prateleira A3"></div>
+          <div class="field"><label>Status</label>
+            <select id="m-ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+          </div>
+        </div>
+        <div class="materials-actions">
+          <button class="btn-secondary btn-sm" onclick="limparFormMaterial()">Limpar</button>
+          <button class="btn-primary" onclick="salvarMaterial()">Salvar material</button>
+        </div>
+      </div>
+
+      <div class="materials-card">
+        <h3>Registrar movimentação</h3>
+        <div class="help">Use <strong>Sobra</strong> para devolver ao estoque o material que restou de uma OS. Informe dimensão/lote para encontrá-la depois.</div>
+        <div class="field-grid cols-2">
+          <div class="field wide"><label>Material</label><select id="mov-material"></select></div>
+          <div class="field"><label>Data</label><input type="date" id="mov-data"></div>
+          <div class="field"><label>Tipo</label>
+            <select id="mov-tipo">
+              <option>Compra</option><option>Consumo na OS</option><option>Sobra</option><option>Devolução</option><option>Perda / descarte</option><option>Ajuste de entrada</option><option>Ajuste de saída</option>
+            </select>
+          </div>
+          <div class="field"><label>Quantidade</label><input type="number" id="mov-quantidade" min="0.001" step="0.001" placeholder="0"></div>
+          <div class="field"><label>Custo unitário</label><input type="number" id="mov-custo" min="0" step="0.01" placeholder="opcional"></div>
+          <div class="field"><label>OS relacionada</label><input id="mov-os" placeholder="Obrigatória para consumo/sobra"></div>
+          <div class="field"><label>Fornecedor</label><input id="mov-fornecedor"></div>
+          <div class="field"><label>NF / documento</label><input id="mov-documento"></div>
+          <div class="field"><label>Lote / origem</label><input id="mov-lote" placeholder="Ex.: compra 09/2026 ou OS-123"></div>
+          <div class="field"><label>Dimensão / peso restante</label><input id="mov-dimensao" placeholder="Ex.: Ø50 x 320 mm"></div>
+          <div class="field wide"><label>Responsável</label><input id="mov-responsavel"></div>
+          <div class="field wide"><label>Observação</label><textarea id="mov-observacao" placeholder="Detalhes da compra, sobra, perda ou ajuste"></textarea></div>
+        </div>
+        <div class="materials-actions">
+          <button class="btn-warning" onclick="registrarMovimentoMaterial()">Registrar movimentação</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="materials-card">
+      <h3>Estoque atual</h3>
+      <div class="materials-table-wrap">
+        <table class="data">
+          <thead><tr><th>Código</th><th>Material</th><th>Especificação</th><th>Un.</th><th>Saldo</th><th>Mínimo</th><th>Local</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-materiais"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="materials-card" style="margin-top:14px;">
+      <h3>Últimas movimentações</h3>
+      <div class="materials-table-wrap">
+        <table class="data">
+          <thead><tr><th>Data</th><th>Tipo</th><th>Material</th><th>Qtd.</th><th>OS</th><th>Lote / origem</th><th>Dimensão</th><th>Responsável</th><th>Observação</th></tr></thead>
+          <tbody id="tbody-movimentos-materiais"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -630,107 +721,7 @@
 
 </div>
 
-  <!-- ==================== ABA: MATERIAIS ==================== -->
-  <div class="tab-content" id="tab-materiais">
-    <div class="toolbar">
-      <button class="btn-success" onclick="addMaterial()">+ Novo material</button>
-      <input type="text" class="search" id="search-mat" placeholder="🔍 buscar por código ou descrição..." oninput="renderMateriais()">
-      <label style="font-size:12px; margin-left:8px;"><input type="checkbox" id="mostrar-inativos" onchange="renderMateriais()"> mostrar inativos</label>
-      <div class="spacer"></div>
-      <span class="count" id="mat-count">0 materiais</span>
-      <button class="btn-secondary btn-sm" onclick="materiaisRemoto=null; movimRemoto=null; renderMateriais();" title="Buscar do Sheets">🔄 Atualizar</button>
-      <button class="btn-primary btn-sm" onclick="exportarMateriaisCSV()">📥 CSV materiais</button>
-      <button class="btn-primary btn-sm" onclick="exportarMovimCSV()">📥 CSV movimentações</button>
-    </div>
-
-    <div style="max-height: 380px; overflow-y: auto;">
-      <table class="data" id="tbl-materiais">
-        <thead>
-          <tr>
-            <th>Código</th>
-            <th>Descrição</th>
-            <th>Especificação</th>
-            <th>Un.</th>
-            <th style="text-align:right;">Saldo</th>
-            <th style="text-align:right;">Mín.</th>
-            <th>Localização</th>
-            <th>Situação</th>
-            <th style="text-align:right;">Ações</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-materiais"></tbody>
-      </table>
-    </div>
-
-    <div class="mat-panel" id="mat-panel" style="display:none;">
-      <div class="mat-panel-head">
-        <h3 id="mat-title">Editando material</h3>
-        <button class="btn-secondary btn-sm" onclick="closeMatPanel()">Fechar</button>
-      </div>
-
-      <div class="mat-section">
-        <h4>📋 Dados do material</h4>
-        <div class="field-grid cols-3">
-          <div class="field"><label>Código *</label><input id="fm-codigo" oninput="updateMaterial()" style="text-transform:uppercase;"></div>
-          <div class="field"><label>Descrição *</label><input id="fm-descricao" oninput="updateMaterial()"></div>
-          <div class="field"><label>Unidade *</label><input id="fm-unidade" oninput="updateMaterial()" placeholder="mm, kg, pç..."></div>
-          <div class="field"><label>Especificação</label><input id="fm-especificacao" oninput="updateMaterial()" placeholder="Ø50, 316L..."></div>
-          <div class="field"><label>Estoque mínimo</label><input type="number" id="fm-estoqueMinimo" oninput="updateMaterial()" step="any" min="0"></div>
-          <div class="field"><label>Localização</label><input id="fm-localizacao" oninput="updateMaterial()" placeholder="A1, prateleira 3..."></div>
-          <div class="field"><label>Ativo</label><select id="fm-ativo" onchange="updateMaterial()"><option value="true">Sim</option><option value="false">Não (inativo)</option></select></div>
-        </div>
-        <div class="buttons">
-          <button class="btn-primary btn-sm" onclick="salvarMaterial()">💾 Salvar cadastro no Sheets</button>
-          <span id="mat-save-feedback" style="font-size:11px; color:#666; margin-left:8px;"></span>
-        </div>
-      </div>
-
-      <div class="mat-section">
-        <h4>🔀 Registrar movimentação</h4>
-        <div class="field-grid cols-3">
-          <div class="field"><label>Tipo *</label>
-            <select id="mv-tipo" onchange="toggleMvCampos()">
-              <option value="">— selecione —</option>
-              <option>Compra</option>
-              <option>Consumo na OS</option>
-              <option>Sobra</option>
-              <option>Devolução</option>
-              <option>Perda/descarte</option>
-              <option>Ajuste entrada</option>
-              <option>Ajuste saída</option>
-            </select>
-          </div>
-          <div class="field"><label>Quantidade *</label><input type="number" id="mv-qtd" step="any" min="0"></div>
-          <div class="field"><label>Operador</label>
-            <select id="mv-operador">
-              <option value="">—</option>
-              <option>Adriano</option><option>Diogo</option><option>André</option><option>Antonio</option>
-              <option>Gabriel</option><option>Breno</option><option>Pablo</option><option>Matheus</option>
-              <option>Raimundo</option><option>Januario</option><option>Geraldo</option>
-            </select>
-          </div>
-          <div class="field" id="mv-os-field"><label>OS (para Consumo/Sobra)</label>
-            <select id="mv-os">
-              <option value="">—</option>
-            </select>
-          </div>
-          <div class="field" id="mv-lote-field" style="display:none;"><label>Lote / Dimensão</label><input id="mv-lote" placeholder="Ø50 x 320 mm"></div>
-          <div class="field wide"><label>Observação</label><input id="mv-observacao" placeholder="opcional"></div>
-        </div>
-        <div class="buttons">
-          <button class="btn-success btn-sm" onclick="registrarMovimentacao()">➕ Registrar movimentação</button>
-          <span id="mv-feedback" style="font-size:11px; color:#666; margin-left:8px;"></span>
-        </div>
-      </div>
-
-      <div class="mat-section">
-        <h4>📜 Histórico de movimentações</h4>
-        <div class="mat-history" id="mat-history"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== VIEWER EXTERNO (cliente) ==================== -->
+<!-- ==================== VIEWER EXTERNO (cliente) ==================== -->
 <div id="viewer-app">
   <div class="v-card">
     <div class="v-header">
@@ -847,9 +838,352 @@ let currentQrTab = 'externo';
 let apontamentoDados = null;
 
 const FIELDS = ['cliente','oc','os','it','des','desc','qty','material','tratamento','emb','prazo','status','nf','dt'];
+const MATERIAIS_KEY = 'esfeus_materiais_v1';
+let materiaisCadastro = [];
+let movimentosMateriais = [];
+let currentMaterialId = null;
+let nextMaterialId = 1;
+let nextMovimentoMaterialId = 1;
 
 /* =============== STORAGE =============== */
 function saveServicos() { localStorage.setItem('esfeus_servicos', JSON.stringify({ servicos, nextId })); }
+function saveMateriais() {
+  localStorage.setItem(MATERIAIS_KEY, JSON.stringify({
+    materiais: materiaisCadastro,
+    movimentos: movimentosMateriais,
+    nextMaterialId,
+    nextMovimentoMaterialId
+  }));
+}
+function loadMateriais() {
+  try {
+    const raw = localStorage.getItem(MATERIAIS_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    materiaisCadastro = Array.isArray(data.materiais) ? data.materiais : [];
+    movimentosMateriais = Array.isArray(data.movimentos) ? data.movimentos : [];
+    nextMaterialId = data.nextMaterialId || (materiaisCadastro.reduce((max, m) => Math.max(max, Number(m.id) || 0), 0) + 1);
+    nextMovimentoMaterialId = data.nextMovimentoMaterialId || (movimentosMateriais.reduce((max, m) => Math.max(max, Number(m.id) || 0), 0) + 1);
+  } catch (e) {
+    materiaisCadastro = [];
+    movimentosMateriais = [];
+    nextMaterialId = 1;
+    nextMovimentoMaterialId = 1;
+  }
+}
+function hojeLocal() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+function materialPorId(id) {
+  return materiaisCadastro.find(m => String(m.id) === String(id));
+}
+function fatorMovimentoMaterial(tipo) {
+  return ['Consumo na OS', 'Perda / descarte', 'Ajuste de saída'].includes(tipo) ? -1 : 1;
+}
+function saldoMaterial(materialId) {
+  return movimentosMateriais
+    .filter(m => String(m.materialId) === String(materialId))
+    .reduce((sum, m) => sum + (Number(m.quantidade) || 0) * fatorMovimentoMaterial(m.tipo), 0);
+}
+function numeroMaterial(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+}
+function moedaMaterial(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—';
+}
+function limparFormMaterial() {
+  currentMaterialId = null;
+  ['m-codigo','m-descricao','m-especificacao','m-minimo','m-localizacao'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('m-unidade').value = '';
+  document.getElementById('m-ativo').value = 'true';
+  document.getElementById('material-form-title').textContent = 'Cadastro do material';
+}
+function preencherFormMaterial(material) {
+  if (!material) return;
+  currentMaterialId = material.id;
+  document.getElementById('m-codigo').value = material.codigo || '';
+  document.getElementById('m-descricao').value = material.descricao || '';
+  document.getElementById('m-especificacao').value = material.especificacao || '';
+  document.getElementById('m-unidade').value = material.unidade || '';
+  document.getElementById('m-minimo').value = material.minimo || '';
+  document.getElementById('m-localizacao').value = material.localizacao || '';
+  document.getElementById('m-ativo').value = String(material.ativo !== false);
+  document.getElementById('material-form-title').textContent = 'Editando: ' + (material.codigo || material.descricao || 'material');
+  document.getElementById('m-codigo').focus();
+}
+function novoMaterial() {
+  limparFormMaterial();
+  document.getElementById('m-codigo').focus();
+}
+function salvarMaterial() {
+  const codigo = document.getElementById('m-codigo').value.trim();
+  const descricao = document.getElementById('m-descricao').value.trim();
+  const unidade = document.getElementById('m-unidade').value.trim();
+  if (!codigo || !descricao || !unidade) {
+    alert('Preencha código, descrição e unidade do material.');
+    return;
+  }
+  const repetido = materiaisCadastro.find(m => String(m.codigo).toLowerCase() === codigo.toLowerCase() && m.id !== currentMaterialId);
+  if (repetido) {
+    alert('Já existe um material com este código.');
+    return;
+  }
+  const dados = {
+    codigo,
+    descricao,
+    especificacao: document.getElementById('m-especificacao').value.trim(),
+    unidade,
+    minimo: Math.max(0, Number(document.getElementById('m-minimo').value) || 0),
+    localizacao: document.getElementById('m-localizacao').value.trim(),
+    ativo: document.getElementById('m-ativo').value !== 'false'
+  };
+  if (currentMaterialId === null) {
+    materiaisCadastro.push(Object.assign({ id: nextMaterialId++ }, dados));
+  } else {
+    const material = materialPorId(currentMaterialId);
+    if (material) Object.assign(material, dados);
+  }
+  saveMateriais();
+  atualizarSelectMateriais();
+  atualizarSelectMaterialServico();
+  renderMateriais();
+
+  // Sincroniza com Google Sheets (async, não bloqueia UI)
+  const materialSalvo = currentMaterialId === null
+    ? materiaisCadastro[materiaisCadastro.length - 1]
+    : materialPorId(currentMaterialId);
+  if (materialSalvo && getSyncUrl()) {
+    enviarMaterialSheets(materialSalvo).then(resp => {
+      if (resp.ok) console.log('✓ Material sincronizado com Sheets');
+      else alert('Material salvo localmente. Falha no Sheets: ' + (resp.erro || 'erro'));
+    });
+  }
+  alert('Material salvo.');
+}
+function excluirMaterial(id) {
+  const material = materialPorId(id);
+  if (!material) return;
+  if (movimentosMateriais.some(m => String(m.materialId) === String(id))) {
+    alert('Este material já tem movimentações. Marque-o como Inativo para preservar o histórico.');
+    preencherFormMaterial(material);
+    return;
+  }
+  if (!confirm('Excluir o material ' + (material.codigo || material.descricao) + '?')) return;
+  materiaisCadastro = materiaisCadastro.filter(m => m.id !== id);
+  if (currentMaterialId === id) limparFormMaterial();
+  saveMateriais();
+  atualizarSelectMateriais();
+  renderMateriais();
+
+  // No Sheets, marca como inativo (não deleta pra preservar histórico)
+  if (getSyncUrl()) {
+    const materialInativo = Object.assign({}, material, { ativo: false });
+    enviarMaterialSheets(materialInativo).then(resp => {
+      if (!resp.ok) console.warn('Falha ao inativar no Sheets:', resp.erro);
+    });
+  }
+}
+function atualizarSelectMaterialServico() {
+  const sel = document.getElementById('f-material');
+  if (!sel) return;
+  const valAtual = sel.value;
+  const ativos = materiaisCadastro.filter(m => m.ativo !== false)
+    .sort((a, b) => (a.codigo || '').localeCompare(b.codigo || ''));
+  const options = ['<option value="">— selecione um material —</option>'];
+  const rotulos = new Set();
+  ativos.forEach(m => {
+    const rotulo = (m.codigo || '') + (m.descricao ? ' — ' + m.descricao : '');
+    rotulos.add(rotulo);
+    options.push('<option value="' + rotulo.replace(/"/g, '&quot;') + '">' + rotulo + '</option>');
+  });
+  // Se o valor atual do serviço não bate com nenhum cadastrado, preserva como opção "custom"
+  // (evita apagar dados antigos de OSs criadas antes deste dropdown)
+  if (valAtual && !rotulos.has(valAtual)) {
+    options.splice(1, 0, '<option value="' + valAtual.replace(/"/g, '&quot;') + '">' + valAtual + ' (não cadastrado)</option>');
+  }
+  sel.innerHTML = options.join('');
+  sel.value = valAtual;
+}
+
+function atualizarSelectMateriais() {
+  const select = document.getElementById('mov-material');
+  if (!select) return;
+  const atual = select.value;
+  const ativos = materiaisCadastro.filter(m => m.ativo !== false).sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), 'pt-BR'));
+  select.innerHTML = '<option value="">— selecione o material —</option>' + ativos.map(m =>
+    '<option value="' + Number(m.id) + '">' + escMelhoria(m.codigo) + ' · ' + escMelhoria(m.descricao) + '</option>'
+  ).join('');
+  if (ativos.some(m => String(m.id) === String(atual))) select.value = atual;
+}
+function movimentoMaterialVisivel(m) {
+  const material = materialPorId(m.materialId);
+  return [m.data, m.tipo, material && material.codigo, material && material.descricao, m.os, m.lote, m.dimensao, m.responsavel, m.observacao]
+    .join(' ').toLowerCase();
+}
+function renderMateriais() {
+  atualizarSelectMateriais();
+  const search = (document.getElementById('search-material').value || '').toLowerCase();
+  const filtro = document.getElementById('filter-material-status').value;
+  const ativos = materiaisCadastro.filter(m => m.ativo !== false);
+  const baixo = ativos.filter(m => saldoMaterial(m.id) <= Number(m.minimo || 0));
+  document.getElementById('mat-kpi-total').textContent = ativos.length;
+  document.getElementById('mat-kpi-com-saldo').textContent = ativos.filter(m => saldoMaterial(m.id) > 0).length;
+  document.getElementById('mat-kpi-baixo').textContent = baixo.filter(m => Number(m.minimo || 0) > 0).length;
+  document.getElementById('mat-kpi-mov').textContent = movimentosMateriais.length;
+  const lista = materiaisCadastro.filter(m => {
+    const saldo = saldoMaterial(m.id);
+    const minimo = Number(m.minimo || 0);
+    if (filtro === 'estoque' && saldo <= 0) return false;
+    if (filtro === 'baixo' && !(m.ativo !== false && minimo > 0 && saldo <= minimo)) return false;
+    if (filtro === 'sem' && saldo > 0) return false;
+    if (filtro === 'inativo' && m.ativo !== false) return false;
+    if (search) {
+      const hay = [m.codigo, m.descricao, m.especificacao, m.unidade, m.localizacao].join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  }).sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), 'pt-BR'));
+  document.getElementById('material-count').textContent = lista.length + ' material' + (lista.length === 1 ? '' : 'is');
+  const tbody = document.getElementById('tbody-materiais');
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">Nenhum material encontrado. Cadastre o primeiro acima.</td></tr>';
+  } else {
+    tbody.innerHTML = lista.map(m => {
+      const saldo = saldoMaterial(m.id);
+      const minimo = Number(m.minimo || 0);
+      const baixoClass = m.ativo !== false && minimo > 0 && saldo <= minimo ? 'material-low' : 'material-ok';
+      return '<tr>' +
+        '<td><strong>' + escMelhoria(m.codigo || '—') + '</strong></td>' +
+        '<td>' + escMelhoria(m.descricao || '—') + '</td>' +
+        '<td>' + escMelhoria(m.especificacao || '—') + '</td>' +
+        '<td>' + escMelhoria(m.unidade || '—') + '</td>' +
+        '<td class="' + baixoClass + '">' + numeroMaterial(saldo) + '</td>' +
+        '<td>' + numeroMaterial(minimo) + '</td>' +
+        '<td>' + escMelhoria(m.localizacao || '—') + '</td>' +
+        '<td class="' + (m.ativo === false ? 'material-inactive' : '') + '">' + (m.ativo === false ? 'Inativo' : (minimo > 0 && saldo <= minimo ? 'Comprar' : 'OK')) + '</td>' +
+        '<td class="actions"><button class="btn-primary btn-sm" onclick="preencherFormMaterial(materialPorId(' + Number(m.id) + '))">Editar</button> <button class="btn-danger btn-sm" onclick="excluirMaterial(' + Number(m.id) + ')">✕</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+  renderMovimentacoesMateriais();
+}
+function renderMovimentacoesMateriais() {
+  const tbody = document.getElementById('tbody-movimentos-materiais');
+  if (!tbody) return;
+  const search = (document.getElementById('search-material').value || '').toLowerCase();
+  const lista = movimentosMateriais
+    .filter(m => !search || movimentoMaterialVisivel(m).includes(search))
+    .sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || Number(b.id) - Number(a.id))
+    .slice(0, 50);
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">Nenhuma movimentação registrada.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = lista.map(m => {
+    const material = materialPorId(m.materialId);
+    const sinal = fatorMovimentoMaterial(m.tipo) < 0 ? '−' : '+';
+    return '<tr>' +
+      '<td>' + escMelhoria(fmtDate(m.data) || '—') + '</td>' +
+      '<td>' + escMelhoria(m.tipo || '—') + '</td>' +
+      '<td><strong>' + escMelhoria(material ? material.codigo : 'Material removido') + '</strong><br><small>' + escMelhoria(material ? material.descricao : '') + '</small></td>' +
+      '<td class="' + (sinal === '−' ? 'material-low' : 'material-ok') + '">' + sinal + numeroMaterial(m.quantidade) + ' ' + escMelhoria(material ? material.unidade : '') + '</td>' +
+      '<td>' + escMelhoria(m.os || '—') + '</td>' +
+      '<td>' + escMelhoria(m.lote || '—') + '</td>' +
+      '<td>' + escMelhoria(m.dimensao || '—') + '</td>' +
+      '<td>' + escMelhoria(m.responsavel || '—') + '</td>' +
+      '<td title="' + escMelhoria(m.observacao || '') + '">' + escMelhoria(m.observacao || '—') + '</td>' +
+    '</tr>';
+  }).join('');
+}
+function registrarMovimentoMaterial() {
+  const materialId = document.getElementById('mov-material').value;
+  const tipo = document.getElementById('mov-tipo').value;
+  const quantidade = Number(document.getElementById('mov-quantidade').value);
+  const data = document.getElementById('mov-data').value || hojeLocal();
+  const os = document.getElementById('mov-os').value.trim();
+  if (!materialId || !tipo || !Number.isFinite(quantidade) || quantidade <= 0) {
+    alert('Selecione o material e informe uma quantidade maior que zero.');
+    return;
+  }
+  if ((tipo === 'Consumo na OS' || tipo === 'Sobra') && !os) {
+    alert('Informe a OS relacionada para registrar consumo ou sobra.');
+    return;
+  }
+  const saldoAtual = saldoMaterial(materialId);
+  if (fatorMovimentoMaterial(tipo) < 0 && quantidade > saldoAtual) {
+    const material = materialPorId(materialId);
+    alert('Saldo insuficiente para este consumo. Disponível: ' + numeroMaterial(saldoAtual) + ' ' + (material ? material.unidade : '') + '.');
+    return;
+  }
+  movimentosMateriais.push({
+    id: nextMovimentoMaterialId++,
+    data,
+    tipo,
+    materialId: Number(materialId),
+    quantidade,
+    custoUnitario: Number(document.getElementById('mov-custo').value) || 0,
+    os,
+    fornecedor: document.getElementById('mov-fornecedor').value.trim(),
+    documento: document.getElementById('mov-documento').value.trim(),
+    lote: document.getElementById('mov-lote').value.trim(),
+    dimensao: document.getElementById('mov-dimensao').value.trim(),
+    responsavel: document.getElementById('mov-responsavel').value.trim(),
+    observacao: document.getElementById('mov-observacao').value.trim()
+  });
+  saveMateriais();
+  ['mov-quantidade','mov-custo','mov-os','mov-fornecedor','mov-documento','mov-lote','mov-dimensao','mov-responsavel','mov-observacao'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('mov-data').value = hojeLocal();
+  renderMateriais();
+
+  // Sincroniza com Google Sheets
+  const movSalvo = movimentosMateriais[movimentosMateriais.length - 1];
+  const materialDoMov = materialPorId(movSalvo.materialId);
+  if (movSalvo && materialDoMov && getSyncUrl()) {
+    enviarMovimentoSheets(movSalvo, materialDoMov).then(resp => {
+      if (resp.ok) console.log('✓ Movimentação sincronizada com Sheets');
+      else alert('Movimentação salva localmente. Falha no Sheets: ' + (resp.erro || 'erro'));
+    });
+  }
+  alert('Movimentação registrada.');
+}
+function csvMaterial(value) {
+  return '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"';
+}
+function baixarCsvMateriais(nome, colunas, linhas) {
+  const csv = '\uFEFF' + colunas.join(';') + '\n' + linhas.map(l => l.map(csvMaterial).join(';')).join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url; link.download = nome + '-' + hojeLocal() + '.csv'; link.click();
+  URL.revokeObjectURL(url);
+}
+function exportarEstoqueMateriais() {
+  if (!materiaisCadastro.length) { alert('Cadastre pelo menos um material antes de exportar.'); return; }
+  baixarCsvMateriais('estoque-materiais',
+    ['codigo','descricao','especificacao','unidade','saldo','estoque_minimo','localizacao','status'],
+    materiaisCadastro.map(m => {
+      const saldo = saldoMaterial(m.id), minimo = Number(m.minimo || 0);
+      return [m.codigo, m.descricao, m.especificacao, m.unidade, saldo, minimo, m.localizacao, m.ativo === false ? 'Inativo' : (minimo > 0 && saldo <= minimo ? 'Comprar' : 'OK')];
+    }));
+}
+function exportarMovimentosMateriais() {
+  if (!movimentosMateriais.length) { alert('Ainda não há movimentações para exportar.'); return; }
+  baixarCsvMateriais('movimentacoes-materiais',
+    ['data','tipo','codigo','descricao','unidade','quantidade','efeito_no_saldo','custo_unitario','os','fornecedor','documento','lote','dimensao','responsavel','observacao'],
+    movimentosMateriais.map(m => {
+      const material = materialPorId(m.materialId);
+      return [m.data, m.tipo, material && material.codigo, material && material.descricao, material && material.unidade, m.quantidade, fatorMovimentoMaterial(m.tipo) * Number(m.quantidade || 0), m.custoUnitario, m.os, m.fornecedor, m.documento, m.lote, m.dimensao, m.responsavel, m.observacao];
+    }));
+}
 function loadServicos() {
   // Tenta novo formato primeiro
   let raw = localStorage.getItem('esfeus_servicos');
@@ -926,15 +1260,25 @@ function buildApontamentoUrl(d) {
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+  if (tab === 'materiais') {
+    const data = document.getElementById('mov-data');
+    if (data && !data.value) data.value = hojeLocal();
+    renderMateriais();
+    // Sincroniza materiais do Sheets antes de renderizar
+    if (getSyncUrl() && !materiaisSyncing) {
+      materiaisSyncing = true;
+      fetchMateriaisFromSheets().finally(() => {
+        materiaisSyncing = false;
+        atualizarSelectMateriais();
+        renderMateriais();
+      });
+    }
+  }
   if (tab === 'apontamentos' || tab === 'analise') {
     // força re-fetch pra pegar apontamentos novos que outros dispositivos gravaram
     apontamentosRemoto = null;
     if (tab === 'apontamentos') renderApontamentos();
     if (tab === 'analise') renderAnalise();
-  }
-  if (tab === 'materiais') {
-    materiaisRemoto = null; movimRemoto = null;
-    renderMateriais();
   }
 }
 
@@ -1031,6 +1375,7 @@ function getSelecionadas() {
 function openEditPanel() {
   const s = servicos.find(x => x.id === currentId);
   if (!s) return;
+  atualizarSelectMaterialServico();
   document.getElementById('edit-panel').style.display = 'block';
   FIELDS.forEach(f => {
     const el = document.getElementById('f-' + f);
@@ -1844,9 +2189,10 @@ function renderServicos() {
       '<td class="stage-progress">' + (resumo.total ? '<div class="stage-progress-text">' + resumo.concluidas + '/' + resumo.total + ' concluídas</div><div class="progress-track"><div class="progress-fill" style="width:' + resumo.percentual + '%"></div></div>' : '—') + '</td>' +
       '<td><span class="status-badge ' + statusClass(smartStatus) + '">' + escMelhoria(smartStatus) + '</span></td>' +
       '<td class="actions">' +
+        '<button class="btn-success btn-sm" onclick="event.stopPropagation(); selectServico(' + Number(s.id) + '); printEtiquetaCompleta()" title="Etiqueta completa (dados + QR)">🖨 Etq</button>' +
         '<button class="btn-primary btn-sm" onclick="event.stopPropagation(); selectServico(' + Number(s.id) + '); printCurrent(\'externo\')" title="Só QR externo (cliente)">🖨 Ext</button>' +
         '<button class="btn-warning btn-sm" onclick="event.stopPropagation(); selectServico(' + Number(s.id) + '); printCurrent(\'interno\')" title="Só QR interno (apontamento)">🖨 Int</button>' +
-        '<button class="btn-danger btn-sm" onclick="deleteServico(' + Number(s.id) + ', event)" title="Excluir serviço">🗑️</button>' +
+        '<button class="btn-danger btn-sm" onclick="deleteServico(' + Number(s.id) + ', event)">✕</button>' +
       '</td>' +
     '</tr>';
   }).join('');
@@ -1855,6 +2201,7 @@ function renderServicos() {
 function openEditPanel() {
   const s = servicos.find(x => x.id === currentId);
   if (!s) return;
+  atualizarSelectMaterialServico();
   document.getElementById('edit-panel').style.display = 'block';
   FIELDS.forEach(f => {
     const el = document.getElementById('f-' + f);
@@ -2143,6 +2490,145 @@ function iniciarSyncTimer() {
 
 window.addEventListener('online', syncAgora);
 
+/* =============== SYNC MATERIAIS + MOVIMENTAÇÕES (Sheets) =============== */
+let materiaisSyncing = false;
+
+async function fetchMateriaisFromSheets() {
+  const url = getSyncUrl();
+  if (!url) return null;
+  try {
+    const [respMat, respMov] = await Promise.all([
+      fetch(url + '?action=list-materiais', { method: 'GET', redirect: 'follow' }),
+      fetch(url + '?action=list-movimentacoes', { method: 'GET', redirect: 'follow' })
+    ]);
+    const dataMat = JSON.parse(await respMat.text());
+    const dataMov = JSON.parse(await respMov.text());
+    if (!dataMat.ok || !dataMov.ok) throw new Error(dataMat.erro || dataMov.erro || 'resposta inválida');
+
+    // Reconstrói arrays locais a partir do Sheets. Código é a PK — gera IDs numéricos estáveis por código.
+    const codigoParaId = {};
+    let maxId = 0;
+    // Preserva IDs locais existentes pra não quebrar referências abertas em memória
+    materiaisCadastro.forEach(m => {
+      if (m.codigo) codigoParaId[String(m.codigo).toUpperCase()] = m.id;
+      if (Number(m.id) > maxId) maxId = Number(m.id);
+    });
+
+    materiaisCadastro = (dataMat.materiais || []).map(m => {
+      const cod = String(m.codigo || '').toUpperCase();
+      let id = codigoParaId[cod];
+      if (!id) { id = ++maxId; codigoParaId[cod] = id; }
+      return {
+        id: id,
+        codigo: m.codigo || '',
+        descricao: m.descricao || '',
+        especificacao: m.especificacao || '',
+        unidade: m.unidade || '',
+        minimo: Number(m.estoqueMinimo) || 0,
+        localizacao: m.localizacao || '',
+        ativo: m.ativo !== false
+      };
+    });
+    nextMaterialId = maxId + 1;
+
+    // Movimentações: usa código do material pra achar o id local
+    let maxMovId = 0;
+    movimentosMateriais.forEach(m => { if (Number(m.id) > maxMovId) maxMovId = Number(m.id); });
+
+    movimentosMateriais = (dataMov.movimentacoes || []).map((mv, i) => {
+      const cod = String(mv.codigo || '').toUpperCase();
+      const materialId = codigoParaId[cod] || 0;
+      const ts = (mv.timestamp || '').split(' ')[0]; // só a data
+      return {
+        id: ++maxMovId,
+        data: ts,
+        tipo: normalizarTipoDoSheets(mv.tipo),
+        materialId: materialId,
+        quantidade: Number(mv.quantidade) || 0,
+        custoUnitario: 0,
+        os: mv.os || '',
+        fornecedor: '',
+        documento: '',
+        lote: (mv.loteDimensao || '').split('|')[0].trim(),
+        dimensao: (mv.loteDimensao || '').split('|')[1] ? (mv.loteDimensao || '').split('|')[1].trim() : (mv.loteDimensao || ''),
+        responsavel: mv.operador || '',
+        observacao: mv.observacao || ''
+      };
+    });
+    nextMovimentoMaterialId = maxMovId + 1;
+
+    saveMateriais();
+    // Se o painel de edição de OS estiver aberto, atualiza o dropdown de material
+    atualizarSelectMaterialServico();
+    return true;
+  } catch (err) {
+    console.error('Erro fetch materiais:', err);
+    return false;
+  }
+}
+
+// Alguns tipos usam grafia levemente diferente entre o front e o Apps Script.
+// Enviamos EXATAMENTE como o Replit já grava no front; o Apps Script v5.1
+// aceita esses mesmos nomes.
+function normalizarTipoParaSheets(tipoLocal) { return tipoLocal; }
+function normalizarTipoDoSheets(tipoSheets) { return tipoSheets; }
+
+async function enviarMaterialSheets(material) {
+  const url = getSyncUrl();
+  if (!url) return { ok: false, erro: 'URL Apps Script não configurada' };
+  const payload = {
+    kind: 'material',
+    codigo: material.codigo,
+    descricao: material.descricao,
+    especificacao: material.especificacao,
+    unidade: material.unidade,
+    estoqueMinimo: material.minimo,
+    localizacao: material.localizacao,
+    ativo: material.ativo !== false
+  };
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow'
+    });
+    return JSON.parse(await resp.text());
+  } catch (err) { return { ok: false, erro: err.message }; }
+}
+
+async function enviarMovimentoSheets(mov, material) {
+  const url = getSyncUrl();
+  if (!url) return { ok: false, erro: 'URL Apps Script não configurada' };
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const ts = (mov.data || (now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate()))) + ' ' +
+             pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+  const loteDim = [mov.lote, mov.dimensao].filter(Boolean).join(' | ');
+  const payload = {
+    kind: 'movimentacao',
+    timestamp: ts,
+    codigo: material ? material.codigo : '',
+    tipo: normalizarTipoParaSheets(mov.tipo),
+    quantidade: mov.quantidade,
+    os: mov.os || '',
+    loteDimensao: loteDim,
+    observacao: mov.observacao || (mov.fornecedor ? 'Fornecedor: ' + mov.fornecedor : '') + (mov.documento ? ' | NF/Doc: ' + mov.documento : ''),
+    operador: mov.responsavel || ''
+  };
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow'
+    });
+    return JSON.parse(await resp.text());
+  } catch (err) { return { ok: false, erro: err.message }; }
+}
+
+
+
 // Cache remoto de apontamentos vindos do Sheets. Atualizado quando
 // abre uma das abas Apontamentos/Análise (ou botão Atualizar).
 let apontamentosRemoto = null; // array | null (não carregado ainda)
@@ -2193,323 +2679,6 @@ function apontamentosConsolidados() {
 
 
 
-/* =============== MATERIAIS + MOVIMENTAÇÕES =============== */
-// Cache remoto (fonte da verdade = Sheets)
-let materiaisRemoto = null;
-let movimRemoto = null;
-let materialEditandoCodigo = null; // código do material no painel de edição
-let materialEditandoNovo = false;  // true se ainda não salvou no Sheets
-
-async function fetchMateriaisRemoto() {
-  const url = getSyncUrl();
-  if (!url) return null;
-  try {
-    const resp = await fetch(url + '?action=list-materiais', { method: 'GET', redirect: 'follow' });
-    const data = JSON.parse(await resp.text());
-    if (data.ok) { materiaisRemoto = data.materiais || []; return materiaisRemoto; }
-  } catch (err) { console.error('Erro fetch materiais:', err); }
-  return null;
-}
-
-async function fetchMovimRemoto() {
-  const url = getSyncUrl();
-  if (!url) return null;
-  try {
-    const resp = await fetch(url + '?action=list-movimentacoes', { method: 'GET', redirect: 'follow' });
-    const data = JSON.parse(await resp.text());
-    if (data.ok) { movimRemoto = data.movimentacoes || []; return movimRemoto; }
-  } catch (err) { console.error('Erro fetch movim:', err); }
-  return null;
-}
-
-async function ensureMateriaisCarregados() {
-  if (materiaisRemoto === null && getSyncUrl()) await fetchMateriaisRemoto();
-  if (movimRemoto === null && getSyncUrl()) await fetchMovimRemoto();
-}
-
-/* ---------- CRUD local ---------- */
-function addMaterial() {
-  materialEditandoCodigo = null;
-  materialEditandoNovo = true;
-  document.getElementById('mat-panel').style.display = 'block';
-  document.getElementById('mat-title').textContent = 'Novo material';
-  ['fm-codigo','fm-descricao','fm-especificacao','fm-unidade','fm-estoqueMinimo','fm-localizacao'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('fm-ativo').value = 'true';
-  document.getElementById('mat-history').innerHTML = '<div style="padding:20px; text-align:center; color:#999; font-size:11px;">Salve o cadastro primeiro pra registrar movimentações.</div>';
-  document.getElementById('mat-save-feedback').textContent = '';
-  setTimeout(() => document.getElementById('fm-codigo').focus(), 50);
-}
-
-function selectMaterial(codigo) {
-  const m = (materiaisRemoto || []).find(x => x.codigo === codigo);
-  if (!m) return;
-  materialEditandoCodigo = codigo;
-  materialEditandoNovo = false;
-  document.getElementById('mat-panel').style.display = 'block';
-  document.getElementById('mat-title').textContent = 'Editando: ' + codigo + (m.descricao ? ' — ' + m.descricao : '');
-  document.getElementById('fm-codigo').value = codigo;
-  document.getElementById('fm-descricao').value = m.descricao || '';
-  document.getElementById('fm-especificacao').value = m.especificacao || '';
-  document.getElementById('fm-unidade').value = m.unidade || '';
-  document.getElementById('fm-estoqueMinimo').value = m.estoqueMinimo || '';
-  document.getElementById('fm-localizacao').value = m.localizacao || '';
-  document.getElementById('fm-ativo').value = m.ativo === false ? 'false' : 'true';
-  document.getElementById('mat-save-feedback').textContent = '';
-  renderHistoricoMaterial(codigo);
-  atualizarSelectOS();
-}
-
-function closeMatPanel() {
-  document.getElementById('mat-panel').style.display = 'none';
-  materialEditandoCodigo = null;
-  materialEditandoNovo = false;
-}
-
-function updateMaterial() {
-  // Feedback visual: campos alterados precisam ser salvos
-  document.getElementById('mat-save-feedback').textContent = '⚠️ alterações não salvas';
-  document.getElementById('mat-save-feedback').style.color = '#f59e0b';
-}
-
-async function salvarMaterial() {
-  const codigo = document.getElementById('fm-codigo').value.trim().toUpperCase();
-  if (!codigo) { alert('Código é obrigatório.'); return; }
-  const descricao = document.getElementById('fm-descricao').value.trim();
-  const unidade = document.getElementById('fm-unidade').value.trim();
-  if (!descricao || !unidade) { alert('Descrição e Unidade são obrigatórios.'); return; }
-
-  const payload = {
-    kind: 'material',
-    codigo: codigo,
-    descricao: descricao,
-    especificacao: document.getElementById('fm-especificacao').value.trim(),
-    unidade: unidade,
-    estoqueMinimo: document.getElementById('fm-estoqueMinimo').value || 0,
-    localizacao: document.getElementById('fm-localizacao').value.trim(),
-    ativo: document.getElementById('fm-ativo').value !== 'false'
-  };
-
-  const url = getSyncUrl();
-  if (!url) { alert('URL do Apps Script não configurada. Configure no topo.'); return; }
-
-  document.getElementById('mat-save-feedback').textContent = '⏳ salvando...';
-  document.getElementById('mat-save-feedback').style.color = '#666';
-
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
-      redirect: 'follow'
-    });
-    const data = JSON.parse(await resp.text());
-    if (data.ok) {
-      document.getElementById('mat-save-feedback').textContent = '✓ salvo';
-      document.getElementById('mat-save-feedback').style.color = '#16a34a';
-      materialEditandoCodigo = codigo;
-      materialEditandoNovo = false;
-      // Atualiza a lista
-      materiaisRemoto = null;
-      await ensureMateriaisCarregados();
-      renderMateriais();
-    } else {
-      document.getElementById('mat-save-feedback').textContent = '✗ ' + (data.erro || 'erro');
-      document.getElementById('mat-save-feedback').style.color = '#dc2626';
-    }
-  } catch (err) {
-    document.getElementById('mat-save-feedback').textContent = '✗ ' + err.message;
-    document.getElementById('mat-save-feedback').style.color = '#dc2626';
-  }
-}
-
-/* ---------- Movimentações ---------- */
-function toggleMvCampos() {
-  const tipo = document.getElementById('mv-tipo').value;
-  const osField = document.getElementById('mv-os-field');
-  const loteField = document.getElementById('mv-lote-field');
-  const precisaOS = ['Consumo na OS', 'Sobra'].includes(tipo);
-  const precisaLote = tipo === 'Sobra';
-  osField.style.opacity = precisaOS ? '1' : '.5';
-  loteField.style.display = precisaLote ? '' : 'none';
-}
-
-function atualizarSelectOS() {
-  const sel = document.getElementById('mv-os');
-  if (!sel) return;
-  const valAtual = sel.value;
-  sel.innerHTML = '<option value="">—</option>' + servicos.map(s => {
-    const osFull = (s.os || '') + (s.it ? '/' + s.it : '');
-    return '<option value="' + osFull + '">' + osFull + (s.cliente ? ' · ' + s.cliente : '') + '</option>';
-  }).join('');
-  if (valAtual) sel.value = valAtual;
-}
-
-async function registrarMovimentacao() {
-  if (!materialEditandoCodigo && materialEditandoNovo) {
-    alert('Salve o cadastro do material primeiro.'); return;
-  }
-  const codigo = materialEditandoCodigo || document.getElementById('fm-codigo').value.trim().toUpperCase();
-  if (!codigo) { alert('Material não identificado.'); return; }
-
-  const tipo = document.getElementById('mv-tipo').value;
-  const qtd = document.getElementById('mv-qtd').value;
-  if (!tipo || !qtd) { alert('Tipo e quantidade obrigatórios.'); return; }
-  const qtdNum = Number(qtd);
-  if (isNaN(qtdNum) || qtdNum <= 0) { alert('Quantidade inválida.'); return; }
-
-  // Validação local: consumo não pode ser maior que saldo
-  if (['Consumo na OS','Perda/descarte','Ajuste saída'].includes(tipo)) {
-    const mat = (materiaisRemoto || []).find(x => x.codigo === codigo);
-    const saldoAtual = mat ? mat.saldo : 0;
-    if (qtdNum > saldoAtual) {
-      alert('Saldo insuficiente. Saldo atual: ' + saldoAtual + '. Quantidade solicitada: ' + qtdNum);
-      return;
-    }
-  }
-
-  const now = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const ts = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+' '+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
-
-  const payload = {
-    kind: 'movimentacao',
-    timestamp: ts,
-    codigo: codigo,
-    tipo: tipo,
-    quantidade: qtdNum,
-    os: document.getElementById('mv-os').value || '',
-    loteDimensao: document.getElementById('mv-lote') ? document.getElementById('mv-lote').value : '',
-    observacao: document.getElementById('mv-observacao').value || '',
-    operador: document.getElementById('mv-operador').value || ''
-  };
-
-  const url = getSyncUrl();
-  if (!url) { alert('URL do Apps Script não configurada.'); return; }
-
-  const feedback = document.getElementById('mv-feedback');
-  feedback.textContent = '⏳ registrando...';
-  feedback.style.color = '#666';
-
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
-      redirect: 'follow'
-    });
-    const data = JSON.parse(await resp.text());
-    if (data.ok) {
-      feedback.textContent = '✓ movimentação registrada';
-      feedback.style.color = '#16a34a';
-      // Limpa form de movimentação
-      ['mv-tipo','mv-qtd','mv-os','mv-lote','mv-observacao'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-      toggleMvCampos();
-      // Recarrega
-      materiaisRemoto = null; movimRemoto = null;
-      await ensureMateriaisCarregados();
-      renderMateriais();
-      renderHistoricoMaterial(codigo);
-    } else {
-      feedback.textContent = '✗ ' + (data.erro || 'erro');
-      feedback.style.color = '#dc2626';
-    }
-  } catch (err) {
-    feedback.textContent = '✗ ' + err.message;
-    feedback.style.color = '#dc2626';
-  }
-}
-
-/* ---------- Renderização ---------- */
-async function renderMateriais() {
-  await ensureMateriaisCarregados();
-  const mostrarInativos = document.getElementById('mostrar-inativos') && document.getElementById('mostrar-inativos').checked;
-  const busca = (document.getElementById('search-mat').value || '').toLowerCase();
-  const lista = (materiaisRemoto || []).filter(m => {
-    if (!mostrarInativos && m.ativo === false) return false;
-    if (busca) {
-      const hay = (m.codigo + ' ' + (m.descricao||'') + ' ' + (m.especificacao||'')).toLowerCase();
-      if (!hay.includes(busca)) return false;
-    }
-    return true;
-  });
-
-  document.getElementById('mat-count').textContent = lista.length + ' material' + (lista.length === 1 ? '' : 'is');
-  const tbody = document.getElementById('tbody-materiais');
-  if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="mat-empty">Nenhum material cadastrado. Clique em "+ Novo material".</td></tr>';
-    return;
-  }
-  tbody.innerHTML = lista.map(m => {
-    let situacao = 'OK', classe = 'ok', linhaClasse = '';
-    if (m.ativo === false) { situacao = 'Inativo'; classe = 'inativo'; }
-    else if (m.saldo <= 0) { situacao = 'Zerado'; classe = 'zerado'; linhaClasse = 'critical'; }
-    else if (m.estoqueMinimo > 0 && m.saldo < m.estoqueMinimo) { situacao = 'Abaixo do mín.'; classe = 'alerta'; linhaClasse = 'alert'; }
-    return '<tr class="mat-row ' + linhaClasse + '" onclick="selectMaterial(\''+m.codigo+'\')">' +
-      '<td><strong>' + m.codigo + '</strong></td>' +
-      '<td>' + (m.descricao || '—') + '</td>' +
-      '<td>' + (m.especificacao || '—') + '</td>' +
-      '<td>' + (m.unidade || '—') + '</td>' +
-      '<td style="text-align:right; font-weight:bold;">' + m.saldo + '</td>' +
-      '<td style="text-align:right;">' + (m.estoqueMinimo || '—') + '</td>' +
-      '<td>' + (m.localizacao || '—') + '</td>' +
-      '<td><span class="mat-badge ' + classe + '">' + situacao + '</span></td>' +
-      '<td class="actions"></td>' +
-    '</tr>';
-  }).join('');
-}
-
-function renderHistoricoMaterial(codigo) {
-  const box = document.getElementById('mat-history');
-  if (!box) return;
-  if (!codigo) { box.innerHTML = ''; return; }
-  const cod = codigo.toUpperCase();
-  const list = (movimRemoto || []).filter(m => (m.codigo || '').toUpperCase() === cod);
-  if (!list.length) { box.innerHTML = '<div style="padding:20px; text-align:center; color:#999; font-size:11px;">Sem movimentações registradas.</div>'; return; }
-  list.sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-  const entradas = ['Compra','Sobra','Devolução','Ajuste entrada'];
-  box.innerHTML = '<table><thead><tr><th>Data/Hora</th><th>Tipo</th><th style="text-align:right;">Qtd</th><th style="text-align:right;">Saldo após</th><th>OS</th><th>Lote/Dim</th><th>Obs</th><th>Operador</th></tr></thead><tbody>' +
-    list.map(m => {
-      const isEntrada = entradas.includes(m.tipo);
-      const sinal = isEntrada ? '+' : '−';
-      const cls = isEntrada ? 'tipo-entrada' : 'tipo-saida';
-      return '<tr>' +
-        '<td>' + (m.timestamp || '').replace('T',' ').substring(0,16) + '</td>' +
-        '<td class="' + cls + '">' + (m.tipo || '') + '</td>' +
-        '<td style="text-align:right; font-weight:bold;" class="' + cls + '">' + sinal + m.quantidade + ' ' + (m.unidade || '') + '</td>' +
-        '<td style="text-align:right;">' + m.saldoApos + '</td>' +
-        '<td>' + (m.os || '') + '</td>' +
-        '<td>' + (m.loteDimensao || '') + '</td>' +
-        '<td>' + (m.observacao || '') + '</td>' +
-        '<td>' + (m.operador || '') + '</td>' +
-      '</tr>';
-    }).join('') + '</tbody></table>';
-}
-
-/* ---------- Exportação CSV ---------- */
-function exportarMateriaisCSV() {
-  const list = materiaisRemoto || [];
-  if (!list.length) { alert('Sem materiais.'); return; }
-  const cols = ['codigo','descricao','especificacao','unidade','saldo','estoqueMinimo','localizacao','ativo'];
-  const csv = '\uFEFF' + cols.join(';') + '\n' + list.map(m => cols.map(c => '"' + String(m[c] == null ? '' : m[c]).replace(/"/g,'""') + '"').join(';')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'materiais-esfeus-' + new Date().toISOString().slice(0,10) + '.csv';
-  a.click(); URL.revokeObjectURL(url);
-}
-
-function exportarMovimCSV() {
-  const list = movimRemoto || [];
-  if (!list.length) { alert('Sem movimentações.'); return; }
-  const cols = ['timestamp','codigo','descricaoMaterial','tipo','quantidade','unidade','saldoApos','os','loteDimensao','observacao','operador'];
-  const csv = '\uFEFF' + cols.join(';') + '\n' + list.map(m => cols.map(c => '"' + String(m[c] == null ? '' : m[c]).replace(/"/g,'""') + '"').join(';')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'movimentacoes-esfeus-' + new Date().toISOString().slice(0,10) + '.csv';
-  a.click(); URL.revokeObjectURL(url);
-}
-
 /* =============== INIT =============== */
 (function init() {
   const savedUrl = localStorage.getItem('esfeus_base_url');
@@ -2534,6 +2703,7 @@ function exportarMovimCSV() {
     catch(e) { alert('QR de apontamento inválido.'); }
   }
 
+  loadMateriais();
   loadServicos();
   renderServicos();
 })();
