@@ -188,6 +188,26 @@
   }
   .qr-wrap.interno .qr-overlay svg { width: 65%; height: 65%; fill: white; }
 
+  /* ===== Sync badge (indicador de sincronização com Sheets) ===== */
+  .sync-badge {
+    position: fixed; bottom: 12px; right: 12px;
+    padding: 6px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: bold;
+    display: flex; align-items: center; gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    cursor: pointer; z-index: 999;
+    background: white; color: #333;
+    transition: background .2s;
+  }
+  .sync-badge:hover { background: #f5f5f5; }
+  .sync-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+  .sync-badge.ok .dot { background: #22c55e; }
+  .sync-badge.pending .dot { background: #f59e0b; animation: pulse 1.5s infinite; }
+  .sync-badge.error .dot { background: #ef4444; }
+  .sync-badge.off { display: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
+
   #print-area { display: none; }
 
   /* ===== Etiqueta completa (impressão física com dados + QR) ===== */
@@ -290,8 +310,11 @@
     <h1>ESFEUS FERRAMENTARIA · Gestão de Serviços</h1>
     <div class="config-mini">
       <span>URL visualizador:</span>
-      <input type="text" id="base-url" value="https://kajotasousa-max.github.io/controle-tempo-esfeus/" placeholder="https://kajotasousa-max.github.io/controle-tempo-esfeus/">
+      <input type="text" id="base-url" value="https://kajotasousa-max.github.io/controle-tempo-esfeus/" placeholder="https://kajotasousa-max.github.io/controle-tempo-esfeus/" style="width:220px;">
       <button onclick="saveBaseUrl()">Salvar</button>
+      <span style="margin-left:12px;">URL Apps Script:</span>
+      <input type="text" id="sync-url" placeholder="https://script.google.com/macros/s/AKfyc.../exec" style="width:220px;">
+      <button onclick="saveSyncUrl()">Salvar</button>
     </div>
   </div>
 
@@ -613,14 +636,12 @@
       </div>
     </div>
   </div>
-  <div class="a-card" id="aponta-success-container" style="display:none;">
-    <div class="a-success">
-      <div class="check">✓</div>
-      <h3>Apontamento registrado</h3>
-      <div class="details" id="a-success-details"></div>
-      <button class="btn-novo" onclick="novoApontamento()">Novo apontamento</button>
-    </div>
-  </div>
+</div>
+
+<!-- Indicador de sincronização com Google Sheets -->
+<div id="sync-badge" class="sync-badge off" onclick="syncAgora()" title="Clique pra tentar reenviar agora">
+  <span class="dot"></span>
+  <span id="sync-text">—</span>
 </div>
 
 <!-- Área de impressão -->
@@ -680,6 +701,7 @@ function saveApontamento(a) {
   const list = loadApontamentos();
   list.push(a);
   localStorage.setItem('esfeus_apontamentos', JSON.stringify(list));
+  enfileirar(a);
 }
 
 /* =============== ENCODING =============== */
@@ -1242,54 +1264,6 @@ function activateApontaMode(data) {
   document.title = 'Apontamento ' + osFull + ' — ESFEUS';
 }
 
-function registrarApontamento() {
-  const operacao = document.getElementById('a-operacao').value;
-  const maquina = document.getElementById('a-maquina').value;
-  const operador = document.getElementById('a-operador').value;
-  const status = document.getElementById('a-status').value;
-  const qtd = document.getElementById('a-qtd').value;
-
-  if (!operacao || !maquina || !operador || !status) {
-    alert('Preencha todos os campos obrigatórios (*)');
-    return;
-  }
-
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const timestamp = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
-                    ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
-
-  const osFull = (apontamentoDados.os || '') + (apontamentoDados.it ? '/' + apontamentoDados.it : '');
-  const apontamento = {
-    timestamp: timestamp, os: osFull,
-    cliente: apontamentoDados.cliente || '',
-    oc: apontamentoDados.oc || '',
-    descricao: apontamentoDados.desc || '',
-    operacao, maquina, operador, status,
-    qtd: qtd || ''
-  };
-  saveApontamento(apontamento);
-
-  const details = document.getElementById('a-success-details');
-  details.innerHTML =
-    '<div><strong>OS:</strong> ' + osFull + '</div>' +
-    '<div><strong>Operação:</strong> ' + operacao + '</div>' +
-    '<div><strong>Máquina:</strong> ' + maquina + '</div>' +
-    '<div><strong>Operador:</strong> ' + operador + '</div>' +
-    '<div><strong>Status:</strong> ' + status + '</div>' +
-    (qtd ? '<div><strong>Qtd:</strong> ' + qtd + '</div>' : '') +
-    '<div><strong>Hora:</strong> ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '</div>';
-
-  document.getElementById('aponta-form-container').style.display = 'none';
-  document.getElementById('aponta-success-container').style.display = 'block';
-}
-
-function novoApontamento() {
-  ['a-operacao','a-maquina','a-operador','a-status','a-qtd'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('aponta-form-container').style.display = 'block';
-  document.getElementById('aponta-success-container').style.display = 'none';
-}
-
 /* =============== MELHORIAS: STATUS, ETAPAS E APONTAMENTO RÁPIDO =============== */
 const MELHORIAS_OPERACOES = ['Torneamento','Fresamento','Furação','Retífica','Acabamento','Processo externo','Inspeção Final'];
 const MELHORIAS_MAQUINAS = ['Torno Pequeno','Torno Clever','Romi','Wotan','Dyna','Sinitron','Mandrilhadora Wotan','Furadeira Radial','Fresadora Zocca','Retifica','Prensa','Qualidade Final'];
@@ -1796,20 +1770,113 @@ function registrarRapido(status) {
   registrarApontamento(status);
 }
 
-function novoApontamento() {
-  if (melhoriaTimer) { clearInterval(melhoriaTimer); melhoriaTimer = null; }
-  ['a-etapa','a-operacao','a-maquina','a-operador','a-status','a-qtd'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  document.getElementById('aponta-form-container').style.display = 'block';
-  document.getElementById('aponta-success-container').style.display = 'none';
+
+/* =============== SYNC COM GOOGLE SHEETS =============== */
+const SYNC_QUEUE_KEY = 'esfeus_sync_queue';
+const SYNC_URL_KEY = 'esfeus_sync_url';
+let syncTimer = null;
+let syncingNow = false;
+
+function getSyncUrl() {
+  return (localStorage.getItem(SYNC_URL_KEY) || '').trim();
 }
+
+function saveSyncUrl() {
+  const url = document.getElementById('sync-url').value.trim();
+  localStorage.setItem(SYNC_URL_KEY, url);
+  alert(url ? 'URL do Apps Script salva. Tentando sincronizar agora…' : 'URL removida — apontamentos ficam só localmente.');
+  updateSyncBadge();
+  if (url) syncAgora();
+}
+
+function loadQueue() {
+  try { return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function saveQueue(q) {
+  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(q));
+}
+
+function enfileirar(apontamento) {
+  const q = loadQueue();
+  q.push(apontamento);
+  saveQueue(q);
+  updateSyncBadge();
+  setTimeout(syncAgora, 100);
+}
+
+async function syncAgora() {
+  if (syncingNow) return;
+  const url = getSyncUrl();
+  if (!url) { updateSyncBadge(); return; }
+  const queue = loadQueue();
+  if (!queue.length) { updateSyncBadge(); return; }
+
+  syncingNow = true;
+  updateSyncBadge('sending');
+
+  try {
+    // text/plain evita preflight CORS (limitação do Apps Script)
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(queue),
+      redirect: 'follow'
+    });
+    const txt = await resp.text();
+    let data;
+    try { data = JSON.parse(txt); } catch(e) { data = { ok: false, erro: 'Resposta inválida' }; }
+
+    if (data.ok) {
+      saveQueue([]);
+      updateSyncBadge('ok');
+    } else {
+      updateSyncBadge('error', data.erro || 'erro desconhecido');
+    }
+  } catch (err) {
+    updateSyncBadge('error', err.message || 'sem conexão');
+  } finally {
+    syncingNow = false;
+  }
+}
+
+function updateSyncBadge(forceState, msg) {
+  const badge = document.getElementById('sync-badge');
+  const txtEl = document.getElementById('sync-text');
+  if (!badge || !txtEl) return;
+  const url = getSyncUrl();
+  const queue = loadQueue();
+  badge.classList.remove('off', 'ok', 'pending', 'error');
+  if (!url) { badge.classList.add('off'); return; }
+  if (forceState === 'sending') { badge.classList.add('pending'); txtEl.textContent = 'Enviando ' + queue.length + '…'; return; }
+  if (forceState === 'error') { badge.classList.add('error'); txtEl.textContent = queue.length + ' pendente(s) — ' + (msg || 'erro'); return; }
+  if (queue.length === 0) { badge.classList.add('ok'); txtEl.textContent = 'Sincronizado'; }
+  else { badge.classList.add('pending'); txtEl.textContent = queue.length + ' pendente(s)'; }
+}
+
+function iniciarSyncTimer() {
+  if (syncTimer) clearInterval(syncTimer);
+  syncTimer = setInterval(() => {
+    if (loadQueue().length > 0 && getSyncUrl()) syncAgora();
+  }, 30000);
+}
+
+window.addEventListener('online', syncAgora);
 
 /* =============== INIT =============== */
 (function init() {
   const savedUrl = localStorage.getItem('esfeus_base_url');
   if (savedUrl) document.getElementById('base-url').value = savedUrl;
+
+  const savedSync = localStorage.getItem(SYNC_URL_KEY);
+  if (savedSync) {
+    const el = document.getElementById('sync-url');
+    if (el) el.value = savedSync;
+  }
+  updateSyncBadge();
+  iniciarSyncTimer();
+  if (getSyncUrl() && loadQueue().length > 0) setTimeout(syncAgora, 500);
 
   const hash = window.location.hash;
   if (hash.startsWith('#e=')) {
