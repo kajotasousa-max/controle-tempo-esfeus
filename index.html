@@ -887,34 +887,7 @@ function getSelecionadas() {
   return list.filter(s => selecionadas.has(Number(s.id)));
 }
 
-function renderServicos() {
-  const list = filterServicos();
-  const tbody = document.getElementById('tbody-servicos');
-  document.getElementById('servico-count').textContent = list.length + ' serviço' + (list.length === 1 ? '' : 's');
-  if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty">Nenhum serviço encontrado. Clique em "+ Novo serviço".</td></tr>';
-    return;
-  }
-  tbody.innerHTML = list.map(s => {
-    const osFull = (s.os || '—') + (s.it ? ' / ' + s.it : '');
-    return '<tr class="' + (s.id === currentId ? 'selected' : '') + '" onclick="selectServico(' + s.id + ')">' +
-      '<td><strong>' + (s.cliente || '—') + '</strong></td>' +
-      '<td>' + (s.oc || '—') + '</td>' +
-      '<td>' + osFull + '</td>' +
-      '<td>' + (s.des || '—') + '</td>' +
-      '<td>' + (s.desc || '—') + '</td>' +
-      '<td>' + (s.qty || '—') + '</td>' +
-      '<td>' + (fmtDate(s.prazo) || '—') + '</td>' +
-      '<td><span class="status-badge ' + statusClass(s.status) + '">' + (s.status || '—') + '</span></td>' +
-      '<td class="actions">' +
-        '<button class="btn-success btn-sm" onclick="event.stopPropagation(); selectServico(' + s.id + '); printEtiquetaCompleta()" title="Etiqueta completa (dados + QR)">🖨 Etq</button>' +
-        '<button class="btn-primary btn-sm" onclick="event.stopPropagation(); selectServico(' + s.id + '); printCurrent(\'externo\')" title="Só QR externo (cliente)">🖨 Ext</button>' +
-        '<button class="btn-warning btn-sm" onclick="event.stopPropagation(); selectServico(' + s.id + '); printCurrent(\'interno\')" title="Só QR interno (apontamento)">🖨 Int</button>' +
-        '<button class="btn-danger btn-sm" onclick="deleteServico(' + s.id + ', event)">✕</button>' +
-      '</td>' +
-    '</tr>';
-  }).join('');
-}
+// (renderServicos definido mais abaixo, com suporte a etapas + checkbox de seleção)
 
 function openEditPanel() {
   const s = servicos.find(x => x.id === currentId);
@@ -1721,8 +1694,8 @@ function renderServicos() {
     const smartStatus = statusInteligente(s);
     const resumo = resumoEtapasMelhoria(s);
     return '<tr class="' + (s.id === currentId ? 'selected' : '') + '" onclick="selectServico(' + Number(s.id) + ')">' +
-      '<td><strong>' + escMelhoria(s.cliente || '—') + '</strong></td>'
-      '<td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="chk-row" data-id="' + Number(s.id) + '" ' + (selecionadas.has(Number(s.id)) ? 'checked' : '') + ' onchange="toggleRow(' + Number(s.id) + ', this.checked)"></td>' + +
+      '<td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="chk-row" data-id="' + Number(s.id) + '" ' + (selecionadas.has(Number(s.id)) ? 'checked' : '') + ' onchange="toggleRow(' + Number(s.id) + ', this.checked)"></td>' +
+      '<td><strong>' + escMelhoria(s.cliente || '—') + '</strong></td>' +
       '<td>' + escMelhoria(s.oc || '—') + '</td>' +
       '<td>' + escMelhoria(osFull) + '</td>' +
       '<td>' + escMelhoria(s.des || '—') + '</td>' +
