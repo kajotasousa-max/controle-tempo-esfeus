@@ -259,6 +259,34 @@
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
   body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
 
+  /* ===== Aba Qualidade (checklist) ===== */
+  .ql-section { background: white; border-radius: 6px; padding: 14px; margin-top: 12px; border-left: 4px solid #1e5aa8; }
+  .ql-section h4 { font-size: 13px; color: #1e5aa8; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .5px; }
+  .ql-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #eee; font-size: 13px; }
+  .ql-item:last-child { border-bottom: none; }
+  .ql-item .ql-label { flex: 1; }
+  .ql-item .ql-label strong { color: #333; }
+  .ql-item .ql-value-preview { color: #1e5aa8; font-weight: bold; margin-left: 6px; }
+  .ql-item .ql-radios { display: flex; gap: 6px; align-items: center; }
+  .ql-radios label { display: flex; align-items: center; gap: 3px; font-size: 11px; cursor: pointer; padding: 3px 8px; border-radius: 4px; border: 1px solid #ddd; }
+  .ql-radios label input { margin: 0; cursor: pointer; }
+  .ql-radios label:hover { background: #f5f5f5; }
+  .ql-radios label.ql-ok { color: #16a34a; }
+  .ql-radios label.ql-nok { color: #dc2626; }
+  .ql-radios label.ql-na { color: #6b7280; }
+  .ql-radios input:checked + span { font-weight: bold; }
+  .ql-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 8px; }
+  .ql-foto-item { position: relative; }
+  .ql-foto-item img { width: 100%; height: 100px; object-fit: cover; border: 2px solid #e5e5e5; border-radius: 4px; }
+  .ql-foto-item button { position: absolute; top: 3px; right: 3px; background: rgba(220,38,38,.9); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-weight: bold; font-size: 12px; }
+  .ql-foto-upload { border: 2px dashed #ccc; padding: 24px; text-align: center; border-radius: 4px; color: #888; cursor: pointer; margin-top: 8px; }
+  .ql-foto-upload:hover { border-color: #1e5aa8; color: #1e5aa8; }
+  .ql-situacao-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+  .ql-situacao-badge.aprovado { background: #d1fae5; color: #065f46; }
+  .ql-situacao-badge.reprovado { background: #fee2e2; color: #b91c1c; }
+  .ql-situacao-badge.rascunho { background: #e5e7eb; color: #6b7280; }
+  .ql-situacao-badge.pendente { background: #fef3c7; color: #92400e; }
+
   #print-area { display: none; }
 
   /* ===== Etiqueta completa (impressão física com dados + QR) ===== */
@@ -398,6 +426,8 @@
     <div class="tab" data-tab="materiais" onclick="switchTab('materiais')">📦 Materiais</div>
     <div class="tab" data-tab="apontamentos" onclick="switchTab('apontamentos')">⏱️ Apontamentos</div>
     <div class="tab" data-tab="analise" onclick="switchTab('analise')">📊 Análise por OS</div>
+    <div class="tab" data-tab="qualidade" onclick="switchTab('qualidade')">✅ Qualidade</div>
+    <div class="tab" data-tab="cadastros" onclick="switchTab('cadastros')">⚙️ Cadastros</div>
   </div>
 
   <!-- ==================== ABA: SERVIÇOS ==================== -->
@@ -409,6 +439,7 @@
         <option value="">Todos os status</option>
         <option value="Aguardando">Aguardando</option>
         <option value="Em processo">Em processo</option>
+        <option value="Externo com terceiros">Externo com terceiros</option>
         <option value="Alerta">Alerta</option>
         <option value="Atrasado">Atrasado</option>
         <option value="Finalizado">Finalizado</option>
@@ -462,9 +493,10 @@
             <div class="field"><label>Cliente</label><input id="f-cliente" oninput="updateServico()"></div>
             <div class="field"><label>OC (Nº do pedido)</label><input id="f-oc" oninput="updateServico()"></div>
             <div class="field"><label>Status</label>
-              <select id="f-status" onchange="updateServico()">
+              <select id="f-status" onchange="updateServico(); atualizarCamposExternoServico();">
                 <option>Aguardando</option>
                 <option>Em processo</option>
+                <option>Externo com terceiros</option>
                 <option>Alerta</option>
                 <option>Atrasado</option>
                 <option>Finalizado</option>
@@ -489,6 +521,17 @@
             <div class="field"><label>Prazo de entrega</label><input type="date" id="f-prazo" oninput="updateServico()"></div>
             <div class="field"><label>Nota fiscal</label><input id="f-nf" oninput="updateServico()"></div>
             <div class="field"><label>Data de entrega</label><input type="date" id="f-dt" oninput="updateServico()"></div>
+              <div class="field" id="f-externo-fornecedor-wrap" style="display:none;"><label>🏭 Fornecedor externo</label>
+                <select id="f-externo-fornecedor" onchange="updateServico()">
+                  <option value="">— selecione —</option>
+                </select>
+              </div>
+              <div class="field" id="f-externo-envio-wrap" style="display:none;"><label>📤 Data envio p/ externo</label>
+                <input type="date" id="f-externo-envio" oninput="updateServico()">
+              </div>
+              <div class="field" id="f-externo-retorno-wrap" style="display:none;"><label>📥 Previsão retorno</label>
+                <input type="date" id="f-externo-retorno" oninput="updateServico()">
+              </div>
           </div>
           <div class="process-builder">
             <div class="process-builder-head">
@@ -603,11 +646,15 @@
           <div class="field"><label>Quantidade</label><input type="number" id="mov-quantidade" min="0.001" step="0.001" placeholder="0"></div>
           <div class="field"><label>Custo unitário</label><input type="number" id="mov-custo" min="0" step="0.01" placeholder="opcional"></div>
           <div class="field"><label>OS relacionada</label><input id="mov-os" placeholder="Obrigatória para consumo/sobra"></div>
-          <div class="field"><label>Fornecedor</label><input id="mov-fornecedor"></div>
+          <div class="field" id="mov-fornecedor-wrap"><label>Fornecedor</label>
+            <select id="mov-fornecedor"><option value="">— selecione (só p/ Compra) —</option></select>
+          </div>
           <div class="field"><label>NF / documento</label><input id="mov-documento"></div>
           <div class="field"><label>Lote / origem</label><input id="mov-lote" placeholder="Ex.: compra 09/2026 ou OS-123"></div>
           <div class="field"><label>Dimensão / peso restante</label><input id="mov-dimensao" placeholder="Ex.: Ø50 x 320 mm"></div>
-          <div class="field wide"><label>Responsável</label><input id="mov-responsavel"></div>
+          <div class="field wide"><label>Responsável</label>
+            <select id="mov-responsavel"><option value="">—</option></select>
+          </div>
           <div class="field wide"><label>Observação</label><textarea id="mov-observacao" placeholder="Detalhes da compra, sobra, perda ou ajuste"></textarea></div>
         </div>
         <div class="materials-actions">
@@ -721,7 +768,148 @@
 
 </div>
 
-<!-- ==================== VIEWER EXTERNO (cliente) ==================== -->
+  <!-- ==================== ABA: QUALIDADE ==================== -->
+  <div class="tab-content" id="tab-qualidade">
+    <div class="toolbar">
+      <input type="text" class="search" id="search-quali" placeholder="🔍 buscar por OS, cliente, inspetor..." oninput="renderQualidade()">
+      <select id="filter-quali" onchange="renderQualidade()">
+        <option value="">Todas OSs</option>
+        <option value="pendente">🟡 Pendentes (sem inspeção)</option>
+        <option value="aprovado">🟢 Aprovadas</option>
+        <option value="reprovado">🔴 Reprovadas</option>
+      </select>
+      <div class="spacer"></div>
+      <span class="count" id="quali-count">0 OSs</span>
+      <button class="btn-secondary btn-sm" onclick="checklistsRemoto=null; renderQualidade();" title="Buscar do Sheets">🔄 Atualizar</button>
+    </div>
+
+    <div style="max-height: 380px; overflow-y: auto;">
+      <table class="data" id="tbl-qualidade">
+        <thead>
+          <tr>
+            <th>OS / Item</th>
+            <th>Cliente</th>
+            <th>Descrição</th>
+            <th>Qtd</th>
+            <th>Situação inspeção</th>
+            <th>Inspetor</th>
+            <th>Data</th>
+            <th style="text-align:right;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-qualidade"></tbody>
+      </table>
+    </div>
+
+    <div class="mat-panel" id="quali-panel" style="display:none;">
+      <div class="mat-panel-head">
+        <h3 id="quali-title">Checklist de qualidade</h3>
+        <button class="btn-secondary btn-sm" onclick="closeQualiPanel()">Fechar</button>
+      </div>
+
+      <div id="quali-checklist-content">
+        <!-- populado dinamicamente -->
+      </div>
+
+      <div class="ql-section" style="border-left-color:#22c55e;">
+        <h4>📸 Fotos da peça (até 6)</h4>
+        <div class="ql-fotos" id="quali-fotos"></div>
+        <label class="ql-foto-upload">
+          📷 Clique para adicionar fotos (ou arraste)
+          <input type="file" accept="image/*" multiple onchange="adicionarFotos(this.files); this.value='';" style="display:none;">
+        </label>
+        <div style="font-size:10px; color:#888; margin-top:4px;">Fotos são comprimidas automaticamente antes de salvar. Máximo 6 fotos.</div>
+      </div>
+
+      <div class="ql-section" style="border-left-color:#f59e0b;">
+        <h4>👤 Responsável e observações</h4>
+        <div class="field-grid cols-3">
+          <div class="field"><label>Inspetor *</label>
+            <select id="ql-inspetor"><option value="">— selecione —</option></select>
+          </div>
+          <div class="field wide"><label>Observação geral</label><input id="ql-observacao" placeholder="opcional"></div>
+        </div>
+        <div class="buttons">
+          <button class="btn-success" onclick="salvarChecklist('Aprovado')">✓ Aprovar e liberar</button>
+          <button class="btn-danger" onclick="salvarChecklist('Reprovado')">✕ Reprovar (retrabalho)</button>
+          <button class="btn-secondary btn-sm" onclick="salvarChecklist('Rascunho')">💾 Salvar rascunho</button>
+          <span id="ql-feedback" style="font-size:11px; margin-left:8px;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- ==================== ABA: CADASTROS ==================== -->
+  <div class="tab-content" id="tab-cadastros">
+    <div class="ql-section" style="border-left-color:#1e5aa8;">
+      <h4 style="color:#1e5aa8;">👤 Responsáveis (operadores, inspetores, almoxarife...)</h4>
+
+      <div class="field-grid cols-3" style="margin-top:8px;">
+        <div class="field"><label>Nome *</label><input id="fr-nome" placeholder="Ex.: Diogo"></div>
+        <div class="field"><label>Função</label>
+          <select id="fr-funcao">
+            <option>Operador</option>
+            <option>Inspetor</option>
+            <option>Operador/Inspetor</option>
+            <option>Almoxarife</option>
+            <option>Comercial</option>
+            <option>Administrativo</option>
+            <option>Outro</option>
+          </select>
+        </div>
+        <div class="field"><label>Ativo</label>
+          <select id="fr-ativo"><option value="true">Sim</option><option value="false">Não</option></select>
+        </div>
+      </div>
+      <div class="buttons">
+        <button class="btn-success btn-sm" onclick="salvarResponsavel()">💾 Salvar responsável</button>
+        <button class="btn-secondary btn-sm" onclick="limparFormResponsavel()">Limpar</button>
+        <span id="fr-feedback" style="font-size:11px; margin-left:8px;"></span>
+      </div>
+
+      <div style="max-height: 240px; overflow-y: auto; margin-top: 12px;">
+        <table class="data">
+          <thead><tr><th>Nome</th><th>Função</th><th>Ativo</th><th style="text-align:right;">Ações</th></tr></thead>
+          <tbody id="tbody-responsaveis"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="ql-section" style="border-left-color:#059669;">
+      <h4 style="color:#059669;">🏭 Fornecedores (material e serviço externo)</h4>
+
+      <div class="field-grid cols-3" style="margin-top:8px;">
+        <div class="field"><label>Nome *</label><input id="ff-nome" placeholder="Ex.: Aços São Paulo"></div>
+        <div class="field"><label>Tipo</label>
+          <select id="ff-tipo">
+            <option>Material</option>
+            <option>Serviço externo</option>
+            <option>Material e serviço externo</option>
+          </select>
+        </div>
+        <div class="field"><label>CNPJ</label><input id="ff-cnpj" placeholder="opcional"></div>
+        <div class="field"><label>Contato</label><input id="ff-contato" placeholder="telefone / e-mail"></div>
+        <div class="field wide"><label>Observação</label><input id="ff-observacao" placeholder="opcional"></div>
+        <div class="field"><label>Ativo</label>
+          <select id="ff-ativo"><option value="true">Sim</option><option value="false">Não</option></select>
+        </div>
+      </div>
+      <div class="buttons">
+        <button class="btn-success btn-sm" onclick="salvarFornecedor()">💾 Salvar fornecedor</button>
+        <button class="btn-secondary btn-sm" onclick="limparFormFornecedor()">Limpar</button>
+        <span id="ff-feedback" style="font-size:11px; margin-left:8px;"></span>
+      </div>
+
+      <div style="max-height: 240px; overflow-y: auto; margin-top: 12px;">
+        <table class="data">
+          <thead><tr><th>Nome</th><th>Tipo</th><th>Contato</th><th>CNPJ</th><th>Ativo</th><th style="text-align:right;">Ações</th></tr></thead>
+          <tbody id="tbody-fornecedores"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEWER EXTERNO (cliente) ==================== -->
 <div id="viewer-app">
   <div class="v-card">
     <div class="v-header">
@@ -793,12 +981,7 @@
       </div>
       <div class="a-field">
         <label>Operador <span class="req">*</span></label>
-        <select id="a-operador" onchange="atualizarPainelAtividade()">
-          <option value="">— selecione —</option>
-          <option>Adriano</option><option>Diogo</option><option>André</option><option>Antonio</option>
-          <option>Gabriel</option><option>Breno</option><option>Pablo</option><option>Matheus</option>
-          <option>Raimundo</option><option>Januario</option><option>Geraldo</option>
-        </select>
+        <select id="a-operador" onchange="atualizarPainelAtividade()"><option value="">— selecione —</option></select>
       </div>
       <div class="a-field">
         <label>Qtd peças</label>
@@ -954,6 +1137,8 @@ function salvarMaterial() {
   saveMateriais();
   atualizarSelectMateriais();
   atualizarSelectMaterialServico();
+  atualizarCamposExternoServico();
+  popularSelectFornecedores(document.getElementById('f-externo-fornecedor'), ['serviço externo', 'material e serviço']);
   renderMateriais();
 
   // Sincroniza com Google Sheets (async, não bloqueia UI)
@@ -1274,6 +1459,14 @@ function switchTab(tab) {
       });
     }
   }
+  if (tab === 'qualidade') {
+    checklistsRemoto = null;
+    renderQualidade();
+  }
+  if (tab === 'cadastros') {
+    responsaveisRemoto = null; fornecedoresRemoto = null;
+    renderCadastros();
+  }
   if (tab === 'apontamentos' || tab === 'analise') {
     // força re-fetch pra pegar apontamentos novos que outros dispositivos gravaram
     apontamentosRemoto = null;
@@ -1376,6 +1569,8 @@ function openEditPanel() {
   const s = servicos.find(x => x.id === currentId);
   if (!s) return;
   atualizarSelectMaterialServico();
+  atualizarCamposExternoServico();
+  popularSelectFornecedores(document.getElementById('f-externo-fornecedor'), ['serviço externo', 'material e serviço']);
   document.getElementById('edit-panel').style.display = 'block';
   FIELDS.forEach(f => {
     const el = document.getElementById('f-' + f);
@@ -2202,6 +2397,8 @@ function openEditPanel() {
   const s = servicos.find(x => x.id === currentId);
   if (!s) return;
   atualizarSelectMaterialServico();
+  atualizarCamposExternoServico();
+  popularSelectFornecedores(document.getElementById('f-externo-fornecedor'), ['serviço externo', 'material e serviço']);
   document.getElementById('edit-panel').style.display = 'block';
   FIELDS.forEach(f => {
     const el = document.getElementById('f-' + f);
@@ -2560,6 +2757,8 @@ async function fetchMateriaisFromSheets() {
     saveMateriais();
     // Se o painel de edição de OS estiver aberto, atualiza o dropdown de material
     atualizarSelectMaterialServico();
+  atualizarCamposExternoServico();
+  popularSelectFornecedores(document.getElementById('f-externo-fornecedor'), ['serviço externo', 'material e serviço']);
     return true;
   } catch (err) {
     console.error('Erro fetch materiais:', err);
@@ -2679,8 +2878,570 @@ function apontamentosConsolidados() {
 
 
 
+/* =============== QUALIDADE (Checklist + Fotos) =============== */
+let checklistsRemoto = null;
+let qualiOSAtual = null;      // OS sendo inspecionada
+let qualiFotos = [];          // array de dataURLs (base64 já comprimidas)
+let qualiMarcacoes = {};      // {item_key: 'OK'|'NOK'|'NA'}
+
+// Estrutura do checklist — cada item pode ser S/N (sim/não) ou S/N/NA (tem "não se aplica")
+const CHECKLIST_ITEMS = [
+  { section: '1. Conferência da ordem de serviço', color: '#1e5aa8', items: [
+    { key: 'conf_os', label: 'Número da Ordem de Serviço', preview: s => (s.os || '') + (s.it ? '/' + s.it : ''), na: false },
+    { key: 'conf_cliente', label: 'Nome do cliente', preview: s => s.cliente || '', na: false },
+    { key: 'conf_codigo', label: 'Código da peça (Nº do desenho)', preview: s => s.des || '', na: false },
+    { key: 'conf_qtd', label: 'Quantidade produzida', preview: s => s.qty || '', na: false },
+    { key: 'conf_revisao', label: 'Revisão de desenho conferida', na: false }
+  ]},
+  { section: '2. Inspeção Dimensional', color: '#0891b2', items: [
+    { key: 'dim_medidas', label: 'Todas as medidas conferidas', na: false },
+    { key: 'dim_tolerancias', label: 'Tolerâncias atendidas', na: false },
+    { key: 'dim_roscas', label: 'Roscas, furos e rasgos conferidos', na: false }
+  ]},
+  { section: '3. Inspeção Visual', color: '#7c3aed', items: [
+    { key: 'vis_rebarbas', label: 'Sem rebarbas', na: false },
+    { key: 'vis_trincas', label: 'Sem trincas', na: false },
+    { key: 'vis_acabamento', label: 'Acabamento conforme solicitado', na: false },
+    { key: 'vis_soldas', label: 'Soldas aprovadas', na: true },
+    { key: 'vis_pintura', label: 'Pintura / tratamento superficial conforme', na: true }
+  ]},
+  { section: '4. Limpeza da peça', color: '#059669', items: [
+    { key: 'limp_cavacos', label: 'Cavacos removidos', na: false },
+    { key: 'limp_oleo', label: 'Óleo excessivo removido', na: false },
+    { key: 'limp_pecalimpa', label: 'Peça limpa e seca', na: false },
+    { key: 'limp_anticorrosivo', label: 'Proteção anticorrosiva aplicada', na: true }
+  ]},
+  { section: '5. Documentação', color: '#dc2626', items: [
+    { key: 'doc_relatorio', label: 'Relatório dimensional', na: true },
+    { key: 'doc_cert_material', label: 'Certificados de material anexados', na: true },
+    { key: 'doc_cert_tratamento', label: 'Certificados de tratamento térmico/superficial', na: true },
+    { key: 'doc_nf', label: 'Nota fiscal conferida', na: false }
+  ]},
+  { section: '6. Embalagem', color: '#ea580c', items: [
+    { key: 'emb_protegida', label: 'Peça protegida contra impactos', na: false },
+    { key: 'emb_identificacao', label: 'Identificação da peça e quantidade conferida', na: false },
+    { key: 'emb_caixa', label: 'Caixa ou pallet adequado', na: false }
+  ]},
+  { section: '7. Liberação Final', color: '#16a34a', items: [
+    { key: 'lib_conferencia', label: 'Conferência final realizada', na: false },
+    { key: 'lib_aprovado', label: 'Peça aprovada para envio', na: false },
+    { key: 'lib_foto', label: 'Foto da peça conferida', na: false }
+  ]}
+];
+
+async function fetchChecklistsRemoto() {
+  const url = getSyncUrl();
+  if (!url) return null;
+  try {
+    const resp = await fetch(url + '?action=list-checklists', { method: 'GET', redirect: 'follow' });
+    const data = JSON.parse(await resp.text());
+    if (data.ok) { checklistsRemoto = data.checklists || []; return checklistsRemoto; }
+  } catch (err) { console.error('Erro fetch checklists:', err); }
+  return null;
+}
+
+function situacaoOS(s) {
+  const cls = (checklistsRemoto || []).filter(c => {
+    const osFull = (s.os || '') + (s.it ? '/' + s.it : '');
+    return c.os === osFull;
+  });
+  if (!cls.length) return { badge: 'pendente', texto: 'Pendente', ultimo: null };
+  // Pega o mais recente
+  cls.sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  const ult = cls[0];
+  return {
+    badge: (ult.situacao || 'pendente').toLowerCase(),
+    texto: ult.situacao || 'Pendente',
+    ultimo: ult
+  };
+}
+
+async function renderQualidade() {
+  if (checklistsRemoto === null && getSyncUrl()) await fetchChecklistsRemoto();
+
+  const busca = (document.getElementById('search-quali').value || '').toLowerCase();
+  const filtro = document.getElementById('filter-quali').value;
+
+  const list = servicos.map(s => ({ s, sit: situacaoOS(s) })).filter(o => {
+    if (filtro && o.sit.badge !== filtro) return false;
+    if (busca) {
+      const hay = ((o.s.os||'') + ' ' + (o.s.cliente||'') + ' ' + (o.s.desc||'') + ' ' + (o.sit.ultimo?.inspetor||'')).toLowerCase();
+      if (!hay.includes(busca)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('quali-count').textContent = list.length + ' OS' + (list.length === 1 ? '' : 's');
+  const tbody = document.getElementById('tbody-qualidade');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="mat-empty">Nenhuma OS pra inspecionar.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(o => {
+    const s = o.s, sit = o.sit;
+    const osFull = (s.os || '—') + (s.it ? '/' + s.it : '');
+    return '<tr onclick="abrirChecklist(' + Number(s.id) + ')">' +
+      '<td><strong>' + osFull + '</strong></td>' +
+      '<td>' + (s.cliente || '—') + '</td>' +
+      '<td>' + (s.desc || '—') + '</td>' +
+      '<td>' + (s.qty || '—') + '</td>' +
+      '<td><span class="ql-situacao-badge ' + sit.badge + '">' + sit.texto + '</span></td>' +
+      '<td>' + (sit.ultimo?.inspetor || '—') + '</td>' +
+      '<td>' + (sit.ultimo ? (sit.ultimo.timestamp || '').substring(0,10).split('-').reverse().join('/') : '—') + '</td>' +
+      '<td class="actions"><button class="btn-primary btn-sm" onclick="event.stopPropagation(); abrirChecklist(' + Number(s.id) + ')">📋 Inspecionar</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function abrirChecklist(servicoId) {
+  const s = servicos.find(x => x.id === servicoId);
+  if (!s) return;
+  qualiOSAtual = s;
+  qualiFotos = [];
+  qualiMarcacoes = {};
+
+  // Se já tem checklist salvo, carrega os valores pra edição
+  const sit = situacaoOS(s);
+  if (sit.ultimo) {
+    qualiMarcacoes = Object.assign({}, sit.ultimo.marcacoes || {});
+    qualiFotos = (sit.ultimo.fotos || []).slice();
+    document.getElementById('ql-inspetor').value = sit.ultimo.inspetor || '';
+    document.getElementById('ql-observacao').value = sit.ultimo.observacao || '';
+  } else {
+    document.getElementById('ql-inspetor').value = '';
+    document.getElementById('ql-observacao').value = '';
+  }
+
+  const osFull = (s.os || '') + (s.it ? '/' + s.it : '');
+  document.getElementById('quali-title').textContent = 'Checklist — OS ' + osFull + ' · ' + (s.cliente || '');
+
+  renderChecklistBody(s);
+  renderFotos();
+  document.getElementById('quali-panel').style.display = 'block';
+  document.getElementById('ql-feedback').textContent = '';
+  document.getElementById('quali-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeQualiPanel() {
+  document.getElementById('quali-panel').style.display = 'none';
+  qualiOSAtual = null;
+  qualiFotos = [];
+  qualiMarcacoes = {};
+}
+
+function renderChecklistBody(s) {
+  const box = document.getElementById('quali-checklist-content');
+  box.innerHTML = CHECKLIST_ITEMS.map(sec => {
+    return '<div class="ql-section" style="border-left-color:' + sec.color + ';">' +
+      '<h4 style="color:' + sec.color + ';">' + sec.section + '</h4>' +
+      sec.items.map(item => {
+        const preview = item.preview ? item.preview(s) : '';
+        const valor = qualiMarcacoes[item.key] || '';
+        return '<div class="ql-item">' +
+          '<div class="ql-label"><strong>' + item.label + '</strong>' +
+            (preview ? '<span class="ql-value-preview">→ ' + preview + '</span>' : '') +
+          '</div>' +
+          '<div class="ql-radios">' +
+            '<label class="ql-ok"><input type="radio" name="ql-' + item.key + '" value="OK" ' + (valor === 'OK' ? 'checked' : '') + ' onchange="marcarItem(\''+item.key+'\',\'OK\')"><span>✓ OK</span></label>' +
+            '<label class="ql-nok"><input type="radio" name="ql-' + item.key + '" value="NOK" ' + (valor === 'NOK' ? 'checked' : '') + ' onchange="marcarItem(\''+item.key+'\',\'NOK\')"><span>✕ NOK</span></label>' +
+            (item.na ? '<label class="ql-na"><input type="radio" name="ql-' + item.key + '" value="NA" ' + (valor === 'NA' ? 'checked' : '') + ' onchange="marcarItem(\''+item.key+'\',\'NA\')"><span>N/A</span></label>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }).join('');
+}
+
+function marcarItem(key, val) {
+  qualiMarcacoes[key] = val;
+}
+
+async function adicionarFotos(files) {
+  if (!files || !files.length) return;
+  const disponivel = 6 - qualiFotos.length;
+  if (disponivel <= 0) { alert('Máximo 6 fotos por checklist.'); return; }
+  const arr = Array.from(files).slice(0, disponivel);
+  for (const f of arr) {
+    try {
+      const dataUrl = await comprimirImagem(f, 800, 0.6);
+      qualiFotos.push(dataUrl);
+    } catch (err) {
+      console.error('Erro compressão:', err);
+    }
+  }
+  renderFotos();
+}
+
+function comprimirImagem(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > h && w > maxDim) { h = h * (maxDim / w); w = maxDim; }
+        else if (h > maxDim) { w = w * (maxDim / h); h = maxDim; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function removerFoto(i) {
+  qualiFotos.splice(i, 1);
+  renderFotos();
+}
+
+function renderFotos() {
+  const box = document.getElementById('quali-fotos');
+  if (!qualiFotos.length) { box.innerHTML = '<div style="color:#999; font-size:12px; padding:8px;">Nenhuma foto ainda.</div>'; return; }
+  box.innerHTML = qualiFotos.map((src, i) =>
+    '<div class="ql-foto-item">' +
+      '<img src="' + src + '" alt="foto ' + (i+1) + '">' +
+      '<button onclick="removerFoto(' + i + ')" title="Remover">×</button>' +
+    '</div>'
+  ).join('');
+}
+
+async function salvarChecklist(situacao) {
+  if (!qualiOSAtual) return;
+  const inspetor = document.getElementById('ql-inspetor').value;
+  if (!inspetor && situacao !== 'Rascunho') {
+    alert('Selecione o inspetor responsável.');
+    return;
+  }
+
+  const s = qualiOSAtual;
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const timestamp = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+' '+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+
+  const payload = {
+    kind: 'checklist',
+    timestamp: timestamp,
+    os: (s.os || '') + (s.it ? '/' + s.it : ''),
+    cliente: s.cliente || '',
+    codigoPeca: s.des || '',
+    qtd: s.qty || '',
+    revisaoDesenho: '',
+    inspetor: inspetor,
+    situacao: situacao,
+    observacao: document.getElementById('ql-observacao').value || '',
+    motivoNf: '',
+    fotos: qualiFotos,
+    marcacoes: qualiMarcacoes
+  };
+
+  const url = getSyncUrl();
+  if (!url) { alert('URL Apps Script não configurada.'); return; }
+
+  const feedback = document.getElementById('ql-feedback');
+  feedback.textContent = '⏳ salvando...';
+  feedback.style.color = '#666';
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow'
+    });
+    const data = JSON.parse(await resp.text());
+    if (data.ok) {
+      feedback.textContent = '✓ salvo';
+      feedback.style.color = '#16a34a';
+      checklistsRemoto = null;
+      await fetchChecklistsRemoto();
+      renderQualidade();
+      // Se aprovado, atualiza status do serviço para Finalizado
+      if (situacao === 'Aprovado' && s.status !== 'Finalizado') {
+        s.status = 'Finalizado';
+        saveServicos();
+        renderServicos();
+      }
+      setTimeout(() => closeQualiPanel(), 1200);
+    } else {
+      feedback.textContent = '✗ ' + (data.erro || 'erro');
+      feedback.style.color = '#dc2626';
+    }
+  } catch (err) {
+    feedback.textContent = '✗ ' + err.message;
+    feedback.style.color = '#dc2626';
+  }
+}
+
+/* =============== CADASTROS: Responsáveis + Fornecedores =============== */
+let responsaveisRemoto = null;  // cache do Sheets
+let fornecedoresRemoto = null;
+
+async function fetchResponsaveis() {
+  const url = getSyncUrl();
+  if (!url) return null;
+  try {
+    const resp = await fetch(url + '?action=list-responsaveis', { method: 'GET', redirect: 'follow' });
+    const data = JSON.parse(await resp.text());
+    if (data.ok) { responsaveisRemoto = data.responsaveis || []; return responsaveisRemoto; }
+  } catch (err) { console.error('Erro fetch responsaveis:', err); }
+  return null;
+}
+async function fetchFornecedores() {
+  const url = getSyncUrl();
+  if (!url) return null;
+  try {
+    const resp = await fetch(url + '?action=list-fornecedores', { method: 'GET', redirect: 'follow' });
+    const data = JSON.parse(await resp.text());
+    if (data.ok) { fornecedoresRemoto = data.fornecedores || []; return fornecedoresRemoto; }
+  } catch (err) { console.error('Erro fetch fornecedores:', err); }
+  return null;
+}
+
+async function ensureCadastros() {
+  const jobs = [];
+  if (responsaveisRemoto === null && getSyncUrl()) jobs.push(fetchResponsaveis());
+  if (fornecedoresRemoto === null && getSyncUrl()) jobs.push(fetchFornecedores());
+  if (jobs.length) await Promise.all(jobs);
+}
+
+/* ---------- Popular selects em toda a ferramenta ---------- */
+function popularSelectResponsaveis(sel, funcoes) {
+  if (!sel) return;
+  const val = sel.value;
+  const list = (responsaveisRemoto || []).filter(r => r.ativo !== false && (!funcoes || funcoes.length === 0 || funcoes.some(f => (r.funcao || '').toLowerCase().includes(f.toLowerCase()))));
+  list.sort((a,b) => a.nome.localeCompare(b.nome));
+  const opts = ['<option value="">— selecione —</option>'].concat(list.map(r => '<option>' + r.nome + '</option>'));
+  // Preserva valor antigo se ainda existir
+  if (val && !list.some(r => r.nome === val)) opts.splice(1, 0, '<option>' + val + ' (removido)</option>');
+  sel.innerHTML = opts.join('');
+  sel.value = val;
+}
+
+function popularSelectFornecedores(sel, tipos) {
+  if (!sel) return;
+  const val = sel.value;
+  const list = (fornecedoresRemoto || []).filter(f => f.ativo !== false && (!tipos || tipos.length === 0 || tipos.some(t => (f.tipo || '').toLowerCase().includes(t.toLowerCase()))));
+  list.sort((a,b) => a.nome.localeCompare(b.nome));
+  const opts = ['<option value="">— selecione —</option>'].concat(list.map(f => '<option>' + f.nome + '</option>'));
+  if (val && !list.some(f => f.nome === val)) opts.splice(1, 0, '<option>' + val + ' (removido)</option>');
+  sel.innerHTML = opts.join('');
+  sel.value = val;
+}
+
+function atualizarTodosSelectsResponsaveis() {
+  // Operadores no apontamento (só função Operador)
+  document.querySelectorAll('#a-operador').forEach(s => popularSelectResponsaveis(s, ['operador']));
+  // Inspetor no checklist (Inspetor ou Operador/Inspetor)
+  document.querySelectorAll('#ql-inspetor').forEach(s => popularSelectResponsaveis(s, ['inspetor']));
+  // Responsável em movimentação (todos)
+  document.querySelectorAll('#mov-responsavel').forEach(s => popularSelectResponsaveis(s, []));
+  // Etapas do serviço — se existirem
+  document.querySelectorAll('select.etapa-responsavel, select[id^="etapa-resp-"]').forEach(s => popularSelectResponsaveis(s, []));
+}
+
+function atualizarTodosSelectsFornecedores() {
+  // Fornecedor de compra
+  document.querySelectorAll('#mov-fornecedor').forEach(s => popularSelectFornecedores(s, ['material']));
+  // Fornecedor externo no serviço
+  document.querySelectorAll('#f-externo-fornecedor').forEach(s => popularSelectFornecedores(s, ['serviço externo', 'material e serviço']));
+}
+
+/* ---------- CRUD Responsáveis ---------- */
+function limparFormResponsavel() {
+  document.getElementById('fr-nome').value = '';
+  document.getElementById('fr-funcao').value = 'Operador';
+  document.getElementById('fr-ativo').value = 'true';
+  document.getElementById('fr-feedback').textContent = '';
+}
+
+async function salvarResponsavel() {
+  const nome = document.getElementById('fr-nome').value.trim();
+  if (!nome) { alert('Nome é obrigatório.'); return; }
+  const payload = {
+    kind: 'responsavel',
+    nome: nome,
+    funcao: document.getElementById('fr-funcao').value,
+    ativo: document.getElementById('fr-ativo').value !== 'false'
+  };
+  const url = getSyncUrl();
+  if (!url) { alert('URL do Apps Script não configurada.'); return; }
+  const fb = document.getElementById('fr-feedback');
+  fb.textContent = '⏳ salvando...'; fb.style.color = '#666';
+  try {
+    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload), redirect: 'follow' });
+    const data = JSON.parse(await resp.text());
+    if (data.ok) {
+      fb.textContent = '✓ salvo'; fb.style.color = '#16a34a';
+      responsaveisRemoto = null;
+      await fetchResponsaveis();
+      renderResponsaveis();
+      atualizarTodosSelectsResponsaveis();
+      limparFormResponsavel();
+    } else { fb.textContent = '✗ ' + (data.erro || 'erro'); fb.style.color = '#dc2626'; }
+  } catch (err) { fb.textContent = '✗ ' + err.message; fb.style.color = '#dc2626'; }
+}
+
+function editarResponsavel(nome) {
+  const r = (responsaveisRemoto || []).find(x => x.nome === nome);
+  if (!r) return;
+  document.getElementById('fr-nome').value = r.nome;
+  document.getElementById('fr-funcao').value = r.funcao;
+  document.getElementById('fr-ativo').value = r.ativo === false ? 'false' : 'true';
+}
+
+async function inativarResponsavel(nome) {
+  if (!confirm('Inativar "' + nome + '"? Ele deixa de aparecer nos selects, mas o histórico é preservado.')) return;
+  const url = getSyncUrl();
+  const payload = { kind: 'responsavel', nome: nome, funcao: 'Operador', ativo: false };
+  const r = (responsaveisRemoto || []).find(x => x.nome === nome);
+  if (r) payload.funcao = r.funcao;
+  try {
+    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload), redirect: 'follow' });
+    const data = JSON.parse(await resp.text());
+    if (data.ok) { responsaveisRemoto = null; await fetchResponsaveis(); renderResponsaveis(); atualizarTodosSelectsResponsaveis(); }
+  } catch (err) { alert('Erro: ' + err.message); }
+}
+
+function renderResponsaveis() {
+  const tbody = document.getElementById('tbody-responsaveis');
+  if (!tbody) return;
+  const list = (responsaveisRemoto || []).slice().sort((a,b) => a.nome.localeCompare(b.nome));
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" class="mat-empty">Nenhum responsável cadastrado.</td></tr>'; return; }
+  tbody.innerHTML = list.map(r =>
+    '<tr>' +
+      '<td><strong>' + r.nome + '</strong></td>' +
+      '<td>' + r.funcao + '</td>' +
+      '<td>' + (r.ativo === false ? '<span class="mat-badge inativo">Inativo</span>' : '<span class="mat-badge ok">Ativo</span>') + '</td>' +
+      '<td class="actions">' +
+        '<button class="btn-primary btn-sm" onclick="editarResponsavel(\'' + r.nome.replace(/'/g,"\\'") + '\')">✎ Editar</button> ' +
+        (r.ativo !== false ? '<button class="btn-danger btn-sm" onclick="inativarResponsavel(\'' + r.nome.replace(/'/g,"\\'") + '\')">Inativar</button>' : '') +
+      '</td>' +
+    '</tr>').join('');
+}
+
+/* ---------- CRUD Fornecedores ---------- */
+function limparFormFornecedor() {
+  ['ff-nome','ff-cnpj','ff-contato','ff-observacao'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ff-tipo').value = 'Material';
+  document.getElementById('ff-ativo').value = 'true';
+  document.getElementById('ff-feedback').textContent = '';
+}
+
+async function salvarFornecedor() {
+  const nome = document.getElementById('ff-nome').value.trim();
+  if (!nome) { alert('Nome é obrigatório.'); return; }
+  const payload = {
+    kind: 'fornecedor',
+    nome: nome,
+    tipo: document.getElementById('ff-tipo').value,
+    cnpj: document.getElementById('ff-cnpj').value.trim(),
+    contato: document.getElementById('ff-contato').value.trim(),
+    observacao: document.getElementById('ff-observacao').value.trim(),
+    ativo: document.getElementById('ff-ativo').value !== 'false'
+  };
+  const url = getSyncUrl();
+  if (!url) { alert('URL do Apps Script não configurada.'); return; }
+  const fb = document.getElementById('ff-feedback');
+  fb.textContent = '⏳ salvando...'; fb.style.color = '#666';
+  try {
+    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload), redirect: 'follow' });
+    const data = JSON.parse(await resp.text());
+    if (data.ok) {
+      fb.textContent = '✓ salvo'; fb.style.color = '#16a34a';
+      fornecedoresRemoto = null;
+      await fetchFornecedores();
+      renderFornecedores();
+      atualizarTodosSelectsFornecedores();
+      limparFormFornecedor();
+    } else { fb.textContent = '✗ ' + (data.erro || 'erro'); fb.style.color = '#dc2626'; }
+  } catch (err) { fb.textContent = '✗ ' + err.message; fb.style.color = '#dc2626'; }
+}
+
+function editarFornecedor(nome) {
+  const f = (fornecedoresRemoto || []).find(x => x.nome === nome);
+  if (!f) return;
+  document.getElementById('ff-nome').value = f.nome;
+  document.getElementById('ff-tipo').value = f.tipo;
+  document.getElementById('ff-cnpj').value = f.cnpj;
+  document.getElementById('ff-contato').value = f.contato;
+  document.getElementById('ff-observacao').value = f.observacao;
+  document.getElementById('ff-ativo').value = f.ativo === false ? 'false' : 'true';
+}
+
+async function inativarFornecedor(nome) {
+  if (!confirm('Inativar "' + nome + '"?')) return;
+  const url = getSyncUrl();
+  const f = (fornecedoresRemoto || []).find(x => x.nome === nome);
+  const payload = Object.assign({ kind: 'fornecedor' }, f || { nome: nome }, { ativo: false });
+  try {
+    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload), redirect: 'follow' });
+    const data = JSON.parse(await resp.text());
+    if (data.ok) { fornecedoresRemoto = null; await fetchFornecedores(); renderFornecedores(); atualizarTodosSelectsFornecedores(); }
+  } catch (err) { alert('Erro: ' + err.message); }
+}
+
+function renderFornecedores() {
+  const tbody = document.getElementById('tbody-fornecedores');
+  if (!tbody) return;
+  const list = (fornecedoresRemoto || []).slice().sort((a,b) => a.nome.localeCompare(b.nome));
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="6" class="mat-empty">Nenhum fornecedor cadastrado.</td></tr>'; return; }
+  tbody.innerHTML = list.map(f =>
+    '<tr>' +
+      '<td><strong>' + f.nome + '</strong></td>' +
+      '<td>' + f.tipo + '</td>' +
+      '<td>' + (f.contato || '—') + '</td>' +
+      '<td>' + (f.cnpj || '—') + '</td>' +
+      '<td>' + (f.ativo === false ? '<span class="mat-badge inativo">Inativo</span>' : '<span class="mat-badge ok">Ativo</span>') + '</td>' +
+      '<td class="actions">' +
+        '<button class="btn-primary btn-sm" onclick="editarFornecedor(\'' + f.nome.replace(/'/g,"\\'") + '\')">✎ Editar</button> ' +
+        (f.ativo !== false ? '<button class="btn-danger btn-sm" onclick="inativarFornecedor(\'' + f.nome.replace(/'/g,"\\'") + '\')">Inativar</button>' : '') +
+      '</td>' +
+    '</tr>').join('');
+}
+
+async function renderCadastros() {
+  await ensureCadastros();
+  renderResponsaveis();
+  renderFornecedores();
+  atualizarTodosSelectsResponsaveis();
+  atualizarTodosSelectsFornecedores();
+}
+
+/* ---------- Status Externo: mostrar/ocultar campos condicionais ---------- */
+function atualizarCamposExternoServico() {
+  const status = document.getElementById('f-status');
+  if (!status) return;
+  const isExterno = status.value === 'Externo com terceiros';
+  ['f-externo-fornecedor-wrap','f-externo-envio-wrap','f-externo-retorno-wrap'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isExterno ? '' : 'none';
+  });
+}
+
+/* ---------- Movimento material: campos condicionais ---------- */
+function atualizarCamposMovimentoMat() {
+  const tipo = document.getElementById('mov-tipo').value;
+  const forn = document.getElementById('mov-fornecedor-wrap');
+  if (forn) forn.style.opacity = (tipo === 'Compra') ? '1' : '.4';
+}
+
 /* =============== INIT =============== */
 (function init() {
+  // Carrega cadastros do Sheets ao abrir, pra popular selects logo
+  if (window.setTimeout) setTimeout(() => {
+    if (typeof ensureCadastros === 'function') {
+      ensureCadastros().then(() => {
+        atualizarTodosSelectsResponsaveis();
+        atualizarTodosSelectsFornecedores();
+      });
+    }
+  }, 500);
+
   const savedUrl = localStorage.getItem('esfeus_base_url');
   if (savedUrl) document.getElementById('base-url').value = savedUrl;
 
