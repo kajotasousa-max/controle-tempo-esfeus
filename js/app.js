@@ -1202,12 +1202,24 @@ function diasPrazoXEntrega(s) {
   return Math.round((new Date(s.prazo + 'T00:00:00') - new Date(s.dt + 'T00:00:00')) / 86400000);
 }
 
-function listaFinalizadas() {
+let filtroPrazoFin = '';
+function classePrazoFin(s) {
+  const d = diasPrazoXEntrega(s);
+  return d === '' ? 'sem' : (d < 0 ? 'atraso' : 'prazo');
+}
+function filtrarPrazoFin(c) { filtroPrazoFin = filtroPrazoFin === c ? '' : c; renderFinalizadas(); }
+
+function finalizadasSemFiltroPrazo() {
   const busca = semAcento((document.getElementById('search-fin') || {}).value || '');
   const cliente = (document.getElementById('filter-cliente-fin') || {}).value || '';
   return servicos.filter(s => statusInteligente(s) === 'Finalizado')
     .filter(s => !cliente || (s.cliente || '').trim() === cliente)
-    .filter(s => !busca || semAcento([s.cliente, s.oc, s.os, s.it, s.des, s.desc, s.nf, s.obs].join(' ')).includes(busca))
+    .filter(s => !busca || semAcento([s.cliente, s.oc, s.os, s.it, s.des, s.desc, s.nf, s.obs].join(' ')).includes(busca));
+}
+
+function listaFinalizadas() {
+  return finalizadasSemFiltroPrazo()
+    .filter(s => !filtroPrazoFin || classePrazoFin(s) === filtroPrazoFin)
     .sort((a, b) => (b.dt || b.prazo || '').localeCompare(a.dt || a.prazo || ''));
 }
 
@@ -1218,19 +1230,37 @@ function renderFinalizadas() {
     const clientes = Array.from(new Set(servicos.filter(s => statusInteligente(s) === 'Finalizado').map(s => (s.cliente || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
     sel.innerHTML = '<option value="">Todos os clientes</option>' + clientes.map(c => '<option' + (c === atual ? ' selected' : '') + '>' + escMelhoria(c) + '</option>').join('');
   }
+  // Cartões: total, no prazo, com atraso, sem data de entrega
+  const base = finalizadasSemFiltroPrazo();
+  const cont = { prazo: 0, atraso: 0, sem: 0 };
+  base.forEach(s => cont[classePrazoFin(s)]++);
+  const cartao = (rot, chave, n, cls) => '<button type="button" class="resumo-card ' + cls + (filtroPrazoFin === chave ? ' ativo' : '') + (n ? '' : ' vazio') + '" onclick="filtrarPrazoFin(\'' + chave + '\')"><span class="resumo-n">' + n + '</span><span class="resumo-rotulo">' + rot + '</span></button>';
+  document.getElementById('fin-resumo').innerHTML =
+    cartao('Finalizadas', '', base.length, 'resumo-total') +
+    cartao('No prazo', 'prazo', cont.prazo, 'fin-card-prazo') +
+    cartao('Com atraso', 'atraso', cont.atraso, 'fin-card-atraso') +
+    cartao('Sem data de entrega', 'sem', cont.sem, 'fin-card-sem');
+
   const list = listaFinalizadas();
-  document.getElementById('fin-count').textContent = list.length + ' OS finalizada' + (list.length === 1 ? '' : 's');
+  document.getElementById('fin-count').textContent = list.length + ' OS';
   const tbody = document.getElementById('tbody-finalizadas');
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="12" class="empty">Nenhuma OS finalizada.</td></tr>'; return; }
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Nenhuma OS finalizada.</td></tr>'; return; }
   tbody.innerHTML = list.map(s => {
     const d = diasPrazoXEntrega(s);
-    const cor = d === '' ? '' : (d < 0 ? ' style="color:#b91c1c;font-weight:bold"' : ' style="color:#15803d;font-weight:bold"');
-    return '<tr onclick="abrirFinalizada(' + Number(s.id) + ')" style="cursor:pointer">' +
-      '<td><strong>' + escMelhoria(s.cliente || '—') + '</strong></td><td>' + escMelhoria(s.oc || '—') + '</td>' +
-      '<td>' + escMelhoria(s.os || '—') + '</td><td>' + escMelhoria(s.it || '—') + '</td>' +
-      '<td>' + escMelhoria(s.des || '—') + '</td><td>' + escMelhoria(s.desc || '—') + '</td><td>' + escMelhoria(s.qty || '—') + '</td>' +
-      '<td>' + escMelhoria(fmtDate(s.prazo) || '—') + '</td><td>' + escMelhoria(fmtDate(s.dt) || '—') + '</td>' +
-      '<td>' + escMelhoria(s.nf || '—') + '</td><td' + cor + '>' + (d === '' ? '—' : d) + '</td><td>' + escMelhoria(s.obs || '') + '</td></tr>';
+    const pill = d === '' ? '<span class="fin-pill sem">sem data</span>'
+      : d < 0 ? '<span class="fin-pill atraso">' + (-d) + ' dia' + (d === -1 ? '' : 's') + ' de atraso</span>'
+      : d === 0 ? '<span class="fin-pill prazo">no dia</span>'
+      : '<span class="fin-pill prazo">' + d + ' dia' + (d === 1 ? '' : 's') + ' antes</span>';
+    const obs = s.obs ? '<div class="fin-obs">📝 ' + escMelhoria(s.obs) + '</div>' : '';
+    return '<tr onclick="abrirFinalizada(' + Number(s.id) + ')">' +
+      '<td class="nw"><strong>' + escMelhoria(s.cliente || '—') + '</strong></td>' +
+      '<td class="nw">' + escMelhoria(s.os || '—') + '</td><td class="nw">' + escMelhoria(s.it || '—') + '</td>' +
+      '<td class="fin-oc">' + escMelhoria(s.oc || '—') + '</td>' +
+      '<td class="fin-des" title="' + escMelhoria(s.des || '') + '">' + escMelhoria(s.des || '—') + '</td>' +
+      '<td class="fin-desc">' + escMelhoria(s.desc || '—') + obs + '</td>' +
+      '<td class="num">' + escMelhoria(s.qty || '—') + '</td>' +
+      '<td class="nw">' + escMelhoria(fmtDate(s.prazo) || '—') + '</td><td class="nw">' + escMelhoria(fmtDate(s.dt) || '—') + '</td>' +
+      '<td class="nw">' + escMelhoria(s.nf || '—') + '</td><td class="nw">' + pill + '</td></tr>';
   }).join('');
 }
 

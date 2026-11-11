@@ -192,13 +192,14 @@
       <span class="count" id="fin-count">0 OS</span>
       <button class="btn-secondary btn-sm" onclick="exportarFinalizadas()">⬇ Exportar CSV</button>
     </div>
-    <div class="status-resumo-nota">OS com a inspeção final aprovada (ou entregues antes do app). Clique numa linha para abrir a OS.</div>
-    <div style="max-height: 520px; overflow-y: auto;">
-      <table>
+    <div class="status-resumo" id="fin-resumo"></div>
+    <div class="status-resumo-nota">OS com a inspeção final aprovada (ou entregues antes do app). Clique num cartão para filtrar e numa linha para abrir a OS.</div>
+    <div class="fin-wrap">
+      <table class="data fin-tabela">
         <thead>
           <tr>
-            <th>Cliente</th><th>OC</th><th>OS</th><th>Item</th><th>Desenho</th><th>Descrição</th><th>Qtd</th>
-            <th>Prazo</th><th>Entrega</th><th>NF</th><th title="Dias entre a entrega e o prazo: positivo = antes do prazo">Prazo x Entrega</th><th>Obs.</th>
+            <th>Cliente</th><th>OS</th><th>Item</th><th>OC</th><th>Desenho</th><th>Descrição</th><th class="num">Qtd</th>
+            <th>Prazo</th><th>Entrega</th><th>NF</th><th title="Dias entre o prazo e a entrega">Entrega x Prazo</th>
           </tr>
         </thead>
         <tbody id="tbody-finalizadas"></tbody>
