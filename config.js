@@ -28,7 +28,7 @@ window.APP_CONFIG = {
   urlVisualizadorPadrao: 'https://kajotasousa-max.github.io/controle-tempo-esfeus/',
 
   /* URL do Web App do Google Apps Script (backend/Code.gs). Vazio = funciona só local. */
-  syncUrlPadrao: 'https://script.google.com/macros/s/AKfycbwkg4X6qWDF04pEqGfr0SyT3WfrNyoN_dr8oWUc89erGexKEHDPysmujXGS4IxxPRLx/exec',
+  syncUrlPadrao: 'https://script.google.com/macros/s/AKfycbzI8cUP1BG4eJOjakytJBwgQZPbBrhYED2odoz3s9x3IrmQiLYF6YwrZI8htt0DXxotnw/exec',
 
   /* Listas usadas no apontamento e nas etapas da OS */
   operacoes: ['Torneamento', 'Fresamento', 'Furação', 'Retífica', 'Acabamento', 'Processo externo', 'Inspeção Final'],
