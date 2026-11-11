@@ -1832,7 +1832,7 @@ async function fetchChecklistsRemoto() {
   try {
     const resp = await fetch(url + '?action=list-checklists', { method: 'GET', redirect: 'follow' });
     const data = JSON.parse(await resp.text());
-    if (data.ok) { checklistsRemoto = (data.checklists || []).map(separarOsItem); return checklistsRemoto; }
+    if (data.ok) { checklistsRemoto = (data.checklists || []).map(separarOsItem); conciliarInspecoes(); return checklistsRemoto; }
   } catch (err) { console.error('Erro fetch checklists:', err); }
   return null;
 }
@@ -2095,6 +2095,48 @@ async function salvarChecklist(situacao) {
  * Aprovado: Inspeção Final = OK e OS Finalizada. Reprovado: Inspeção Final = Pendente e a OS volta para produção.
  * Rascunho não muda nada.
  */
+/** Ajusta a OS ao resultado da inspeção. Devolve true se mudou algo (sem salvar). */
+function ajustarOSAoResultado(s, situacao) {
+  if (situacao !== 'Aprovado' && situacao !== 'Reprovado') return false;
+  let fin = etapaInspecaoFinal(s);
+  if (situacao === 'Aprovado') {
+    if (!liberadaParaQualidade(s)) return false;
+    if (fin && fin.status === 'OK' && s.status === 'Finalizado') return false;
+    if (!fin) { fin = Object.assign(novaEtapaMelhoria(), { nome: 'Inspeção Final' }); s.etapas = etapasDe(s).concat([fin]); }
+    fin.status = 'OK'; fin.percentual = 100; s.status = 'Finalizado';
+    return true;
+  }
+  if ((!fin || fin.status !== 'OK') && s.status !== 'Finalizado') return false;
+  if (fin) { fin.status = 'Pendente'; fin.percentual = 0; }
+  if (s.status === 'Finalizado') s.status = 'Em processo';
+  return true;
+}
+
+/**
+ * A última inspeção de cada OS manda na Inspeção Final, mesmo se foi feita em outro aparelho
+ * ou antes desta regra existir. Roda sempre que as inspeções são carregadas.
+ */
+function conciliarInspecoes() {
+  if (!Array.isArray(checklistsRemoto)) return;
+  const ultima = {};
+  checklistsRemoto.forEach(c => {
+    if (c.situacao !== 'Aprovado' && c.situacao !== 'Reprovado') return;
+    const k = osItem(c);
+    if (!ultima[k] || (c.timestamp || '') > (ultima[k].timestamp || '')) ultima[k] = c;
+  });
+  let mudou = false;
+  servicos.forEach(s => {
+    const c = ultima[osItemServico(s)];
+    if (c && ajustarOSAoResultado(s, c.situacao)) mudou = true;
+  });
+  if (mudou) {
+    saveServicos();
+    renderServicos();
+    if (abaAtiva() === 'finalizadas') renderFinalizadas();
+    if (currentId !== null && !editandoPainelServico()) openEditPanel();
+  }
+}
+
 function aplicarResultadoInspecao(s, situacao) {
   if (situacao !== 'Aprovado' && situacao !== 'Reprovado') return;
   let fin = etapaInspecaoFinal(s);
@@ -2540,9 +2582,12 @@ function abaAtiva() {
 }
 
 /** A cada 20 s (com a página visível): OS da planilha + a aba aberta. */
+let cicloTempoReal = 0;
 async function atualizarTempoReal() {
   if (document.hidden || !getSyncUrl()) return;
   await sincronizarServicos();
+  // Inspeções feitas em outros aparelhos: confere a cada ~1 min
+  if (++cicloTempoReal % 3 === 0 && abaAtiva() !== 'qualidade') await fetchChecklistsRemoto();
   const tab = abaAtiva();
   if (tab === 'apontamentos' || tab === 'analise') {
     await fetchApontamentosRemoto();
@@ -2563,7 +2608,7 @@ async function atualizarTempoReal() {
 
 function iniciarTempoReal() {
   if (!getSyncUrl()) return;
-  sincronizarServicos();
+  sincronizarServicos().then(() => fetchChecklistsRemoto());
   if (tempoRealTimer) clearInterval(tempoRealTimer);
   tempoRealTimer = setInterval(atualizarTempoReal, INTERVALO_TEMPO_REAL);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizarTempoReal(); });
