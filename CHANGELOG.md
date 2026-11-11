@@ -3,6 +3,7 @@
 ## [1.1.0] — 2026-11-11
 
 ### Novo
+- **Senha de acesso** ao Apps Script, definida pelo menu **Gestão de Serviços** da planilha: escritório (tudo) e operador (só apontamentos). Cada aparelho digita uma vez; botão **🔒 Sair** no topo.
 - **OS centralizadas na planilha** (aba `Servicos`): qualquer computador vê e edita as mesmas OS. As OS que já estavam no navegador sobem para a planilha na primeira abertura.
 - **Atualização automática a cada 20 s** com a página aberta: OS, apontamentos, análise, qualidade e materiais. Também atualiza ao voltar para a aba do navegador.
 - Funciona offline: alterações de OS ficam pendentes (contadas no badge) e sobem quando a conexão volta.

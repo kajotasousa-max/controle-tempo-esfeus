@@ -67,6 +67,15 @@ Qualquer computador ou celular com o link vê os mesmos dados. O app busca as no
 
 Se duas pessoas editarem a mesma OS ao mesmo tempo, vale a última gravação.
 
+## Segurança
+
+O Apps Script roda com a conta do dono da planilha e responde a quem tiver a URL, que fica visível no `config.js`. Por isso o acesso é protegido por senha, definida no menu **Gestão de Serviços** da planilha:
+
+- **Escritório**: acesso a tudo.
+- **Operador**: só registra apontamentos e lê a lista de responsáveis.
+
+A senha não fica no código: o Apps Script guarda só o hash (SHA-256 com sal). Cada aparelho digita a senha uma vez; o botão **🔒 Sair** esquece a senha e a cópia local dos dados. A etiqueta do cliente (QR externo) não passa pela planilha e continua abrindo sem senha.
+
 ## Roadmap
 
 - [x] OS centralizadas na planilha (vários computadores no escritório)

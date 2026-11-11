@@ -26,6 +26,7 @@
       <span style="margin-left:12px;">URL Apps Script:</span>
       <input type="text" id="sync-url" placeholder="(padrão embutido — só preencha se quiser trocar)" style="width:220px;">
       <button onclick="saveSyncUrl()">Salvar</button>
+      <button id="btn-sair" onclick="sairDoApp()" style="margin-left:12px; display:none;" title="Esquecer a senha neste aparelho">🔒 Sair</button>
     </div>
   </div>
 
@@ -604,6 +605,18 @@
 <div id="sync-badge" class="sync-badge off" onclick="syncAgora(); sincronizarServicos()" title="Clique pra tentar reenviar agora">
   <span class="dot"></span>
   <span id="sync-text">—</span>
+</div>
+
+<!-- Senha de acesso (aparece só quando o Apps Script exige) -->
+<div id="tela-senha" class="tela-senha" style="display:none;">
+  <form class="tela-senha-caixa" onsubmit="entrarComSenha(event)">
+    <img src="assets/marca/logo.jpg" alt="" class="tela-senha-logo">
+    <h2>Acesso restrito</h2>
+    <p>Digite a senha que a empresa passou. Ela fica guardada neste aparelho.</p>
+    <input id="senha-input" type="password" autocomplete="current-password" placeholder="Senha">
+    <button type="submit" class="btn-primary">Entrar</button>
+    <div id="senha-msg" class="tela-senha-msg"></div>
+  </form>
 </div>
 
 <!-- Área de impressão -->

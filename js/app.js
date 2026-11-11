@@ -2319,6 +2319,79 @@ function iniciarTempoReal() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizarTempoReal(); });
 }
 
+/* =============== SENHA DE ACESSO =============== */
+/*
+ * O Apps Script só responde a pedidos com a senha (parâmetro k).
+ * A senha é digitada uma vez por aparelho e fica guardada neste navegador.
+ * O fetch abaixo acrescenta a senha a toda chamada para o Apps Script.
+ */
+const SENHA_KEY = chave('senha');
+function senhaSalva() { return localStorage.getItem(SENHA_KEY) || ''; }
+function comSenha(url) {
+  const k = senhaSalva();
+  return k ? url + (url.indexOf('?') >= 0 ? '&' : '?') + 'k=' + encodeURIComponent(k) : url;
+}
+const fetchOriginal = window.fetch.bind(window);
+window.fetch = function(input, init) {
+  const sync = getSyncUrl();
+  if (typeof input === 'string' && sync && input.indexOf(sync) === 0) {
+    return fetchOriginal(comSenha(input), init).then(resp => {
+      resp.clone().text().then(t => { if (t.indexOf('"semAcesso":true') >= 0) pedirSenha(senhaSalva() ? 'A senha mudou. Digite a senha atual.' : ''); }).catch(() => {});
+      return resp;
+    });
+  }
+  return fetchOriginal(input, init);
+};
+
+let pedindoSenha = false;
+function pedirSenha(msg) {
+  if (pedindoSenha || window.location.hash.startsWith('#e=')) return; // etiqueta do cliente não usa a planilha
+  pedindoSenha = true;
+  const el = document.getElementById('tela-senha');
+  document.getElementById('senha-msg').textContent = msg || '';
+  el.style.display = 'flex';
+  setTimeout(() => document.getElementById('senha-input').focus(), 50);
+}
+
+async function entrarComSenha(ev) {
+  if (ev) ev.preventDefault();
+  const input = document.getElementById('senha-input');
+  const msg = document.getElementById('senha-msg');
+  const senha = input.value.trim();
+  if (!senha) return;
+  msg.textContent = 'Conferindo…';
+  try {
+    const resp = await fetchOriginal(getSyncUrl() + '?action=versao&k=' + encodeURIComponent(senha), { method: 'GET', redirect: 'follow' });
+    const data = JSON.parse(await resp.text());
+    if (!data.ok) { msg.textContent = 'Senha incorreta.'; input.select(); return; }
+    localStorage.setItem(SENHA_KEY, senha);
+    location.reload();
+  } catch (err) {
+    msg.textContent = 'Sem conexão com a planilha. Tente de novo.';
+  }
+}
+
+function sairDoApp() {
+  const pendentes = servicosPendentes().length + loadQueue().length;
+  if (pendentes) { alert('Há ' + pendentes + ' alteração(ões) ainda não enviada(s) para a planilha. Aguarde o indicador ficar "Sincronizado" antes de sair.'); return; }
+  if (!confirm('Sair deste aparelho? A cópia dos dados guardada neste navegador é apagada e, para usar de novo, será preciso digitar a senha.')) return;
+  [SENHA_KEY, chave('servicos'), SERVICOS_BASE_KEY, MATERIAIS_KEY, chave('apontamentos')].forEach(k => localStorage.removeItem(k));
+  location.reload();
+}
+
+/** Na abertura: se o Apps Script exige senha e este aparelho não tem uma válida, pede. */
+async function conferirSenhaNaAbertura() {
+  const url = getSyncUrl();
+  if (!url) return;
+  try {
+    const resp = await fetch(url + '?action=versao', { method: 'GET', redirect: 'follow' });
+    const data = JSON.parse(await resp.text());
+    if (data.semAcesso) pedirSenha(senhaSalva() ? 'A senha mudou. Digite a senha atual.' : '');
+    const sair = document.getElementById('btn-sair');
+    if (sair) sair.style.display = data.ok && data.nivel && data.nivel !== 'livre' ? '' : 'none';
+  } catch (err) { /* sem internet: segue com o que tem */ }
+}
+
 /* =============== INIT =============== */
 (function init() {
   aplicarMarca();
@@ -2347,6 +2420,7 @@ function iniciarTempoReal() {
   if (getSyncUrl() && loadQueue().length > 0) setTimeout(syncAgora, 500);
 
   const hash = window.location.hash;
+  if (!hash.startsWith('#e=')) conferirSenhaNaAbertura();
   if (hash.startsWith('#e=')) {
     try { activateViewerMode(b64dec(hash.substring(3))); return; }
     catch(e) { alert('QR inválido.'); }

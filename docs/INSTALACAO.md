@@ -9,10 +9,11 @@ Tempo estimado: 30–40 minutos. Precisa de uma conta Google (do cliente, de pre
 3. Apague o conteúdo de `Código.gs` e cole todo o `backend/Code.gs`.
 4. Em **Configurações do projeto** (engrenagem), marque *Mostrar arquivo de manifesto "appsscript.json"* e cole o conteúdo de `backend/appsscript.json`.
 5. No editor, selecione a função **`configurar`** e clique em **Executar**. Autorize o acesso (planilha e Drive). Isso cria as abas e a pasta de fotos. Se a planilha tiver abas do backend antigo (cabeçalhos em português, como "Carimbo"), elas são renomeadas para `antigo - …` e os dados são copiados para as abas novas.
-6. **Implantar › Nova implantação › Tipo: App da Web**
+6. Recarregue a planilha. No menu **Gestão de Serviços**, defina a **senha do escritório** e, se quiser, a **senha do operador** (só registra apontamentos). Sem senha, qualquer pessoa com a URL do Apps Script lê e grava os dados.
+7. **Implantar › Nova implantação › Tipo: App da Web**
    - Executar como: **Eu**
    - Quem pode acessar: **Qualquer pessoa**
-7. Copie a URL que termina em `/exec`.
+8. Copie a URL que termina em `/exec`.
 
 > Ao alterar o `Code.gs` depois, cole a versão nova, rode **`configurar`** de novo e use **Implantar › Gerenciar implantações › Editar › Nova versão** para manter a mesma URL.
 

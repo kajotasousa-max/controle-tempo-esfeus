@@ -9,6 +9,10 @@
  *   Servicos · Apontamentos · Materiais · Movimentacoes · Checklists · Responsaveis · Fornecedores
  * Abas de consulta (reescritas a cada gravação, não edite):
  *   Saldos · Análise por OS
+ *
+ * Senhas: menu "Gestão de Serviços" da planilha (aparece ao recarregar a página).
+ *   Escritório → tudo. Operador → só grava apontamentos e lê a lista de responsáveis.
+ *   Sem senha definida, o app fica aberto (como nas versões anteriores).
  */
 
 const ABAS = {
@@ -29,11 +33,53 @@ const PASTA_FOTOS = 'Gestão de Serviços - Fotos de Qualidade';
 const FUSO = Session.getScriptTimeZone() || 'America/Sao_Paulo';
 const TIPOS_SAIDA = ['Consumo na OS', 'Perda / descarte', 'Ajuste de saída'];
 
+/* ======================= ACESSO ======================= */
+
+/** O que a senha de operador pode fazer. */
+const PERMITIDO_OPERADOR = { get: ['versao', 'list-responsaveis'], post: ['apontamentos'] };
+
+function propriedades_() { return PropertiesService.getScriptProperties(); }
+
+function hashSenha_(senha) {
+  const p = propriedades_();
+  let sal = p.getProperty('SAL');
+  if (!sal) { sal = Utilities.getUuid(); p.setProperty('SAL', sal); }
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, sal + '|' + String(senha), Utilities.Charset.UTF_8);
+  return Utilities.base64Encode(bytes);
+}
+
+/** 'livre' (nenhuma senha definida), 'escritorio', 'operador' ou null (senha errada/ausente). */
+function nivelDe_(senha) {
+  const p = propriedades_();
+  const esc = p.getProperty('SENHA_ESCRITORIO'), op = p.getProperty('SENHA_OPERADOR');
+  if (!esc && !op) return 'livre';
+  if (!senha) return null;
+  const h = hashSenha_(senha);
+  if (esc && h === esc) return 'escritorio';
+  if (op && h === op) return 'operador';
+  return null;
+}
+
+/** Devolve a resposta de recusa, ou null se pode seguir. */
+function verificarAcesso_(e, metodo, acao) {
+  const nivel = nivelDe_(e && e.parameter && e.parameter.k);
+  if (nivel === null) {
+    Utilities.sleep(1500); // atrasa quem tenta adivinhar
+    return json({ ok: false, semAcesso: true, erro: 'Senha inválida ou ausente.' });
+  }
+  if (nivel === 'operador' && PERMITIDO_OPERADOR[metodo].indexOf(acao) < 0) {
+    return json({ ok: false, semPermissao: true, erro: 'A senha de operador só registra apontamentos.' });
+  }
+  return null;
+}
+
 /* ======================= ENTRADAS HTTP ======================= */
 
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'list';
   try {
+    const recusa = verificarAcesso_(e, 'get', action);
+    if (recusa) return recusa;
     switch (action) {
       case 'list':               return json({ ok: true, apontamentos: lerTudo('apontamentos') });
       case 'list-servicos':      return json({ ok: true, servicos: listarServicos(), agora: agora() });
@@ -42,7 +88,7 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.1.0', servicos: true });
+      case 'versao':             return json({ ok: true, versao: '1.1.0', servicos: true, nivel: nivelDe_(e.parameter.k) });
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
   } catch (err) {
@@ -51,11 +97,15 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  let body;
+  try { body = JSON.parse((e && e.postData && e.postData.contents) || 'null'); }
+  catch (err) { return json({ ok: false, erro: 'JSON inválido.' }); }
+  const recusa = verificarAcesso_(e, 'post', Array.isArray(body) ? 'apontamentos' : String(body && body.kind));
+  if (recusa) return recusa;
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   let resposta;
   try {
-    const body = JSON.parse((e && e.postData && e.postData.contents) || 'null');
     if (Array.isArray(body)) {
       resposta = Object.assign({ ok: true }, gravarApontamentos(body));
     } else if (!body || !body.kind) {
@@ -351,6 +401,54 @@ function dataDe_(txt) {
 function br_(ts) {
   const m = String(ts || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
   return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : '';
+}
+
+/* ======================= MENU DE SENHAS ======================= */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('Gestão de Serviços')
+    .addItem('Definir senha do escritório', 'definirSenhaEscritorio')
+    .addItem('Definir senha do operador', 'definirSenhaOperador')
+    .addSeparator()
+    .addItem('Ver situação das senhas', 'situacaoSenhas')
+    .addItem('Remover todas as senhas (deixa o app aberto)', 'removerSenhas')
+    .addToUi();
+}
+
+function definirSenhaEscritorio() { definirSenha_('SENHA_ESCRITORIO', 'do escritório (acesso a tudo)'); }
+function definirSenhaOperador() {
+  if (!propriedades_().getProperty('SENHA_ESCRITORIO')) {
+    SpreadsheetApp.getUi().alert('Defina primeiro a senha do escritório. Sem ela, o app continuaria aberto para o resto.');
+    return;
+  }
+  definirSenha_('SENHA_OPERADOR', 'do operador (só registra apontamentos)');
+}
+
+function definirSenha_(chave, descricao) {
+  const ui = SpreadsheetApp.getUi();
+  const r = ui.prompt('Senha ' + descricao, 'Mínimo de 8 caracteres. Todos os aparelhos que usam esta senha vão pedir a nova na próxima abertura.', ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  const senha = r.getResponseText().trim();
+  if (senha.length < 8) { ui.alert('A senha precisa ter pelo menos 8 caracteres. Nada foi alterado.'); return; }
+  const outra = chave === 'SENHA_ESCRITORIO' ? 'SENHA_OPERADOR' : 'SENHA_ESCRITORIO';
+  if (propriedades_().getProperty(outra) === hashSenha_(senha)) { ui.alert('Use senhas diferentes para escritório e operador. Nada foi alterado.'); return; }
+  propriedades_().setProperty(chave, hashSenha_(senha));
+  ui.alert('Senha ' + descricao + ' salva. Ela não fica visível em lugar nenhum: se esquecer, defina outra.');
+}
+
+function situacaoSenhas() {
+  const p = propriedades_();
+  SpreadsheetApp.getUi().alert(
+    'Escritório: ' + (p.getProperty('SENHA_ESCRITORIO') ? 'definida' : 'NÃO definida (app aberto)') + '\n' +
+    'Operador: ' + (p.getProperty('SENHA_OPERADOR') ? 'definida' : 'não definida (celulares usam a do escritório)'));
+}
+
+function removerSenhas() {
+  const ui = SpreadsheetApp.getUi();
+  if (ui.alert('Remover as senhas?', 'Qualquer pessoa com o endereço do Apps Script volta a ler e gravar os dados.', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  propriedades_().deleteProperty('SENHA_ESCRITORIO');
+  propriedades_().deleteProperty('SENHA_OPERADOR');
+  ui.alert('Senhas removidas.');
 }
 
 /* ======================= INSTALAÇÃO E MIGRAÇÃO ======================= */

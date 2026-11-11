@@ -2,6 +2,8 @@
 
 O front-end conversa com um único endpoint (`syncUrlPadrao`). Todas as respostas são JSON com `ok: true|false` e, em erro, `erro: "mensagem"`.
 
+Toda chamada leva a senha no parâmetro `k` da URL (GET e POST). Sem senha válida: `{ ok: false, semAcesso: true }`. Com a senha de operador fora do permitido (`versao`, `list-responsaveis` e o POST de apontamentos): `{ ok: false, semPermissao: true }`. Se nenhuma senha foi definida, tudo é aceito.
+
 Os POSTs usam `Content-Type: text/plain;charset=utf-8` para evitar o preflight CORS, que o Apps Script não suporta. O corpo é JSON.
 
 ## Leituras (GET)
