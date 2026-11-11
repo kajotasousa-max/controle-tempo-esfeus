@@ -966,10 +966,27 @@ function statusClass(st) {
   }[st] || '';
 }
 
+/** % de uma etapa: concluída = 100; em andamento/parada = o informado; pendente = 0. */
+function percentualEtapa(e) {
+  if (e.status === 'Concluída') return 100;
+  if (e.status === 'Em andamento' || e.status === 'Parada') return Math.min(99, Math.max(0, Number(e.percentual) || 0));
+  return 0;
+}
+
+function selectPercentualEtapa(e, i) {
+  const editavel = e.status === 'Em andamento' || e.status === 'Parada';
+  const atual = percentualEtapa(e);
+  if (!editavel) return '<select disabled title="Disponível com a etapa em andamento ou parada"><option>' + (e.status === 'Concluída' ? '100%' : '—') + '</option></select>';
+  let opts = '';
+  for (let p = 0; p <= 90; p += 10) opts += '<option value="' + p + '"' + (p === Math.floor(atual / 10) * 10 ? ' selected' : '') + '>' + p + '%</option>';
+  return '<select title="Quanto desta etapa já foi feito" onchange="updateEtapa(' + i + ',\'percentual\',Number(this.value))">' + opts + '</select>';
+}
+
 function resumoEtapasMelhoria(s) {
   const etapas = Array.isArray(s.etapas) ? s.etapas : [];
   const concluidas = etapas.filter(e => e.status === 'Concluída').length;
-  const percentual = etapas.length ? Math.round(concluidas / etapas.length * 100) : 0;
+  const soma = etapas.reduce((t, e) => t + percentualEtapa(e), 0);
+  const percentual = etapas.length ? Math.round(soma / etapas.length) : 0;
   return { total: etapas.length, concluidas, percentual };
 }
 
@@ -994,6 +1011,7 @@ function renderEtapasEditor() {
       '<select onchange="updateEtapa(' + i + ',\'maquina\',this.value)">' + optionsMelhoria(MELHORIAS_MAQUINAS, e.maquina) + '</select>' +
       '<select onchange="updateEtapa(' + i + ',\'operador\',this.value)">' + optionsMelhoria(MELHORIAS_OPERADORES, e.operador, '— responsável —') + '</select>' +
       '<select onchange="updateEtapa(' + i + ',\'status\',this.value)">' + optionsMelhoria(MELHORIAS_ETAPA_STATUS, e.status) + '</select>' +
+      selectPercentualEtapa(e, i) +
       '<button type="button" class="stage-remove" onclick="removeEtapa(' + i + ')" title="Remover etapa">✕</button>' +
     '</div>'
   ).join('');
@@ -1013,6 +1031,7 @@ function updateEtapa(index, campo, valor) {
   const s = servicos.find(x => x.id === currentId);
   if (!s || !s.etapas[index]) return;
   s.etapas[index][campo] = valor;
+  if (campo === 'status' && valor === 'Pendente') s.etapas[index].percentual = 0;
   saveServicos();
   renderEtapasEditor();
   renderServicos();
@@ -1119,7 +1138,7 @@ function renderServicos() {
       '<td>' + escMelhoria(s.desc || '—') + '</td>' +
       '<td>' + escMelhoria(s.qty || '—') + '</td>' +
       '<td>' + escMelhoria(fmtDate(s.prazo) || '—') + '</td>' +
-      '<td class="stage-progress">' + (resumo.total ? '<div class="stage-progress-text">' + resumo.concluidas + '/' + resumo.total + ' concluídas</div><div class="progress-track"><div class="progress-fill" style="width:' + resumo.percentual + '%"></div></div>' : '—') + '</td>' +
+      '<td class="stage-progress">' + (resumo.total ? '<div class="stage-progress-text">' + resumo.concluidas + '/' + resumo.total + ' concluídas · ' + resumo.percentual + '%</div><div class="progress-track"><div class="progress-fill" style="width:' + resumo.percentual + '%"></div></div>' : '—') + '</td>' +
       '<td><span class="status-badge ' + statusClass(smartStatus) + '">' + escMelhoria(smartStatus) + '</span></td>' +
       '<td class="actions">' +
         '<button class="btn-success btn-sm" onclick="event.stopPropagation(); selectServico(' + Number(s.id) + '); printEtiquetaCompleta()" title="Etiqueta completa (dados + QR)">🖨 Etq</button>' +

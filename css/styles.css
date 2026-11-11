@@ -379,7 +379,7 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
 .process-builder { margin-top: 12px; padding: 12px; background: #ffffff; border: 1px solid #dbe3ef; border-radius: 6px; }
 .process-builder-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .process-builder-head h4 { flex: 1; font-size: 12px; color: #006699; text-transform: uppercase; letter-spacing: .4px; }
-.stage-row { display: grid; grid-template-columns: 1.2fr 1.1fr 1.1fr 1.2fr 110px 28px; gap: 5px; align-items: center; padding: 6px 0; border-top: 1px solid #E5E5E5; }
+.stage-row { display: grid; grid-template-columns: 1.2fr 1.1fr 1.1fr 1.2fr 110px 64px 28px; gap: 5px; align-items: center; padding: 6px 0; border-top: 1px solid #E5E5E5; }
 .stage-row:first-of-type { border-top: 0; }
 .stage-row input, .stage-row select { width: 100%; min-width: 0; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: 11px; }
 .stage-row .stage-remove { padding: 5px; background: #fee2e2; color: #b91c1c; }
