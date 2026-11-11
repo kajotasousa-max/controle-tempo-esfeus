@@ -35,7 +35,7 @@ let nextId = 1;
 let currentQrTab = 'externo';
 let apontamentoDados = null;
 
-const FIELDS = ['cliente','oc','os','it','des','desc','qty','material','tratamento','emb','prazo','status','nf','dt'];
+const FIELDS = ['cliente','oc','os','it','des','desc','qty','material','tratamento','emb','prazo','status','nf','dt','externo-fornecedor','externo-envio','externo-retorno'];
 const MATERIAIS_KEY = chave('materiais_v1');
 let materiaisCadastro = [];
 let movimentosMateriais = [];
@@ -44,7 +44,12 @@ let nextMaterialId = 1;
 let nextMovimentoMaterialId = 1;
 
 /* =============== STORAGE =============== */
-function saveServicos() { localStorage.setItem(chave('servicos'), JSON.stringify({ servicos, nextId })); }
+function saveServicos() {
+  localStorage.setItem(chave('servicos'), JSON.stringify({ servicos, nextId }));
+  if (typeof agendarEnvioServicos === 'function') agendarEnvioServicos();
+}
+/** ID único entre computadores (as OS agora são compartilhadas pela planilha). */
+function novoIdServico() { return Date.now() * 1000 + Math.floor(Math.random() * 1000); }
 function saveMateriais() {
   localStorage.setItem(MATERIAIS_KEY, JSON.stringify({
     materiais: materiaisCadastro,
@@ -447,7 +452,7 @@ function switchTab(tab) {
 
 function deleteServico(id, ev) {
   if (ev) ev.stopPropagation();
-  if (!confirm('Remover este serviço?')) return;
+  if (!confirm('Remover este serviço? Ele some também da planilha e dos outros computadores.')) return;
   servicos = servicos.filter(s => s.id !== id);
   if (currentId === id) { currentId = null; closeEditPanel(); }
   saveServicos();
@@ -458,7 +463,7 @@ function selectServico(id) { currentId = id; renderServicos(); openEditPanel(); 
 
 
 function clearAllServicos() {
-  if (!confirm('Apagar TODOS os serviços cadastrados?')) return;
+  if (!confirm('Apagar TODOS os serviços cadastrados? Eles somem também da planilha e dos outros computadores.')) return;
   servicos = []; currentId = null; nextId = 1;
   saveServicos();
   closeEditPanel();
@@ -1031,17 +1036,16 @@ function handleImagem(event) {
     event.target.value = '';
     return;
   }
-  const reader = new FileReader();
-  reader.onload = function() {
-    s.imagem = reader.result;
+  /* Reduz antes de guardar: a imagem vai para o Drive pela planilha. */
+  comprimirImagem(file, 1200, 0.75).then(dataUrl => {
+    s.imagem = dataUrl;
     saveServicos();
     renderImagemMelhoria(s);
-  };
-  reader.readAsDataURL(file);
+  }).catch(() => alert('Não foi possível ler esta imagem.'));
 }
 
 function addServico() {
-  const s = { id: nextId++ };
+  const s = { id: novoIdServico() };
   FIELDS.forEach(f => s[f] = '');
   s.status = 'Aguardando';
   s.etapas = [novaEtapaMelhoria()];
@@ -1207,7 +1211,7 @@ function computeAnalise() {
       if (isNaN(t)) return;
       if (e.status === 'Iniciando') { if (!inicio) inicio = e.timestamp; rodando = t; }
       else if (e.status === 'Parado') { if (rodando) tempoMs += t - rodando; rodando = null; }
-      else if (e.status === 'Concluído Parcial' || e.status === 'Finalizado') {
+      else if (e.status === 'Etapa concluída' || e.status === 'Concluído Parcial' || e.status === 'Finalizado') {
         if (rodando) tempoMs += t - rodando;
         rodando = null;
         /* "Concluído Parcial" significa que esta operação está pronta para a próxima etapa. */
@@ -1392,7 +1396,7 @@ function updateSyncBadge(forceState, msg) {
   const txtEl = document.getElementById('sync-text');
   if (!badge || !txtEl) return;
   const url = getSyncUrl();
-  const queue = loadQueue();
+  const queue = loadQueue().concat(typeof servicosPendentes === 'function' ? servicosPendentes() : []);
   badge.classList.remove('off', 'ok', 'pending', 'error');
   if (!url) { badge.classList.add('off'); return; }
   if (forceState === 'sending') { badge.classList.add('pending'); txtEl.textContent = 'Enviando ' + queue.length + '…'; return; }
@@ -1408,7 +1412,7 @@ function iniciarSyncTimer() {
   }, 30000);
 }
 
-window.addEventListener('online', syncAgora);
+window.addEventListener('online', () => { syncAgora(); if (typeof sincronizarServicos === 'function') sincronizarServicos(); });
 
 /* =============== SYNC MATERIAIS + MOVIMENTAÇÕES (Sheets) =============== */
 let materiaisSyncing = false;
@@ -2111,6 +2115,210 @@ function atualizarCamposMovimentoMat() {
   if (forn) forn.style.opacity = (tipo === 'Compra') ? '1' : '.4';
 }
 
+/* =============== OS NA PLANILHA + TEMPO REAL =============== */
+/*
+ * As OS ficam na aba "Servicos" da planilha e todos os computadores leem de lá.
+ * O navegador guarda uma cópia para funcionar sem internet.
+ *
+ * servicosBase[id] = como a OS estava na última vez que bateu com a planilha.
+ * Se a cópia local é diferente da base, a OS tem alteração pendente de envio
+ * e a versão local vence; senão, a versão da planilha vence.
+ */
+const SERVICOS_BASE_KEY = chave('servicos_base');
+const INTERVALO_TEMPO_REAL = 20000;
+let servicosBase = {};
+let servicosPlanilhaOk = false;   // backend tem a aba Servicos
+let servicosSincronizando = false;
+let envioServicosTimer = null;
+let tempoRealTimer = null;
+
+try { servicosBase = JSON.parse(localStorage.getItem(SERVICOS_BASE_KEY) || '{}') || {}; } catch (e) { servicosBase = {}; }
+function salvarServicosBase() { localStorage.setItem(SERVICOS_BASE_KEY, JSON.stringify(servicosBase)); }
+
+/** JSON com chaves em ordem fixa, para comparar versões. */
+function jsonEstavel(v) {
+  if (Array.isArray(v)) return '[' + v.map(jsonEstavel).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + jsonEstavel(v[k])).join(',') + '}';
+  return JSON.stringify(v === undefined ? null : v);
+}
+function retratoServico(s) {
+  const c = Object.assign({}, s);
+  delete c.atualizadoEm; delete c.excluido;
+  return jsonEstavel(c);
+}
+
+/** Lista de pendências: [{ acao, servico }] */
+function servicosPendentes() {
+  if (!servicosPlanilhaOk) return [];
+  const itens = [];
+  servicos.forEach(s => {
+    if (servicosBase[String(s.id)] !== retratoServico(s)) itens.push({ acao: 'salvar', servico: s });
+  });
+  const ids = new Set(servicos.map(s => String(s.id)));
+  Object.keys(servicosBase).forEach(id => {
+    if (!ids.has(id)) itens.push({ acao: 'excluir', servico: { id: Number(id) || id } });
+  });
+  return itens;
+}
+
+function agendarEnvioServicos() {
+  if (!servicosPlanilhaOk) return;
+  clearTimeout(envioServicosTimer);
+  envioServicosTimer = setTimeout(enviarServicos, 1500);
+  updateSyncBadge();
+}
+
+async function enviarServicos() {
+  const url = getSyncUrl();
+  if (!url || !servicosPlanilhaOk || servicosSincronizando) return;
+  const itens = servicosPendentes();
+  if (!itens.length) { updateSyncBadge(); return; }
+  servicosSincronizando = true;
+  const enviados = {}, imagensEnviadas = {};
+  itens.forEach(i => { enviados[String(i.servico.id)] = retratoServico(i.servico); imagensEnviadas[String(i.servico.id)] = i.servico.imagem; });
+  let sucesso = false;
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ kind: 'servicos', itens }),
+      redirect: 'follow'
+    });
+    const data = JSON.parse(await resp.text());
+    if (!data.ok) throw new Error(data.erro || 'erro');
+    let mudou = false;
+    (data.servicos || []).forEach(r => {
+      const id = String(r.id);
+      if (r.excluido) { delete servicosBase[id]; return; }
+      const confirmado = normalizarServicoMelhoria(Object.assign({}, r, { atualizadoEm: undefined, excluido: undefined }));
+      delete confirmado.atualizadoEm; delete confirmado.excluido;
+      const local = servicos.find(s => String(s.id) === id);
+      if (local && retratoServico(local) === enviados[id]) {
+        // Nada mudou durante o envio: adota a versão da planilha (ex.: imagem virou link do Drive)
+        if (local.imagem !== confirmado.imagem) { local.imagem = confirmado.imagem; mudou = true; }
+        servicosBase[id] = retratoServico(local);
+      } else if (local && local.imagem === imagensEnviadas[id] && local.imagem !== confirmado.imagem) {
+        local.imagem = confirmado.imagem; // mudou outro campo durante o envio, mas a imagem já subiu
+        mudou = true;
+      }
+    });
+    salvarServicosBase();
+    localStorage.setItem(chave('servicos'), JSON.stringify({ servicos, nextId }));
+    if (mudou && currentId !== null) renderImagemMelhoria(servicos.find(x => x.id === currentId));
+    sucesso = true;
+    updateSyncBadge();
+  } catch (err) {
+    updateSyncBadge('error', err.message || 'sem conexão');
+  } finally {
+    servicosSincronizando = false;
+  }
+  // Algo mudou enquanto enviava? manda de novo (em caso de erro, o ciclo de 20 s tenta outra vez).
+  if (sucesso && servicosPendentes().length) agendarEnvioServicos();
+}
+
+/** Busca as OS da planilha e junta com as do navegador. Retorna true se algo mudou na tela. */
+async function receberServicos() {
+  const url = getSyncUrl();
+  if (!url || servicosSincronizando) return false;
+  let data;
+  try {
+    const resp = await fetch(url + '?action=list-servicos', { method: 'GET', redirect: 'follow' });
+    data = JSON.parse(await resp.text());
+  } catch (err) { return false; }
+  if (!data.ok || !Array.isArray(data.servicos)) { servicosPlanilhaOk = false; return false; }
+  servicosPlanilhaOk = true;
+  if (servicosSincronizando) return false; // um envio começou enquanto buscava: deixa para a próxima
+
+  const antes = jsonEstavel(servicos);
+  const pendentes = new Set(servicosPendentes().map(i => String(i.servico.id)));
+  const vistos = new Set();
+  data.servicos.forEach(r => {
+    const id = String(r.id);
+    vistos.add(id);
+    let local = servicos.find(s => String(s.id) === id);
+    const remoto = normalizarServicoMelhoria(r);
+    delete remoto.atualizadoEm; delete remoto.excluido;
+    // OS criada neste navegador antes da planilha existir, com o mesmo número de outra: ganha um ID novo
+    if (local && !(id in servicosBase)) {
+      if (retratoServico(local) === retratoServico(remoto)) { servicosBase[id] = retratoServico(remoto); return; }
+      if (!r.excluido) { local.id = novoIdServico(); if (currentId === Number(id)) currentId = local.id; local = null; }
+    }
+    if (pendentes.has(id) && (local || id in servicosBase)) return; // alteração local ainda não enviada vence
+    if (r.excluido) {
+      if (local) servicos = servicos.filter(s => s !== local);
+      delete servicosBase[id];
+      return;
+    }
+    if (local) servicos[servicos.indexOf(local)] = remoto; else servicos.push(remoto);
+    servicosBase[id] = retratoServico(remoto);
+  });
+  // OS apagada direto na planilha (linha removida): some daqui também
+  Object.keys(servicosBase).forEach(id => {
+    if (vistos.has(id) || pendentes.has(id)) return;
+    servicos = servicos.filter(s => String(s.id) !== id);
+    delete servicosBase[id];
+  });
+  salvarServicosBase();
+  nextId = Math.max(nextId, 1);
+  localStorage.setItem(chave('servicos'), JSON.stringify({ servicos, nextId }));
+  return jsonEstavel(servicos) !== antes;
+}
+
+/** Recebe e depois envia o que estiver pendente. */
+async function sincronizarServicos() {
+  const mudou = await receberServicos();
+  if (mudou) atualizarTelaServicos();
+  if (servicosPlanilhaOk) await enviarServicos();
+  updateSyncBadge();
+}
+
+function editandoPainelServico() {
+  const painel = document.getElementById('edit-panel');
+  return painel && painel.style.display !== 'none' && painel.contains(document.activeElement);
+}
+
+function atualizarTelaServicos() {
+  renderServicos();
+  if (currentId === null) return;
+  if (!servicos.some(s => s.id === currentId)) { currentId = null; closeEditPanel(); return; }
+  if (!editandoPainelServico()) openEditPanel();
+}
+
+function abaAtiva() {
+  const t = document.querySelector('.tab.active');
+  return t ? t.dataset.tab : '';
+}
+
+/** A cada 20 s (com a página visível): OS da planilha + a aba aberta. */
+async function atualizarTempoReal() {
+  if (document.hidden || !getSyncUrl()) return;
+  await sincronizarServicos();
+  const tab = abaAtiva();
+  if (tab === 'apontamentos' || tab === 'analise') {
+    await fetchApontamentosRemoto();
+    if (abaAtiva() === 'apontamentos') renderApontamentos(); else if (abaAtiva() === 'analise') renderAnalise();
+  } else if (tab === 'qualidade') {
+    const painel = document.getElementById('quali-panel');
+    if (!painel || painel.style.display === 'none' || !painel.offsetParent) {
+      await fetchChecklistsRemoto();
+      renderQualidade();
+    }
+  } else if (tab === 'materiais' && !materiaisSyncing) {
+    materiaisSyncing = true;
+    try { await fetchMateriaisFromSheets(); } finally { materiaisSyncing = false; }
+    atualizarSelectMateriais();
+    renderMateriais();
+  }
+}
+
+function iniciarTempoReal() {
+  if (!getSyncUrl()) return;
+  sincronizarServicos();
+  if (tempoRealTimer) clearInterval(tempoRealTimer);
+  tempoRealTimer = setInterval(atualizarTempoReal, INTERVALO_TEMPO_REAL);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizarTempoReal(); });
+}
+
 /* =============== INIT =============== */
 (function init() {
   aplicarMarca();
@@ -2151,4 +2359,5 @@ function atualizarCamposMovimentoMat() {
   loadMateriais();
   loadServicos();
   renderServicos();
+  iniciarTempoReal();
 })();

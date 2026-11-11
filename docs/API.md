@@ -9,6 +9,8 @@ Os POSTs usam `Content-Type: text/plain;charset=utf-8` para evitar o preflight C
 | `?action=` | Resposta |
 |---|---|
 | `list` | `{ ok, apontamentos: Apontamento[] }` |
+| `list-servicos` | `{ ok, servicos: Servico[], agora }` — inclui as excluídas com `excluido: true` |
+| `versao` | `{ ok, versao, servicos: true }` |
 | `list-materiais` | `{ ok, materiais: Material[] }` |
 | `list-movimentacoes` | `{ ok, movimentacoes: Movimentacao[] }` |
 | `list-checklists` | `{ ok, checklists: Checklist[] }` |
@@ -19,6 +21,7 @@ Os POSTs usam `Content-Type: text/plain;charset=utf-8` para evitar o preflight C
 
 | Corpo | Efeito |
 |---|---|
+| `{ kind: "servicos", itens: [{ acao: "salvar"\|"excluir", servico }] }` | Cria/atualiza pelo `id` ou marca como excluída. Imagem em data URL vai para o Drive. Responde `{ ok, servicos: Servico[] }` como ficaram na planilha |
 | `Apontamento[]` (array) | Acrescenta os apontamentos da fila. Duplicados (`timestamp+os+operador+status`) são ignorados. |
 | `{ kind: "material", ... }` | Cria ou atualiza pelo `codigo` |
 | `{ kind: "movimentacao", ... }` | Acrescenta |
@@ -31,6 +34,10 @@ Os POSTs usam `Content-Type: text/plain;charset=utf-8` para evitar o preflight C
 Datas e horas são texto no formato `yyyy-MM-dd HH:mm:ss`.
 
 ```ts
+Servico      { id: number, os, it, cliente, oc, des, desc, qty, material, tratamento, emb, prazo /* yyyy-MM-dd */,
+               status, nf, dt, etapas: Etapa[], imagem /* URL */, atualizadoEm, excluido: boolean, ...outros campos }
+               // campos fora da lista acima são guardados na coluna "extras" (JSON)
+Etapa        { id, nome, operacao, maquina, operador, status }
 Apontamento  { timestamp, os, etapa, cliente, oc, descricao, operacao, maquina, operador,
                status: 'Iniciando'|'Parado'|'Etapa concluída'|'Concluído Parcial'|'Finalizado', qtd }
 Material     { codigo, descricao, especificacao, unidade, estoqueMinimo: number, localizacao, ativo: boolean }

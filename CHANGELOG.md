@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0] — 2026-11-11
+
+### Novo
+- **OS centralizadas na planilha** (aba `Servicos`): qualquer computador vê e edita as mesmas OS. As OS que já estavam no navegador sobem para a planilha na primeira abertura.
+- **Atualização automática a cada 20 s** com a página aberta: OS, apontamentos, análise, qualidade e materiais. Também atualiza ao voltar para a aba do navegador.
+- Funciona offline: alterações de OS ficam pendentes (contadas no badge) e sobem quando a conexão volta.
+- Imagem da peça é reduzida e salva no Drive; a planilha guarda o link.
+- Abas **Saldos** e **Análise por OS** refeitas pelo backend a cada gravação.
+- `configurar` converte as abas do backend antigo (cabeçalhos em português) para o formato atual, guardando as originais como `antigo - …`.
+
+### Correções
+- **Análise por OS** não reconhecia "Etapa concluída" (o botão usado no celular) como conclusão.
+- Campos de serviço externo (fornecedor, envio, retorno) não eram salvos.
+- IDs de OS únicos entre computadores.
+
 ## [1.0.0] — 2026-11-11
 
 Primeira versão como produto, a partir do arquivo único em produção na ESFEUS.

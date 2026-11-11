@@ -5,11 +5,14 @@
  * Implementa o contrato descrito em docs/API.md, que é o que o front-end espera.
  * Instalação: veja docs/INSTALACAO.md.
  *
- * Abas criadas automaticamente na planilha vinculada:
- *   Apontamentos · Materiais · Movimentacoes · Checklists · Responsaveis · Fornecedores
+ * Abas de dados (criadas automaticamente na planilha vinculada):
+ *   Servicos · Apontamentos · Materiais · Movimentacoes · Checklists · Responsaveis · Fornecedores
+ * Abas de consulta (reescritas a cada gravação, não edite):
+ *   Saldos · Análise por OS
  */
 
 const ABAS = {
+  servicos:     { nome: 'Servicos',      colunas: ['id', 'os', 'it', 'cliente', 'oc', 'des', 'desc', 'qty', 'material', 'tratamento', 'emb', 'prazo', 'status', 'nf', 'dt', 'etapas', 'imagem', 'extras', 'atualizadoEm', 'excluido'] },
   apontamentos: { nome: 'Apontamentos',  colunas: ['timestamp', 'os', 'etapa', 'cliente', 'oc', 'descricao', 'operacao', 'maquina', 'operador', 'status', 'qtd'] },
   materiais:    { nome: 'Materiais',     colunas: ['codigo', 'descricao', 'especificacao', 'unidade', 'estoqueMinimo', 'localizacao', 'ativo', 'atualizadoEm'] },
   movimentacoes:{ nome: 'Movimentacoes', colunas: ['timestamp', 'codigo', 'tipo', 'quantidade', 'os', 'loteDimensao', 'observacao', 'operador'] },
@@ -18,9 +21,13 @@ const ABAS = {
   fornecedores: { nome: 'Fornecedores',  colunas: ['nome', 'tipo', 'cnpj', 'contato', 'observacao', 'ativo', 'atualizadoEm'] }
 };
 
-/** Pasta do Drive onde as fotos dos checklists são gravadas. */
+/** Campos da OS que viram colunas próprias na aba Servicos. O resto vai na coluna "extras". */
+const CAMPOS_SERVICO = ['os', 'it', 'cliente', 'oc', 'des', 'desc', 'qty', 'material', 'tratamento', 'emb', 'prazo', 'status', 'nf', 'dt'];
+
+/** Pasta do Drive onde as fotos dos checklists e das peças são gravadas. */
 const PASTA_FOTOS = 'Gestão de Serviços - Fotos de Qualidade';
 const FUSO = Session.getScriptTimeZone() || 'America/Sao_Paulo';
+const TIPOS_SAIDA = ['Consumo na OS', 'Perda / descarte', 'Ajuste de saída'];
 
 /* ======================= ENTRADAS HTTP ======================= */
 
@@ -29,11 +36,13 @@ function doGet(e) {
   try {
     switch (action) {
       case 'list':               return json({ ok: true, apontamentos: lerTudo('apontamentos') });
-      case 'list-materiais':     return json({ ok: true, materiais: lerTudo('materiais').map(m => Object.assign(m, { ativo: bool(m.ativo), estoqueMinimo: Number(m.estoqueMinimo) || 0 })) });
+      case 'list-servicos':      return json({ ok: true, servicos: listarServicos(), agora: agora() });
+      case 'list-materiais':     return json({ ok: true, materiais: listarMateriais() });
       case 'list-movimentacoes': return json({ ok: true, movimentacoes: lerTudo('movimentacoes') });
-      case 'list-checklists':    return json({ ok: true, checklists: lerTudo('checklists').map(c => Object.assign(c, { fotos: parse(c.fotos, []), marcacoes: parse(c.marcacoes, {}) })) });
-      case 'list-responsaveis':  return json({ ok: true, responsaveis: lerTudo('responsaveis').map(r => Object.assign(r, { ativo: bool(r.ativo) })) });
-      case 'list-fornecedores':  return json({ ok: true, fornecedores: lerTudo('fornecedores').map(f => Object.assign(f, { ativo: bool(f.ativo) })) });
+      case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
+      case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
+      case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
+      case 'versao':             return json({ ok: true, versao: '1.1.0', servicos: true });
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
   } catch (err) {
@@ -44,24 +53,115 @@ function doGet(e) {
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  let resposta;
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || 'null');
-    if (Array.isArray(body)) return json(Object.assign({ ok: true }, gravarApontamentos(body)));
-    if (!body || !body.kind) return json({ ok: false, erro: 'Payload sem "kind".' });
-    switch (body.kind) {
-      case 'material':     upsert('materiais', 'codigo', body, { atualizadoEm: agora() }); break;
-      case 'movimentacao': anexar('movimentacoes', body); break;
-      case 'checklist':    gravarChecklist(body); break;
-      case 'responsavel':  upsert('responsaveis', 'nome', body, { atualizadoEm: agora() }); break;
-      case 'fornecedor':   upsert('fornecedores', 'nome', body, { atualizadoEm: agora() }); break;
-      default:             return json({ ok: false, erro: 'kind desconhecido: ' + body.kind });
+    if (Array.isArray(body)) {
+      resposta = Object.assign({ ok: true }, gravarApontamentos(body));
+    } else if (!body || !body.kind) {
+      return json({ ok: false, erro: 'Payload sem "kind".' });
+    } else {
+      resposta = { ok: true };
+      switch (body.kind) {
+        case 'servicos':     resposta.servicos = gravarServicos(body.itens || []); break;
+        case 'material':     upsert('materiais', 'codigo', body, { atualizadoEm: agora() }); break;
+        case 'movimentacao': anexar('movimentacoes', body); break;
+        case 'checklist':    gravarChecklist(body); break;
+        case 'responsavel':  upsert('responsaveis', 'nome', body, { atualizadoEm: agora() }); break;
+        case 'fornecedor':   upsert('fornecedores', 'nome', body, { atualizadoEm: agora() }); break;
+        default:             return json({ ok: false, erro: 'kind desconhecido: ' + body.kind });
+      }
     }
-    return json({ ok: true });
+    SpreadsheetApp.flush();
+    atualizarPaineis_();
+    return json(resposta);
   } catch (err) {
     return json({ ok: false, erro: String(err && err.message || err) });
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ======================= SERVIÇOS (OS) ======================= */
+
+function listarServicos() {
+  return lerTudo('servicos').map(montarServico_);
+}
+
+/** Linha da planilha → objeto OS do front. Excluídas voltam com excluido: true para os outros aparelhos apagarem. */
+function montarServico_(l) {
+  const s = Object.assign({}, parse(l.extras, {}));
+  CAMPOS_SERVICO.forEach(c => { s[c] = l[c] === undefined || l[c] === null ? '' : String(l[c]); });
+  s.id = Number(l.id) || l.id;
+  s.etapas = parse(l.etapas, []);
+  s.imagem = l.imagem || '';
+  s.atualizadoEm = l.atualizadoEm || '';
+  s.excluido = String(l.excluido).toUpperCase() === 'TRUE';
+  return s;
+}
+
+/**
+ * Recebe [{ acao: 'salvar'|'excluir', servico }] e devolve as OS como ficaram na planilha.
+ * Imagem em data URL vai para o Drive e volta como link.
+ */
+function gravarServicos(itens) {
+  const sh = aba_('servicos');
+  const cols = ABAS.servicos.colunas;
+  const n = sh.getLastRow() - 1;
+  const ids = n > 0 ? sh.getRange(2, 1, n, 1).getDisplayValues().map(l => String(l[0]).trim()) : [];
+  const resultado = [];
+  itens.forEach(item => {
+    const s = item && item.servico;
+    if (!s || s.id === undefined || s.id === null || s.id === '') return;
+    const id = String(s.id).trim();
+    const pos = ids.indexOf(id);
+    const linhaAtual = pos >= 0 ? linhaComoObjeto_(sh, pos + 2, cols) : null;
+    let dados;
+    if (item.acao === 'excluir') {
+      dados = linhaAtual ? Object.assign({}, linhaAtual) : { id: id };
+      dados.excluido = 'TRUE';
+    } else {
+      dados = { id: id, excluido: 'FALSE' };
+      CAMPOS_SERVICO.forEach(c => { dados[c] = s[c]; });
+      dados.etapas = JSON.stringify(Array.isArray(s.etapas) ? s.etapas : []);
+      let imagem = s.imagem || '';
+      if (String(imagem).indexOf('data:') === 0) imagem = salvarFoto(imagem, (s.os || 'sem OS') + ' peça', agora(), 0);
+      dados.imagem = imagem;
+      const extras = {};
+      Object.keys(s).forEach(k => {
+        if (CAMPOS_SERVICO.indexOf(k) >= 0 || ['id', 'etapas', 'imagem', 'atualizadoEm', 'excluido'].indexOf(k) >= 0) return;
+        extras[k] = s[k];
+      });
+      dados.extras = Object.keys(extras).length ? JSON.stringify(extras) : '';
+    }
+    dados.atualizadoEm = agora();
+    const linha = cols.map(c => texto(dados[c]));
+    if (pos >= 0) {
+      sh.getRange(pos + 2, 1, 1, cols.length).setValues([linha]);
+    } else {
+      sh.getRange(sh.getLastRow() + 1, 1, 1, cols.length).setValues([linha]);
+      ids.push(id);
+    }
+    resultado.push(montarServico_(dados));
+  });
+  return resultado;
+}
+
+function linhaComoObjeto_(sh, linha, cols) {
+  const v = sh.getRange(linha, 1, 1, cols.length).getDisplayValues()[0];
+  return cols.reduce((o, c, i) => (o[c] = v[i], o), {});
+}
+
+/* ======================= LEITURAS ======================= */
+
+function listarMateriais() {
+  return lerTudo('materiais').map(m => Object.assign(m, { ativo: bool(m.ativo), estoqueMinimo: numero(m.estoqueMinimo) }));
+}
+function listarChecklists() {
+  return lerTudo('checklists').map(c => Object.assign(c, { fotos: parse(c.fotos, []), marcacoes: parse(c.marcacoes, {}) }));
+}
+function listarAtivos(tipo) {
+  return lerTudo(tipo).map(r => Object.assign(r, { ativo: bool(r.ativo) }));
 }
 
 /* ======================= REGRAS ======================= */
@@ -70,7 +170,10 @@ function doPost(e) {
 function gravarApontamentos(lista) {
   const chave = a => [a.timestamp, a.os, a.operador, a.status].join('||');
   const existentes = new Set(lerTudo('apontamentos').map(chave));
-  const novos = lista.filter(a => a && !existentes.has(chave(a)));
+  const novos = [];
+  lista.forEach(a => {
+    if (a && !existentes.has(chave(a))) { novos.push(a); existentes.add(chave(a)); }
+  });
   if (novos.length) {
     const aba = aba_('apontamentos');
     const cols = ABAS.apontamentos.colunas;
@@ -84,7 +187,7 @@ function gravarApontamentos(lista) {
 function gravarChecklist(c) {
   const fotos = (c.fotos || []).map((f, i) => String(f).indexOf('data:') === 0 ? salvarFoto(f, c.os, c.timestamp, i) : f);
   anexar('checklists', Object.assign({}, c, {
-    fotos: JSON.stringify(fotos),
+    fotos: JSON.stringify(fotos.filter(Boolean)),
     marcacoes: JSON.stringify(c.marcacoes || {})
   }));
 }
@@ -97,6 +200,79 @@ function salvarFoto(dataUrl, os, timestamp, i) {
   const arquivo = pastaFotos_().createFile(blob);
   arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return 'https://drive.google.com/thumbnail?id=' + arquivo.getId() + '&sz=w1000';
+}
+
+/* ======================= ABAS DE CONSULTA ======================= */
+
+/** Reescreve "Saldos" e "Análise por OS". Falha aqui nunca derruba a gravação. */
+function atualizarPaineis_() {
+  try { atualizarSaldos_(); } catch (err) { console.warn('Saldos: ' + err); }
+  try { atualizarAnalise_(); } catch (err) { console.warn('Análise: ' + err); }
+}
+
+function atualizarSaldos_() {
+  const saldo = {};
+  lerTudo('movimentacoes').forEach(m => {
+    const k = String(m.codigo || '').trim().toUpperCase();
+    saldo[k] = (saldo[k] || 0) + numero(m.quantidade) * (TIPOS_SAIDA.indexOf(m.tipo) >= 0 ? -1 : 1);
+  });
+  const linhas = listarMateriais().map(m => {
+    const s = saldo[String(m.codigo || '').trim().toUpperCase()] || 0;
+    const alerta = s <= 0 ? 'Zerado' : (s < m.estoqueMinimo ? 'Abaixo do mínimo' : '');
+    return [m.codigo, m.descricao, m.unidade, s, m.estoqueMinimo, alerta, m.localizacao, m.ativo ? 'Sim' : 'Não'];
+  });
+  escreverPainel_('Saldos', ['Código', 'Descrição', 'Unidade', 'Saldo', 'Estoque mínimo', 'Alerta', 'Localização', 'Ativo'], linhas);
+}
+
+/** Mesma regra da aba "Análise por OS" do app. */
+function atualizarAnalise_() {
+  const prazos = {};
+  listarServicos().forEach(s => { if (!s.excluido) prazos[(s.os || '') + (s.it ? '/' + s.it : '')] = s.prazo || ''; });
+  const grupos = {};
+  lerTudo('apontamentos').forEach(a => {
+    const k = [a.os, a.etapa, a.operacao, a.operador].join('||');
+    if (!grupos[k]) grupos[k] = { os: a.os, etapa: a.etapa, operacao: a.operacao, maquina: a.maquina, operador: a.operador, qtd: '', ultimo: '', eventos: [] };
+    grupos[k].eventos.push(a);
+  });
+  const agoraMs = Date.now();
+  const linhas = Object.keys(grupos).map(k => {
+    const g = grupos[k];
+    g.eventos.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+    let inicio = '', conclusao = '', tempo = 0, rodando = null;
+    g.eventos.forEach(e => {
+      const t = dataDe_(e.timestamp);
+      if (!t) return;
+      if (e.qtd) g.qtd = e.qtd;
+      g.ultimo = e.timestamp;
+      if (e.status === 'Iniciando') { if (!inicio) inicio = e.timestamp; rodando = t; }
+      else if (e.status === 'Parado') { if (rodando) tempo += t - rodando; rodando = null; }
+      else if (['Etapa concluída', 'Concluído Parcial', 'Finalizado'].indexOf(e.status) >= 0) {
+        if (rodando) tempo += t - rodando;
+        rodando = null;
+        conclusao = e.timestamp;
+      }
+    });
+    if (rodando) tempo += agoraMs - rodando;
+    const prazo = prazos[g.os] || '';
+    const fimPrazo = prazo ? dataDe_(prazo + ' 23:59:59') : null;
+    let situacao = 'Não iniciada';
+    if (conclusao) situacao = fimPrazo && dataDe_(conclusao) > fimPrazo ? 'Entregue com atraso' : 'Concluída no prazo';
+    else if (inicio) situacao = fimPrazo && agoraMs > fimPrazo ? 'Atrasada' : 'Em andamento';
+    return [g.os, g.etapa, g.operacao, g.maquina, g.operador, br_(inicio), br_(conclusao), Math.round(tempo / 60000), g.qtd, prazo ? prazo.split('-').reverse().join('/') : '', situacao, br_(g.ultimo), inicio];
+  });
+  linhas.sort((a, b) => String(b[12]).localeCompare(String(a[12])));
+  escreverPainel_('Análise por OS',
+    ['OS', 'Etapa', 'Operação', 'Máquina', 'Operador', 'Início', 'Conclusão', 'Tempo (min)', 'Qtd', 'Prazo', 'Situação', 'Última atividade'],
+    linhas.map(l => l.slice(0, 12)));
+}
+
+function escreverPainel_(nome, cabecalho, linhas) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(nome) || ss.insertSheet(nome);
+  sh.clearContents();
+  sh.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  if (linhas.length) sh.getRange(2, 1, linhas.length, cabecalho.length).setValues(linhas);
 }
 
 /* ======================= PLANILHA ======================= */
@@ -119,9 +295,9 @@ function lerTudo(tipo) {
   const n = sh.getLastRow() - 1;
   if (n < 1) return [];
   const cols = ABAS[tipo].colunas;
-  return sh.getRange(2, 1, n, cols.length).getValues()
+  return sh.getRange(2, 1, n, cols.length).getDisplayValues()
     .filter(l => l.some(v => v !== ''))
-    .map(l => cols.reduce((o, c, i) => (o[c] = l[i] instanceof Date ? Utilities.formatDate(l[i], FUSO, 'yyyy-MM-dd HH:mm:ss') : l[i], o), {}));
+    .map(l => cols.reduce((o, c, i) => (o[c] = l[i], o), {}));
 }
 
 function anexar(tipo, obj) {
@@ -140,7 +316,7 @@ function upsert(tipo, colChave, obj, extras) {
   if (!alvo) throw new Error('Campo "' + colChave + '" é obrigatório.');
   const n = sh.getLastRow() - 1;
   if (n > 0) {
-    const chaves = sh.getRange(2, idx + 1, n, 1).getValues();
+    const chaves = sh.getRange(2, idx + 1, n, 1).getDisplayValues();
     for (let i = 0; i < chaves.length; i++) {
       if (String(chaves[i][0]).trim().toUpperCase() === alvo) {
         sh.getRange(i + 2, 1, 1, cols.length).setValues([linha]);
@@ -163,11 +339,125 @@ function json(obj) {
 }
 function texto(v) { return v === undefined || v === null ? '' : (typeof v === 'boolean' ? (v ? 'TRUE' : 'FALSE') : String(v)); }
 function bool(v) { return !(v === false || String(v).toUpperCase() === 'FALSE'); }
+function numero(v) { const n = Number(String(v === undefined || v === null ? '' : v).replace(',', '.')); return isFinite(n) ? n : 0; }
 function parse(v, padrao) { try { return v ? JSON.parse(v) : padrao; } catch (e) { return padrao; } }
 function agora() { return Utilities.formatDate(new Date(), FUSO, 'yyyy-MM-dd HH:mm:ss'); }
+/** 'yyyy-MM-dd HH:mm:ss' (horário de Brasília) → milissegundos. */
+function dataDe_(txt) {
+  const m = String(txt || '').match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!m) return null;
+  return Utilities.parseDate(m[1] + '-' + m[2] + '-' + m[3] + ' ' + (m[4] || '00') + ':' + (m[5] || '00') + ':' + (m[6] || '00'), FUSO, 'yyyy-MM-dd HH:mm:ss').getTime();
+}
+function br_(ts) {
+  const m = String(ts || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : '';
+}
 
-/** Rode uma vez pelo editor para criar todas as abas e autorizar o acesso ao Drive. */
+/* ======================= INSTALAÇÃO E MIGRAÇÃO ======================= */
+
+/**
+ * Rode pelo editor (selecione "configurar" › Executar) ao instalar e depois de colar uma versão nova.
+ * Cria as abas, autoriza o Drive, converte abas no formato antigo e refaz as abas de consulta.
+ * Pode rodar quantas vezes quiser: o que já foi convertido não é convertido de novo.
+ */
 function configurar() {
+  const log = migrarPlanilhaAntiga();
   Object.keys(ABAS).forEach(aba_);
   pastaFotos_();
+  atualizarPaineis_();
+  console.log(log.length ? log.join('\n') : 'Nada para converter. Abas prontas.');
+}
+
+/** Normaliza cabeçalho: "Qtd Peças" → "qtdpecas", "Conf: Nº OS" → "confnos". */
+function norm_(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** "22/09/2026" + "16:03:59" → "2026-09-22 16:03:59". Aceita também o formato novo. */
+function isoDe_(data, hora) {
+  data = String(data || '').trim(); hora = String(hora || '').trim();
+  let m = data.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}:\d{2}(?::\d{2})?))?/);
+  let d;
+  if (m) { d = m[1] + '-' + m[2] + '-' + m[3]; hora = hora || m[4] || ''; }
+  else {
+    m = data.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}:\d{2}(?::\d{2})?))?/);
+    if (!m) return '';
+    d = m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+    hora = hora || m[4] || '';
+  }
+  const h = hora.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  return d + ' ' + (h ? ('0' + h[1]).slice(-2) + ':' + h[2] + ':' + (h[3] || '00') : '00:00:00');
+}
+
+const CHECKLIST_ANTIGO = {
+  conf_os: 'confnos', conf_cliente: 'confcliente', conf_codigo: 'confcodigo', conf_qtd: 'confqtd', conf_revisao: 'confrevisao',
+  dim_medidas: 'dimmedidas', dim_tolerancias: 'dimtolerancias', dim_roscas: 'dimroscasfuros',
+  vis_rebarbas: 'visrebarbas', vis_trincas: 'vistrincas', vis_acabamento: 'visacabamento', vis_soldas: 'vissoldas', vis_pintura: 'vispinturatratamento',
+  limp_cavacos: 'limpcavacos', limp_oleo: 'limpoleo', limp_pecalimpa: 'limppecalimpa', limp_anticorrosivo: 'limpanticorrosivo',
+  doc_relatorio: 'docrelatoriodim', doc_cert_material: 'doccertmaterial', doc_cert_tratamento: 'doccerttratamento', doc_nf: 'docnfconferida',
+  emb_protegida: 'embprotegida', emb_identificacao: 'embidentificacao', emb_caixa: 'embcaixapallet',
+  lib_conferencia: 'libconferenciafinal', lib_aprovado: 'libaprovadaenvio', lib_foto: 'libfotoconferida'
+};
+
+/** Abas do primeiro backend da ESFEUS (cabeçalhos em português) → formato atual. */
+const MIGRACOES = [
+  { antiga: 'Apontamentos', tipo: 'apontamentos', conv: r => ({
+      timestamp: isoDe_(r.data || r.carimbo, r.hora), os: r.os, etapa: r.etapa, cliente: r.cliente, oc: r.oc, descricao: r.descricao,
+      operacao: r.operacao, maquina: r.maquina, operador: r.operador, status: r.status, qtd: r.qtdpecas || r.qtd }) },
+  { antiga: 'Materiais', tipo: 'materiais', conv: r => ({
+      codigo: r.codigo, descricao: r.descricao, especificacao: r.especificacao, unidade: r.unidade, estoqueMinimo: r.estoqueminimo,
+      localizacao: r.localizacao, ativo: r.ativo, atualizadoEm: isoDe_(r.atualizadoem) }) },
+  { antiga: 'Movimentações', tipo: 'movimentacoes', conv: r => ({
+      timestamp: isoDe_(r.data || r.carimbo, r.hora), codigo: r.codigo, tipo: r.tipo, quantidade: r.quantidade, os: r.os,
+      loteDimensao: r.lotedimensao, observacao: r.observacao, operador: r.operador }) },
+  { antiga: 'Checklist Qualidade', tipo: 'checklists', conv: r => {
+      const ts = isoDe_(r.data || r.carimbo, r.hora);
+      const marcacoes = {};
+      Object.keys(CHECKLIST_ANTIGO).forEach(k => { if (r[CHECKLIST_ANTIGO[k]]) marcacoes[k] = r[CHECKLIST_ANTIGO[k]]; });
+      const fotos = [];
+      for (let i = 1; i <= 6; i++) {
+        const f = r['foto' + i];
+        if (!f) continue;
+        try { fotos.push(f.indexOf('data:') === 0 ? salvarFoto(f, r.os, ts, i - 1) : f); } catch (e) { console.warn('Foto ' + i + ' da OS ' + r.os + ' não pôde ser salva: ' + e); }
+      }
+      return { timestamp: ts, os: r.os, cliente: r.cliente, codigoPeca: r.codigopeca, qtd: r.qtd, revisaoDesenho: r.revisaodesenho,
+        inspetor: r.inspetor, situacao: r.situacao, observacao: r.observacao, motivoNf: r.motivonf,
+        fotos: JSON.stringify(fotos.filter(Boolean)), marcacoes: JSON.stringify(marcacoes) };
+    } },
+  { antiga: 'Responsáveis', tipo: 'responsaveis', conv: r => ({ nome: r.nome, funcao: r.funcao, ativo: r.ativo, atualizadoEm: isoDe_(r.atualizadoem) }) },
+  { antiga: 'Fornecedores', tipo: 'fornecedores', conv: r => ({
+      nome: r.nome, tipo: r.tipo, cnpj: r.cnpj, contato: r.contato, observacao: r.observacao, ativo: r.ativo, atualizadoEm: isoDe_(r.atualizadoem) }) }
+];
+
+/**
+ * Renomeia cada aba antiga para "antigo - <nome>" (nada é apagado) e copia os dados
+ * para a aba nova no formato atual. Abas já no formato novo são ignoradas.
+ */
+function migrarPlanilhaAntiga() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const log = [];
+  MIGRACOES.forEach(mg => {
+    const velha = ss.getSheetByName(mg.antiga);
+    if (!velha || velha.getLastRow() < 1) return;
+    const cab = velha.getRange(1, 1, 1, velha.getLastColumn()).getDisplayValues()[0];
+    const novoCab = ABAS[mg.tipo].colunas;
+    // Já está no formato novo (mesmo nome de aba e mesmas colunas)
+    if (mg.antiga === ABAS[mg.tipo].nome && novoCab.every((c, i) => norm_(cab[i]) === norm_(c))) return;
+    const chaves = cab.map(norm_);
+    const n = velha.getLastRow() - 1;
+    const linhas = n > 0 ? velha.getRange(2, 1, n, cab.length).getDisplayValues() : [];
+    const objs = linhas
+      .filter(l => l.some(v => v !== ''))
+      .map(l => mg.conv(chaves.reduce((o, k, i) => (k && o[k] === undefined ? (o[k] = l[i]) : null, o), {})));
+    let nomeAntigo = 'antigo - ' + mg.antiga;
+    while (ss.getSheetByName(nomeAntigo)) nomeAntigo += ' (2)';
+    velha.setName(nomeAntigo);
+    const nova = aba_(mg.tipo);
+    if (objs.length) {
+      const linhasNovas = objs.map(o => novoCab.map(c => texto(o[c])));
+      nova.getRange(nova.getLastRow() + 1, 1, linhasNovas.length, novoCab.length).setValues(linhasNovas);
+    }
+    log.push(mg.antiga + ': ' + objs.length + ' linha(s) copiadas para "' + ABAS[mg.tipo].nome + '" (original em "' + nomeAntigo + '")');
+  });
+  return log;
 }

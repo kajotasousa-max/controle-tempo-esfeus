@@ -8,13 +8,13 @@ Tempo estimado: 30–40 minutos. Precisa de uma conta Google (do cliente, de pre
 2. Menu **Extensões › Apps Script**.
 3. Apague o conteúdo de `Código.gs` e cole todo o `backend/Code.gs`.
 4. Em **Configurações do projeto** (engrenagem), marque *Mostrar arquivo de manifesto "appsscript.json"* e cole o conteúdo de `backend/appsscript.json`.
-5. No editor, selecione a função **`configurar`** e clique em **Executar**. Autorize o acesso (planilha e Drive). Isso cria as abas e a pasta de fotos.
+5. No editor, selecione a função **`configurar`** e clique em **Executar**. Autorize o acesso (planilha e Drive). Isso cria as abas e a pasta de fotos. Se a planilha tiver abas do backend antigo (cabeçalhos em português, como "Carimbo"), elas são renomeadas para `antigo - …` e os dados são copiados para as abas novas.
 6. **Implantar › Nova implantação › Tipo: App da Web**
    - Executar como: **Eu**
    - Quem pode acessar: **Qualquer pessoa**
 7. Copie a URL que termina em `/exec`.
 
-> Ao alterar o `Code.gs` depois, use **Implantar › Gerenciar implantações › Editar › Nova versão** para manter a mesma URL.
+> Ao alterar o `Code.gs` depois, cole a versão nova, rode **`configurar`** de novo e use **Implantar › Gerenciar implantações › Editar › Nova versão** para manter a mesma URL.
 
 ## 2. Configurar o front-end
 
@@ -57,4 +57,4 @@ Tempo estimado: 30–40 minutos. Precisa de uma conta Google (do cliente, de pre
 | Badge "pendente" não zera | URL do Apps Script errada ou implantação não está como "Qualquer pessoa" |
 | Lista de operadores vazia no celular | Nenhum responsável com função contendo "Operador" em Cadastros |
 | QR abre página em branco | `urlVisualizadorPadrao` não aponta para onde o site está publicado |
-| OS sumiram | Dados do navegador apagados ou outro computador/navegador (as OS ficam no navegador) |
+| OS de outro computador não aparecem | Backend antigo (sem a aba Servicos): cole o `Code.gs` atual, rode `configurar` e publique uma nova versão |

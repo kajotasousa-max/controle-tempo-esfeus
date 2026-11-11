@@ -61,14 +61,15 @@ python3 -m http.server 8000
 
 ## Onde ficam os dados
 
-- **Serviços (OS)** e **materiais**: no navegador do escritório (`localStorage`), com materiais e movimentações também enviados à planilha.
-- **Apontamentos, checklists, responsáveis e fornecedores**: na planilha Google (fonte da verdade). Os apontamentos ficam numa fila local até a planilha confirmar o recebimento.
+Tudo fica na planilha Google, que é a fonte da verdade: **OS (aba Servicos)**, apontamentos, materiais, movimentações, checklists, responsáveis e fornecedores. As abas **Saldos** e **Análise por OS** são refeitas pela planilha a cada gravação.
 
-> As OS ficam no navegador onde foram cadastradas. Use sempre o mesmo computador no escritório e não limpe os dados do navegador. Centralizar as OS na planilha é o próximo item do roadmap.
+Qualquer computador ou celular com o link vê os mesmos dados. O app busca as novidades a cada 20 segundos enquanto a página está aberta. O navegador guarda uma cópia para funcionar sem internet: o que for feito offline fica pendente (badge no canto) e sobe quando a conexão volta.
+
+Se duas pessoas editarem a mesma OS ao mesmo tempo, vale a última gravação.
 
 ## Roadmap
 
-- [ ] OS centralizadas na planilha (vários computadores no escritório)
+- [x] OS centralizadas na planilha (vários computadores no escritório)
 - [ ] Login simples por perfil (escritório / operador / qualidade)
 - [ ] Painel Looker Studio a partir da planilha
 - [ ] Modo offline completo (service worker)
