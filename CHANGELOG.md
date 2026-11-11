@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0] — 2026-11-11
+
+### Novo
+- OS e item em colunas separadas na lista de Serviços, Apontamentos, Análise por OS e Qualidade, e nas abas da planilha (Apontamentos, Checklists, Análise por OS). As abas existentes são convertidas sozinhas no primeiro uso do backend 1.2.
+- Quantidade de OS por status, com filtro por clique, e filtro por cliente.
+- Percentual por etapa em andamento/parada, refletido no progresso da OS.
+- OS novas nascem com as etapas de `etapasPadrao` (config.js).
+
+### Correções
+- Campos de URL removidos do topo (endereços só pelo config.js).
+- QR com nível H falhava em alguns comprimentos de link.
+- Status "Externo com terceiros" era trocado automaticamente.
+
 ## [1.1.0] — 2026-11-11
 
 ### Novo

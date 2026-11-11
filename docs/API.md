@@ -2,6 +2,8 @@
 
 O front-end conversa com um único endpoint (`syncUrlPadrao`). Todas as respostas são JSON com `ok: true|false` e, em erro, `erro: "mensagem"`.
 
+OS e item vêm em campos separados (`os: "CO 26.002"`, `item: "75"`). O backend também aceita o formato antigo `os: "CO 26.002/75"` e separa sozinho.
+
 Toda chamada leva a senha no parâmetro `k` da URL (GET e POST). Sem senha válida: `{ ok: false, semAcesso: true }`. Com a senha de operador fora do permitido (`versao`, `list-responsaveis` e o POST de apontamentos): `{ ok: false, semPermissao: true }`. Se nenhuma senha foi definida, tudo é aceito.
 
 Os POSTs usam `Content-Type: text/plain;charset=utf-8` para evitar o preflight CORS, que o Apps Script não suporta. O corpo é JSON.
@@ -40,12 +42,12 @@ Servico      { id: number, os, it, cliente, oc, des, desc, qty, material, tratam
                status, nf, dt, etapas: Etapa[], imagem /* URL */, atualizadoEm, excluido: boolean, ...outros campos }
                // campos fora da lista acima são guardados na coluna "extras" (JSON)
 Etapa        { id, nome, operacao, maquina, operador, status }
-Apontamento  { timestamp, os, etapa, cliente, oc, descricao, operacao, maquina, operador,
+Apontamento  { timestamp, os, item, etapa, cliente, oc, descricao, operacao, maquina, operador,
                status: 'Iniciando'|'Parado'|'Etapa concluída'|'Concluído Parcial'|'Finalizado', qtd }
 Material     { codigo, descricao, especificacao, unidade, estoqueMinimo: number, localizacao, ativo: boolean }
 Movimentacao { timestamp, codigo, tipo, quantidade: number, os, loteDimensao /* "lote | dimensão" */, observacao, operador }
                // tipo: Compra | Consumo na OS | Sobra | Devolução | Perda / descarte | Ajuste de entrada | Ajuste de saída
-Checklist    { timestamp, os, cliente, codigoPeca, qtd, revisaoDesenho, inspetor,
+Checklist    { timestamp, os, item, cliente, codigoPeca, qtd, revisaoDesenho, inspetor,
                situacao: 'Aprovado'|'Reprovado'|'Rascunho', observacao, motivoNf,
                fotos: string[] /* URLs (resposta) ou data URLs (envio) */,
                marcacoes: { [chaveDoItem]: 'OK'|'NOK'|'NA' } }

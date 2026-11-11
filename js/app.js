@@ -390,9 +390,22 @@ function exportarMovimentosMateriais() {
     }));
 }
 
+/** Separa OS e item: "CO 26.002/75" → { os: "CO 26.002", item: "75" }. Aceita registros antigos e novos. */
+function separarOsItem(r) {
+  const o = Object.assign({}, r);
+  let os = String(o.os || '').trim(), item = String(o.item || '').trim();
+  if (item && os.slice(-(item.length + 1)) === '/' + item) os = os.slice(0, -(item.length + 1)).trim();
+  else if (!item && os.indexOf('/') >= 0) { const i = os.lastIndexOf('/'); item = os.slice(i + 1).trim(); os = os.slice(0, i).trim(); }
+  o.os = os; o.item = item;
+  return o;
+}
+/** Chave única OS + item ("CO 26.002/75"). */
+function osItem(r) { return (r.os || '') + (r.item ? '/' + r.item : ''); }
+function osItemServico(s) { return (s.os || '') + (s.it ? '/' + s.it : ''); }
+
 function loadApontamentos() {
   const raw = localStorage.getItem(chave('apontamentos'));
-  return raw ? JSON.parse(raw) : [];
+  return raw ? JSON.parse(raw).map(separarOsItem) : [];
 }
 function saveApontamento(a) {
   const list = loadApontamentos();
@@ -904,7 +917,7 @@ function estadoAtividadeMelhoria() {
     return { totalMs: 0, running: false, start: null, lastStatus: '', eventos: [] };
   }
   const eventos = loadApontamentos().filter(a =>
-    [a.os || '', a.etapa || '', a.operacao || '', a.maquina || '', a.operador || ''].join('||') === chave
+    [osItem(a), a.etapa || '', a.operacao || '', a.maquina || '', a.operador || ''].join('||') === chave
   ).sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
   let totalMs = 0, inicio = null, lastStatus = '';
   eventos.forEach(e => {
@@ -1165,18 +1178,18 @@ function renderServicos() {
   const tbody = document.getElementById('tbody-servicos');
   document.getElementById('servico-count').textContent = list.length + ' serviço' + (list.length === 1 ? '' : 's');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty">Nenhum serviço encontrado. Clique em "+ Novo serviço".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">Nenhum serviço encontrado. Clique em "+ Novo serviço".</td></tr>';
     return;
   }
   tbody.innerHTML = list.map(s => {
-    const osFull = (s.os || '—') + (s.it ? ' / ' + s.it : '');
     const smartStatus = statusInteligente(s);
     const resumo = resumoEtapasMelhoria(s);
     return '<tr class="' + (s.id === currentId ? 'selected' : '') + '" onclick="selectServico(' + Number(s.id) + ')">' +
       '<td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="chk-row" data-id="' + Number(s.id) + '" ' + (selecionadas.has(Number(s.id)) ? 'checked' : '') + ' onchange="toggleRow(' + Number(s.id) + ', this.checked)"></td>' +
       '<td><strong>' + escMelhoria(s.cliente || '—') + '</strong></td>' +
       '<td>' + escMelhoria(s.oc || '—') + '</td>' +
-      '<td>' + escMelhoria(osFull) + '</td>' +
+      '<td>' + escMelhoria(s.os || '—') + '</td>' +
+      '<td>' + escMelhoria(s.it || '—') + '</td>' +
       '<td>' + escMelhoria(s.des || '—') + '</td>' +
       '<td>' + escMelhoria(s.desc || '—') + '</td>' +
       '<td>' + escMelhoria(s.qty || '—') + '</td>' +
@@ -1240,17 +1253,18 @@ async function renderApontamentos() {
   const status = document.getElementById('filter-status-a').value;
   const filtered = list.filter(a => {
     if (status && a.status !== status) return false;
-    return !search || [a.os, a.etapa, a.cliente, a.oc, a.operacao, a.maquina, a.operador, a.status].join(' ').toLowerCase().includes(search);
+    return !search || [a.os, a.item, a.etapa, a.cliente, a.oc, a.operacao, a.maquina, a.operador, a.status].join(' ').toLowerCase().includes(search);
   }).sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
   document.getElementById('aponta-count').textContent = filtered.length + ' apontamento' + (filtered.length === 1 ? '' : 's');
   const tbody = document.getElementById('tbody-apontamentos');
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty">Nenhum apontamento neste dispositivo.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">Nenhum apontamento neste dispositivo.</td></tr>';
     return;
   }
   tbody.innerHTML = filtered.map(a =>
     '<tr><td>' + escMelhoria(a.timestamp || '') + '</td>' +
     '<td><strong>' + escMelhoria(a.os || '') + '</strong></td>' +
+    '<td>' + escMelhoria(a.item || '—') + '</td>' +
     '<td>' + escMelhoria(a.etapa || '—') + '</td>' +
     '<td>' + escMelhoria(a.cliente || '') + '</td><td>' + escMelhoria(a.oc || '') + '</td>' +
     '<td>' + escMelhoria(a.operacao || '') + '</td><td>' + escMelhoria(a.maquina || '') + '</td>' +
@@ -1261,7 +1275,7 @@ async function renderApontamentos() {
 function exportarApontamentos() {
   const list = apontamentosConsolidados();
   if (!list.length) { alert('Nenhum apontamento registrado neste dispositivo.'); return; }
-  const cols = ['timestamp','os','etapa','cliente','oc','descricao','operacao','maquina','operador','status','qtd'];
+  const cols = ['timestamp','os','item','etapa','cliente','oc','descricao','operacao','maquina','operador','status','qtd'];
   const rows = list.map(a => cols.map(c => '"' + String(a[c] || '').replace(/"/g,'""') + '"').join(';'));
   const csv = '\uFEFF' + cols.join(';') + '\n' + rows.join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -1272,8 +1286,8 @@ function exportarApontamentos() {
 function computeAnalise() {
   const grupos = {};
   apontamentosConsolidados().forEach(a => {
-    const key = [a.os || '', a.etapa || '', a.operacao || '', a.operador || ''].join('||');
-    if (!grupos[key]) grupos[key] = { os: a.os, etapa: a.etapa, operacao: a.operacao, maquina: a.maquina, operador: a.operador, eventos: [] };
+    const key = [osItem(a), a.etapa || '', a.operacao || '', a.operador || ''].join('||');
+    if (!grupos[key]) grupos[key] = { os: a.os, item: a.item, etapa: a.etapa, operacao: a.operacao, maquina: a.maquina, operador: a.operador, eventos: [] };
     grupos[key].eventos.push(a);
   });
   const hoje = new Date(), analise = [];
@@ -1293,7 +1307,7 @@ function computeAnalise() {
       }
     });
     if (rodando) tempoMs += hoje - rodando;
-    const servico = servicos.find(s => ((s.os || '') + (s.it ? '/' + s.it : '')) === g.os);
+    const servico = servicos.find(s => osItemServico(s) === osItem(g));
     const prazo = servico ? servico.prazo : '';
     let situacao = 'Não iniciada', sitClass = 'sit-nao-iniciada';
     if (conclusao) {
@@ -1303,7 +1317,7 @@ function computeAnalise() {
       if (prazo && hoje > new Date(prazo + 'T23:59:59')) { situacao = 'Atrasada'; sitClass = 'sit-atrasada'; }
       else { situacao = 'Em andamento'; sitClass = 'sit-andamento'; }
     }
-    analise.push({ os:g.os, etapa:g.etapa, operacao:g.operacao, maquina:g.maquina, operador:g.operador, inicio, conclusao, tempo_min:Math.round(tempoMs/60000), prazo, situacao, sitClass });
+    analise.push({ os:g.os, item:g.item, etapa:g.etapa, operacao:g.operacao, maquina:g.maquina, operador:g.operador, inicio, conclusao, tempo_min:Math.round(tempoMs/60000), prazo, situacao, sitClass });
   });
   return analise.sort((a,b) => (b.inicio || '').localeCompare(a.inicio || ''));
 }
@@ -1311,16 +1325,16 @@ function computeAnalise() {
 async function renderAnalise() {
   await ensureApontamentosCarregados();
   const analise = computeAnalise(), search = (document.getElementById('search-analise').value || '').toLowerCase(), situacao = document.getElementById('filter-situacao').value;
-  const filtered = analise.filter(a => (!situacao || a.situacao === situacao) && (!search || [a.os,a.etapa,a.operacao,a.operador,a.maquina].join(' ').toLowerCase().includes(search)));
+  const filtered = analise.filter(a => (!situacao || a.situacao === situacao) && (!search || [a.os,a.item,a.etapa,a.operacao,a.operador,a.maquina].join(' ').toLowerCase().includes(search)));
   const tbody = document.getElementById('tbody-analise');
-  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty">Nenhuma OS analisada. Registre apontamentos primeiro.</td></tr>'; return; }
-  tbody.innerHTML = filtered.map(a => '<tr><td><strong>' + escMelhoria(a.os || '') + '</strong></td><td>' + escMelhoria(a.etapa || '—') + '</td><td>' + escMelhoria(a.operacao || '') + '</td><td>' + escMelhoria(a.maquina || '') + '</td><td>' + escMelhoria(a.operador || '') + '</td><td>' + escMelhoria(a.inicio ? a.inicio.substring(0,16) : '—') + '</td><td>' + escMelhoria(a.conclusao ? a.conclusao.substring(0,16) : '—') + '</td><td>' + a.tempo_min + '</td><td>' + escMelhoria(fmtDate(a.prazo) || '—') + '</td><td><span class="situation-badge ' + a.sitClass + '">' + escMelhoria(a.situacao) + '</span></td></tr>').join('');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Nenhuma OS analisada. Registre apontamentos primeiro.</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(a => '<tr><td><strong>' + escMelhoria(a.os || '') + '</strong></td><td>' + escMelhoria(a.item || '—') + '</td><td>' + escMelhoria(a.etapa || '—') + '</td><td>' + escMelhoria(a.operacao || '') + '</td><td>' + escMelhoria(a.maquina || '') + '</td><td>' + escMelhoria(a.operador || '') + '</td><td>' + escMelhoria(a.inicio ? a.inicio.substring(0,16) : '—') + '</td><td>' + escMelhoria(a.conclusao ? a.conclusao.substring(0,16) : '—') + '</td><td>' + a.tempo_min + '</td><td>' + escMelhoria(fmtDate(a.prazo) || '—') + '</td><td><span class="situation-badge ' + a.sitClass + '">' + escMelhoria(a.situacao) + '</span></td></tr>').join('');
 }
 
 function exportarAnalise() {
   const analise = computeAnalise();
   if (!analise.length) { alert('Sem dados para exportar.'); return; }
-  const cols = ['os','etapa','operacao','maquina','operador','inicio','conclusao','tempo_min','prazo','situacao'];
+  const cols = ['os','item','etapa','operacao','maquina','operador','inicio','conclusao','tempo_min','prazo','situacao'];
   const rows = analise.map(a => cols.map(c => '"' + String(a[c] || '').replace(/"/g,'""') + '"').join(';'));
   const blob = new Blob(['\uFEFF' + cols.join(';') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob), link = document.createElement('a');
@@ -1373,7 +1387,7 @@ function registrarApontamento(statusOverride) {
   const now = new Date(), pad = n => String(n).padStart(2, '0');
   const timestamp = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
   const osFull = (apontamentoDados.os || '') + (apontamentoDados.it ? '/' + apontamentoDados.it : '');
-  const apontamento = { timestamp, os: osFull, etapa, cliente: apontamentoDados.cliente || '', oc: apontamentoDados.oc || '', descricao: apontamentoDados.desc || '', operacao, maquina, operador, status, qtd: qtd || '' };
+  const apontamento = { timestamp, os: osFull, item: apontamentoDados.it || '', etapa, cliente: apontamentoDados.cliente || '', oc: apontamentoDados.oc || '', descricao: apontamentoDados.desc || '', operacao, maquina, operador, status, qtd: qtd || '' };
   saveApontamento(apontamento);
   atualizarPainelAtividade();
   const nomes = {
@@ -1636,7 +1650,7 @@ async function fetchApontamentosRemoto() {
     const txt = await resp.text();
     const data = JSON.parse(txt);
     if (data.ok && Array.isArray(data.apontamentos)) {
-      apontamentosRemoto = data.apontamentos;
+      apontamentosRemoto = data.apontamentos.map(separarOsItem);
       return apontamentosRemoto;
     }
   } catch (err) {
@@ -1657,7 +1671,7 @@ function apontamentosConsolidados() {
   const filaLocal = loadApontamentos(); // histórico local (celular)
 
   // Chave de deduplicação: timestamp + os + operador + status
-  const key = a => [a.timestamp, a.os, a.operador, a.status].join('||');
+  const key = a => [a.timestamp, osItem(a), a.operador, a.status].join('||');
   const seen = new Set(remoto.map(key));
 
   const extras = [];
@@ -1686,15 +1700,14 @@ async function fetchChecklistsRemoto() {
   try {
     const resp = await fetch(url + '?action=list-checklists', { method: 'GET', redirect: 'follow' });
     const data = JSON.parse(await resp.text());
-    if (data.ok) { checklistsRemoto = data.checklists || []; return checklistsRemoto; }
+    if (data.ok) { checklistsRemoto = (data.checklists || []).map(separarOsItem); return checklistsRemoto; }
   } catch (err) { console.error('Erro fetch checklists:', err); }
   return null;
 }
 
 function situacaoOS(s) {
   const cls = (checklistsRemoto || []).filter(c => {
-    const osFull = (s.os || '') + (s.it ? '/' + s.it : '');
-    return c.os === osFull;
+    return osItem(c) === osItemServico(s);
   });
   if (!cls.length) return { badge: 'pendente', texto: 'Pendente', ultimo: null };
   // Pega o mais recente
@@ -1725,14 +1738,14 @@ async function renderQualidade() {
   document.getElementById('quali-count').textContent = list.length + ' OS' + (list.length === 1 ? '' : 's');
   const tbody = document.getElementById('tbody-qualidade');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="mat-empty">Nenhuma OS pra inspecionar.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="mat-empty">Nenhuma OS pra inspecionar.</td></tr>';
     return;
   }
   tbody.innerHTML = list.map(o => {
     const s = o.s, sit = o.sit;
-    const osFull = (s.os || '—') + (s.it ? '/' + s.it : '');
     return '<tr onclick="abrirChecklist(' + Number(s.id) + ')">' +
-      '<td><strong>' + osFull + '</strong></td>' +
+      '<td><strong>' + escMelhoria(s.os || '—') + '</strong></td>' +
+      '<td>' + escMelhoria(s.it || '—') + '</td>' +
       '<td>' + (s.cliente || '—') + '</td>' +
       '<td>' + (s.desc || '—') + '</td>' +
       '<td>' + (s.qty || '—') + '</td>' +
@@ -1877,7 +1890,8 @@ async function salvarChecklist(situacao) {
   const payload = {
     kind: 'checklist',
     timestamp: timestamp,
-    os: (s.os || '') + (s.it ? '/' + s.it : ''),
+    os: osItemServico(s),
+    item: s.it || '',
     cliente: s.cliente || '',
     codigoPeca: s.des || '',
     qtd: s.qty || '',

@@ -17,13 +17,30 @@
 
 const ABAS = {
   servicos:     { nome: 'Servicos',      colunas: ['id', 'os', 'it', 'cliente', 'oc', 'des', 'desc', 'qty', 'material', 'tratamento', 'emb', 'prazo', 'status', 'nf', 'dt', 'etapas', 'imagem', 'extras', 'atualizadoEm', 'excluido'] },
-  apontamentos: { nome: 'Apontamentos',  colunas: ['timestamp', 'os', 'etapa', 'cliente', 'oc', 'descricao', 'operacao', 'maquina', 'operador', 'status', 'qtd'] },
+  apontamentos: { nome: 'Apontamentos',  colunas: ['timestamp', 'os', 'item', 'etapa', 'cliente', 'oc', 'descricao', 'operacao', 'maquina', 'operador', 'status', 'qtd'] },
   materiais:    { nome: 'Materiais',     colunas: ['codigo', 'descricao', 'especificacao', 'unidade', 'estoqueMinimo', 'localizacao', 'ativo', 'atualizadoEm'] },
   movimentacoes:{ nome: 'Movimentacoes', colunas: ['timestamp', 'codigo', 'tipo', 'quantidade', 'os', 'loteDimensao', 'observacao', 'operador'] },
-  checklists:   { nome: 'Checklists',    colunas: ['timestamp', 'os', 'cliente', 'codigoPeca', 'qtd', 'revisaoDesenho', 'inspetor', 'situacao', 'observacao', 'motivoNf', 'fotos', 'marcacoes'] },
+  checklists:   { nome: 'Checklists',    colunas: ['timestamp', 'os', 'item', 'cliente', 'codigoPeca', 'qtd', 'revisaoDesenho', 'inspetor', 'situacao', 'observacao', 'motivoNf', 'fotos', 'marcacoes'] },
   responsaveis: { nome: 'Responsaveis',  colunas: ['nome', 'funcao', 'ativo', 'atualizadoEm'] },
   fornecedores: { nome: 'Fornecedores',  colunas: ['nome', 'tipo', 'cnpj', 'contato', 'observacao', 'ativo', 'atualizadoEm'] }
 };
+
+/** Abas que ganharam a coluna "item" na versão 1.2 (antes a OS vinha junto: "CO 26.002/75"). */
+const SEM_ITEM = {
+  apontamentos: ['timestamp', 'os', 'etapa', 'cliente', 'oc', 'descricao', 'operacao', 'maquina', 'operador', 'status', 'qtd'],
+  checklists:   ['timestamp', 'os', 'cliente', 'codigoPeca', 'qtd', 'revisaoDesenho', 'inspetor', 'situacao', 'observacao', 'motivoNf', 'fotos', 'marcacoes']
+};
+
+/** Separa OS e item: "CO 26.002/75" → { os: "CO 26.002", item: "75" }. Aceita os dois formatos. */
+function separarOsItem_(r) {
+  const o = Object.assign({}, r);
+  let os = String(o.os || '').trim(), item = String(o.item || '').trim();
+  if (item && os.slice(-(item.length + 1)) === '/' + item) os = os.slice(0, -(item.length + 1)).trim();
+  else if (!item && os.indexOf('/') >= 0) { const i = os.lastIndexOf('/'); item = os.slice(i + 1).trim(); os = os.slice(0, i).trim(); }
+  o.os = os; o.item = item;
+  return o;
+}
+function osItem_(r) { const o = separarOsItem_(r); return o.os + (o.item ? '/' + o.item : ''); }
 
 /** Campos da OS que viram colunas próprias na aba Servicos. O resto vai na coluna "extras". */
 const CAMPOS_SERVICO = ['os', 'it', 'cliente', 'oc', 'des', 'desc', 'qty', 'material', 'tratamento', 'emb', 'prazo', 'status', 'nf', 'dt'];
@@ -88,7 +105,7 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.1.0', servicos: true, nivel: nivelDe_(e.parameter.k) });
+      case 'versao':             return json({ ok: true, versao: '1.2.0', servicos: true, item: true, nivel: nivelDe_(e.parameter.k) });
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
   } catch (err) {
@@ -218,11 +235,11 @@ function listarAtivos(tipo) {
 
 /** Grava a fila de apontamentos ignorando os que já existem (o app reenvia se a resposta se perder). */
 function gravarApontamentos(lista) {
-  const chave = a => [a.timestamp, a.os, a.operador, a.status].join('||');
+  const chave = a => [a.timestamp, osItem_(a), a.operador, a.status].join('||');
   const existentes = new Set(lerTudo('apontamentos').map(chave));
   const novos = [];
   lista.forEach(a => {
-    if (a && !existentes.has(chave(a))) { novos.push(a); existentes.add(chave(a)); }
+    if (a && !existentes.has(chave(a))) { novos.push(separarOsItem_(a)); existentes.add(chave(a)); }
   });
   if (novos.length) {
     const aba = aba_('apontamentos');
@@ -236,7 +253,7 @@ function gravarApontamentos(lista) {
 /** Salva as fotos no Drive (só as novas, em data URL) e grava o checklist com os links. */
 function gravarChecklist(c) {
   const fotos = (c.fotos || []).map((f, i) => String(f).indexOf('data:') === 0 ? salvarFoto(f, c.os, c.timestamp, i) : f);
-  anexar('checklists', Object.assign({}, c, {
+  anexar('checklists', Object.assign(separarOsItem_(c), {
     fotos: JSON.stringify(fotos.filter(Boolean)),
     marcacoes: JSON.stringify(c.marcacoes || {})
   }));
@@ -280,8 +297,9 @@ function atualizarAnalise_() {
   listarServicos().forEach(s => { if (!s.excluido) prazos[(s.os || '') + (s.it ? '/' + s.it : '')] = s.prazo || ''; });
   const grupos = {};
   lerTudo('apontamentos').forEach(a => {
-    const k = [a.os, a.etapa, a.operacao, a.operador].join('||');
-    if (!grupos[k]) grupos[k] = { os: a.os, etapa: a.etapa, operacao: a.operacao, maquina: a.maquina, operador: a.operador, qtd: '', ultimo: '', eventos: [] };
+    a = separarOsItem_(a);
+    const k = [osItem_(a), a.etapa, a.operacao, a.operador].join('||');
+    if (!grupos[k]) grupos[k] = { os: a.os, item: a.item, etapa: a.etapa, operacao: a.operacao, maquina: a.maquina, operador: a.operador, qtd: '', ultimo: '', eventos: [] };
     grupos[k].eventos.push(a);
   });
   const agoraMs = Date.now();
@@ -303,17 +321,17 @@ function atualizarAnalise_() {
       }
     });
     if (rodando) tempo += agoraMs - rodando;
-    const prazo = prazos[g.os] || '';
+    const prazo = prazos[g.os + (g.item ? '/' + g.item : '')] || '';
     const fimPrazo = prazo ? dataDe_(prazo + ' 23:59:59') : null;
     let situacao = 'Não iniciada';
     if (conclusao) situacao = fimPrazo && dataDe_(conclusao) > fimPrazo ? 'Entregue com atraso' : 'Concluída no prazo';
     else if (inicio) situacao = fimPrazo && agoraMs > fimPrazo ? 'Atrasada' : 'Em andamento';
-    return [g.os, g.etapa, g.operacao, g.maquina, g.operador, br_(inicio), br_(conclusao), Math.round(tempo / 60000), g.qtd, prazo ? prazo.split('-').reverse().join('/') : '', situacao, br_(g.ultimo), inicio];
+    return [g.os, g.item, g.etapa, g.operacao, g.maquina, g.operador, br_(inicio), br_(conclusao), Math.round(tempo / 60000), g.qtd, prazo ? prazo.split('-').reverse().join('/') : '', situacao, br_(g.ultimo), inicio];
   });
-  linhas.sort((a, b) => String(b[12]).localeCompare(String(a[12])));
+  linhas.sort((a, b) => String(b[13]).localeCompare(String(a[13])));
   escreverPainel_('Análise por OS',
-    ['OS', 'Etapa', 'Operação', 'Máquina', 'Operador', 'Início', 'Conclusão', 'Tempo (min)', 'Qtd', 'Prazo', 'Situação', 'Última atividade'],
-    linhas.map(l => l.slice(0, 12)));
+    ['OS', 'Item', 'Etapa', 'Operação', 'Máquina', 'Operador', 'Início', 'Conclusão', 'Tempo (min)', 'Qtd', 'Prazo', 'Situação', 'Última atividade'],
+    linhas.map(l => l.slice(0, 13)));
 }
 
 function escreverPainel_(nome, cabecalho, linhas) {
@@ -336,8 +354,31 @@ function aba_(tipo) {
     sh.getRange(1, 1, 1, def.colunas.length).setValues([def.colunas]).setFontWeight('bold');
     sh.setFrozenRows(1);
     sh.getRange('A:Z').setNumberFormat('@'); // tudo como texto: datas não são convertidas
+  } else if (SEM_ITEM[tipo] && !colunaItemConferida_[tipo]) {
+    incluirColunaItem_(sh, tipo);
   }
+  colunaItemConferida_[tipo] = true;
   return sh;
+}
+
+const colunaItemConferida_ = {};
+
+/** Aba no formato sem "item": regrava com a coluna nova, separando "CO 26.002/75" em OS e item. */
+function incluirColunaItem_(sh, tipo) {
+  const cab = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getDisplayValues()[0];
+  if (cab[2] === 'item') return;
+  const antigas = SEM_ITEM[tipo];
+  if (!antigas.every((c, i) => cab[i] === c)) return; // formato desconhecido: não mexe
+  const n = sh.getLastRow() - 1;
+  const linhas = n > 0 ? sh.getRange(2, 1, n, antigas.length).getDisplayValues() : [];
+  const novas = ABAS[tipo].colunas;
+  const dados = linhas.filter(l => l.some(v => v !== ''))
+    .map(l => separarOsItem_(antigas.reduce((o, c, i) => (o[c] = l[i], o), {})))
+    .map(o => novas.map(c => texto(o[c])));
+  sh.clearContents();
+  sh.getRange('A:Z').setNumberFormat('@');
+  sh.getRange(1, 1, 1, novas.length).setValues([novas]).setFontWeight('bold');
+  if (dados.length) sh.getRange(2, 1, dados.length, novas.length).setValues(dados);
 }
 
 function lerTudo(tipo) {
@@ -552,7 +593,7 @@ function migrarPlanilhaAntiga() {
     velha.setName(nomeAntigo);
     const nova = aba_(mg.tipo);
     if (objs.length) {
-      const linhasNovas = objs.map(o => novoCab.map(c => texto(o[c])));
+      const linhasNovas = objs.map(o => SEM_ITEM[mg.tipo] ? separarOsItem_(o) : o).map(o => novoCab.map(c => texto(o[c])));
       nova.getRange(nova.getLastRow() + 1, 1, linhasNovas.length, novoCab.length).setValues(linhasNovas);
     }
     log.push(mg.antiga + ': ' + objs.length + ' linha(s) copiadas para "' + ABAS[mg.tipo].nome + '" (original em "' + nomeAntigo + '")');
