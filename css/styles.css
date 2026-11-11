@@ -484,3 +484,10 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
 .fin-card-prazo { background: #00B050; color: #fff; }
 .fin-card-atraso { background: #FF0000; color: #fff; }
 .fin-card-sem { background: #94a3b8; color: #fff; }
+
+/* Inspeção Final dentro da OS (ocupa as colunas Status e %) */
+.insp-final { grid-column: span 2; display: flex; align-items: center; justify-content: center; height: 30px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.insp-final.ok { background: #dcfce7; color: #166534; }
+.insp-final.bloq { background: #f1f5f9; color: #64748b; cursor: help; }
+.insp-final.btn-inspecionar { background: #006699; color: #fff; border: 0; cursor: pointer; padding: 0 8px; }
+.insp-final.btn-inspecionar:hover { background: #004A80; }

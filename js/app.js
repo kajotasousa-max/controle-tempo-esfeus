@@ -1050,12 +1050,26 @@ function renderEtapasEditor() {
       '<select onchange="updateEtapa(' + i + ',\'maquina\',this.value)">' + optionsMelhoria(MELHORIAS_MAQUINAS, e.maquina) + '</select>' +
       '<select onchange="updateEtapa(' + i + ',\'operador\',this.value)">' + optionsMelhoria(MELHORIAS_OPERADORES, e.operador, '— responsável —') + '</select>' +
       (ehInspecaoFinal(e)
-        ? '<select disabled title="Automático: aprovada na aba Qualidade = OK; reprovada ou sem inspeção = Pendente"><option>' + escMelhoria(e.status === 'OK' ? 'OK (aprovada)' : 'Pendente') + '</option></select>'
-        : '<select onchange="updateEtapa(' + i + ',\'status\',this.value)">' + optionsMelhoria(MELHORIAS_ETAPA_STATUS, e.status) + '</select>') +
-      selectPercentualEtapa(e, i) +
+        ? celulaInspecaoFinal(s, e)
+        : '<select onchange="updateEtapa(' + i + ',\'status\',this.value)">' + optionsMelhoria(MELHORIAS_ETAPA_STATUS, e.status) + '</select>' + selectPercentualEtapa(e, i)) +
       '<button type="button" class="stage-remove" onclick="removeEtapa(' + i + ')" title="Remover etapa">✕</button>' +
     '</div>'
   ).join('');
+}
+
+/** Inspeção Final na OS: não se escolhe o status aqui, ela é feita na Qualidade. */
+function celulaInspecaoFinal(s, e) {
+  if (e.status === 'OK') return '<span class="insp-final ok" title="Aprovada na aba Qualidade">✔ Aprovada</span>';
+  if (liberadaParaQualidade(s)) return '<button type="button" class="insp-final btn-inspecionar" onclick="inspecionarOSAtual()" title="Abre o checklist desta OS na aba Qualidade">📋 Inspecionar</button>';
+  const pend = etapasPendentesProducao(s);
+  return '<span class="insp-final bloq" title="Faltam: ' + escMelhoria(pend.map(x => x.nome || 'etapa').join(', ')) + '">🔒 Falta' + (pend.length === 1 ? '' : 'm') + ' ' + pend.length + ' etapa' + (pend.length === 1 ? '' : 's') + '</span>';
+}
+
+function inspecionarOSAtual() {
+  const id = currentId;
+  if (id === null) return;
+  switchTab('qualidade');
+  abrirChecklist(id);
 }
 
 function addEtapa() {
