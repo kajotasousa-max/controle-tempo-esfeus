@@ -31,6 +31,9 @@ window.APP_CONFIG = {
   syncUrlPadrao: 'https://script.google.com/macros/s/AKfycbzI8cUP1BG4eJOjakytJBwgQZPbBrhYED2odoz3s9x3IrmQiLYF6YwrZI8htt0DXxotnw/exec',
 
   /* Listas usadas no apontamento e nas etapas da OS */
+  /* Etapas criadas automaticamente em toda OS nova (podem ser editadas/removidas na OS) */
+  etapasPadrao: ['Planejamento-PCP', 'Compras', 'Recebimento - Matéria-prima', 'Caldeiraria', 'Usinagem', 'Inspeção (visual/dimensional)', 'Pintura/Tratamento superficial', 'Montagem', 'Inspeção Final', 'Expedição'],
+
   operacoes: ['Torneamento', 'Fresamento', 'Furação', 'Retífica', 'Acabamento', 'Processo externo', 'Inspeção Final'],
   maquinas: ['Torno Pequeno', 'Torno Clever', 'Romi', 'Wotan', 'Dyna', 'Sinitron', 'Mandrilhadora Wotan', 'Furadeira Radial', 'Fresadora Zocca', 'Retifica', 'Prensa', 'Qualidade Final'],
   /* Usada como lista de responsáveis das etapas. Os operadores do apontamento vêm da aba Cadastros. */

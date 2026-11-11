@@ -815,6 +815,13 @@ function escMelhoria(value) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
+/** Etapas de uma OS nova, conforme CONFIG.etapasPadrao. */
+function etapasPadraoOS() {
+  const nomes = Array.isArray(CONFIG.etapasPadrao) ? CONFIG.etapasPadrao : [];
+  if (!nomes.length) return [novaEtapaMelhoria()];
+  return nomes.map((nome, i) => Object.assign(novaEtapaMelhoria(), { id: Date.now() + i + Math.random(), nome }));
+}
+
 function novaEtapaMelhoria() {
   return { id: Date.now() + Math.random(), nome: '', operacao: '', maquina: '', operador: '', status: 'Pendente' };
 }
@@ -1053,7 +1060,7 @@ function addServico() {
   const s = { id: novoIdServico() };
   FIELDS.forEach(f => s[f] = '');
   s.status = 'Aguardando';
-  s.etapas = [novaEtapaMelhoria()];
+  s.etapas = etapasPadraoOS();
   s.imagem = '';
   servicos.push(s);
   currentId = s.id;
