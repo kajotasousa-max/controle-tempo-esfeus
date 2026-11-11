@@ -3,6 +3,9 @@
 ## [1.2.0] — 2026-11-11
 
 ### Novo
+- **Fluxo automático da OS**: etapas com status OK e N.A. (ambos contam como concluídos); a aba Qualidade só libera a inspeção com todas as etapas de produção OK/N.A.; a etapa "Inspeção Final" é preenchida pela Qualidade (aprovado = OK, reprovado ou sem inspeção = Pendente); a OS só fica Finalizada com a inspeção aprovada; o status da OS é calculado pelo andamento das etapas.
+- Etapas padrão: Terceirização de Usinagem antes de Caldeiraria; Expedição removida.
+- Aba **Finalizadas** no app e na planilha (consulta, refeita a cada gravação).
 - OS e item em colunas separadas na lista de Serviços, Apontamentos, Análise por OS e Qualidade, e nas abas da planilha (Apontamentos, Checklists, Análise por OS). As abas existentes são convertidas sozinhas no primeiro uso do backend 1.2.
 - Quantidade de OS por status, com filtro por clique, e filtro por cliente.
 - Percentual por etapa em andamento/parada, refletido no progresso da OS.
