@@ -1328,7 +1328,8 @@ let syncingNow = false;
 
 function getSyncUrl() {
   const custom = (localStorage.getItem(SYNC_URL_KEY) || '').trim();
-  return custom || DEFAULT_SYNC_URL;
+  // Só o endereço base: "…/exec?action=list" colado no campo quebrava todas as chamadas
+  return (custom || DEFAULT_SYNC_URL).split('?')[0].split('#')[0];
 }
 
 function saveSyncUrl() {
