@@ -531,7 +531,13 @@ function buildQrWithOverlay(url, size, tipo) {
   const codeDiv = document.createElement('div');
   wrap.appendChild(codeDiv);
   // High correction level pra tolerar overlay no centro (~30% resistência)
-  new QRCode(codeDiv, { text: url, width: size, height: size, correctLevel: QRCode.CorrectLevel.H });
+  try {
+    new QRCode(codeDiv, { text: url, width: size, height: size, correctLevel: QRCode.CorrectLevel.H });
+  } catch (e) {
+    // A biblioteca erra o tamanho do QR em algumas faixas de comprimento com nível H; Q ainda tolera o logo no centro
+    codeDiv.innerHTML = '';
+    new QRCode(codeDiv, { text: url, width: size, height: size, correctLevel: QRCode.CorrectLevel.Q });
+  }
   const overlay = document.createElement('div');
   overlay.className = 'qr-overlay';
   overlay.innerHTML = tipo === 'interno'
@@ -766,10 +772,9 @@ function copyLink() {
     .catch(() => prompt('Copie o link:', url));
 }
 
-function saveBaseUrl() {
-  localStorage.setItem(chave('base_url'), document.getElementById('base-url').value.trim());
-  alert('URL do visualizador salva neste navegador.');
-  if (currentId !== null) renderQr();
+/** Endereço que vai nos QR codes: o do config.js (ou o desta página, se vazio). */
+function urlBaseQr() {
+  return (CONFIG.urlVisualizadorPadrao || window.location.href.split('#')[0]).trim();
 }
 
 
@@ -1137,7 +1142,7 @@ function openEditPanel() {
 }
 
 function buildApontamentoUrl(d) {
-  const base = (document.getElementById('base-url').value || window.location.href.split('#')[0]).trim();
+  const base = urlBaseQr();
   return base + '#i=' + b64enc({
     os: d.os, it: d.it, cliente: d.cliente, desc: d.desc, oc: d.oc,
     etapas: (d.etapas || []).map(e => ({ nome: e.nome, operacao: e.operacao, maquina: e.maquina, operador: e.operador, status: e.status }))
@@ -1145,7 +1150,7 @@ function buildApontamentoUrl(d) {
 }
 
 function buildViewerUrl(d) {
-  const base = (document.getElementById('base-url').value || window.location.href.split('#')[0]).trim();
+  const base = urlBaseQr();
   return base + '#e=' + b64enc({
     cliente: d.cliente, os: d.os, qty: d.qty, desc: d.desc, des: d.des,
     material: d.material, tratamento: d.tratamento, emb: d.emb, oc: d.oc,
@@ -1326,18 +1331,9 @@ const SYNC_URL_KEY = chave('sync_url');
 let syncTimer = null;
 let syncingNow = false;
 
+/** Endereço do Apps Script: sempre o do config.js (o campo por computador foi removido). */
 function getSyncUrl() {
-  const custom = (localStorage.getItem(SYNC_URL_KEY) || '').trim();
-  // Só o endereço base: "…/exec?action=list" colado no campo quebrava todas as chamadas
-  return (custom || DEFAULT_SYNC_URL).split('?')[0].split('#')[0];
-}
-
-function saveSyncUrl() {
-  const url = document.getElementById('sync-url').value.trim();
-  localStorage.setItem(SYNC_URL_KEY, url);
-  alert(url ? 'URL do Apps Script salva. Tentando sincronizar agora…' : 'URL removida — apontamentos ficam só localmente.');
-  updateSyncBadge();
-  if (url) syncAgora();
+  return DEFAULT_SYNC_URL.split('?')[0].split('#')[0];
 }
 
 function loadQueue() {
@@ -2400,8 +2396,9 @@ async function conferirSenhaNaAbertura() {
 /* =============== INIT =============== */
 (function init() {
   aplicarMarca();
-  const baseInput = document.getElementById('base-url');
-  if (baseInput && CONFIG.urlVisualizadorPadrao) baseInput.value = CONFIG.urlVisualizadorPadrao;
+  // Endereços salvos por computador nas versões antigas não valem mais
+  localStorage.removeItem(SYNC_URL_KEY);
+  localStorage.removeItem(chave('base_url'));
   // Carrega cadastros do Sheets ao abrir, pra popular selects logo
   if (window.setTimeout) setTimeout(() => {
     if (typeof ensureCadastros === 'function') {
@@ -2412,14 +2409,6 @@ async function conferirSenhaNaAbertura() {
     }
   }, 500);
 
-  const savedUrl = localStorage.getItem(chave('base_url'));
-  if (savedUrl) document.getElementById('base-url').value = savedUrl;
-
-  const savedSync = localStorage.getItem(SYNC_URL_KEY);
-  if (savedSync) {
-    const el = document.getElementById('sync-url');
-    if (el) el.value = savedSync;
-  }
   updateSyncBadge();
   iniciarSyncTimer();
   if (getSyncUrl() && loadQueue().length > 0) setTimeout(syncAgora, 500);
