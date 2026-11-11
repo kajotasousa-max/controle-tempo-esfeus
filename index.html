@@ -48,20 +48,17 @@
         <option value="Finalizado">Finalizado</option>
         <option value="Expedição">Expedição</option>
       </select>
+      <select id="filter-cliente" onchange="renderServicos()">
+        <option value="">Todos os clientes</option>
+      </select>
       <div class="spacer"></div>
       <span class="count" id="servico-count">0 serviços</span>
       <button class="btn-danger btn-sm" onclick="clearAllServicos()">Limpar todos</button>
     </div>
 
-    <div class="status-legend">
-      <strong>Status automático:</strong>
-      <span class="status-badge status-em-processo">Em processo · &gt; 7 dias</span>
-      <span class="status-badge status-alerta">Alerta · até 7 dias</span>
-      <span class="status-badge status-atrasado">Atrasado</span>
-      <span class="status-badge status-aguardando">Aguardando</span>
-      <span class="status-badge status-finalizado">Finalizado</span>
-      <span class="status-badge status-expedicao">Expedição</span>
-    </div>
+    <!-- Quantidade por status: clique para filtrar -->
+    <div class="status-resumo" id="status-resumo"></div>
+    <div class="status-resumo-nota">Clique num status para filtrar a lista; clique de novo para mostrar todos. Alerta = até 7 dias do prazo · Em processo = mais de 7 dias · Atrasado = prazo vencido.</div>
 
     <div style="max-height: 400px; overflow-y: auto;">
       <table class="data" id="tbl-servicos">

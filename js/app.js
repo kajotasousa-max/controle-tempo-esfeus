@@ -879,6 +879,7 @@ function statusInteligente(s) {
   if (dias !== null && dias < 0) return 'Atrasado';
   if (base === 'Atrasado') return 'Atrasado';
   if (base === 'Aguardando') return 'Aguardando';
+  if (base === 'Externo com terceiros') return base;
   return dias !== null && dias <= 7 ? 'Alerta' : 'Em processo';
 }
 
@@ -962,7 +963,8 @@ function statusClass(st) {
     'Atrasado': 'status-atrasado',
     'Finalizado': 'status-finalizado',
     'Alerta': 'status-alerta',
-    'Expedição': 'status-expedicao'
+    'Expedição': 'status-expedicao',
+    'Externo com terceiros': 'status-externo'
   }[st] || '';
 }
 
@@ -1103,11 +1105,14 @@ function updateServico() {
   updateEditTitle();
 }
 
-function filterServicos() {
+const ORDEM_STATUS = ['Aguardando', 'Em processo', 'Alerta', 'Atrasado', 'Externo com terceiros', 'Expedição', 'Finalizado'];
+
+/** Busca + cliente (sem o filtro de status): base das contagens por status. */
+function servicosSemFiltroStatus() {
   const search = (document.getElementById('search-servico').value || '').toLowerCase();
-  const status = document.getElementById('filter-status').value;
+  const cliente = (document.getElementById('filter-cliente') || {}).value || '';
   return servicos.filter(s => {
-    if (status && statusInteligente(s) !== status) return false;
+    if (cliente && (s.cliente || '').trim() !== cliente) return false;
     if (search) {
       const etapas = (s.etapas || []).map(e => [e.nome, e.operacao, e.maquina, e.operador].join(' ')).join(' ');
       const hay = [s.cliente, s.oc, s.os, s.it, s.des, s.desc, statusInteligente(s), etapas].join(' ').toLowerCase();
@@ -1117,7 +1122,45 @@ function filterServicos() {
   });
 }
 
+function filterServicos() {
+  const status = document.getElementById('filter-status').value;
+  return servicosSemFiltroStatus().filter(s => !status || statusInteligente(s) === status);
+}
+
+function filtrarPorStatus(status) {
+  const sel = document.getElementById('filter-status');
+  sel.value = sel.value === status ? '' : status;
+  renderServicos();
+}
+
+/** Cartões com a quantidade de OS por status (respeitam busca e cliente). */
+function renderResumoStatus() {
+  const box = document.getElementById('status-resumo');
+  if (!box) return;
+  const base = servicosSemFiltroStatus();
+  const cont = {};
+  base.forEach(s => { const st = statusInteligente(s); cont[st] = (cont[st] || 0) + 1; });
+  const ativo = document.getElementById('filter-status').value;
+  const cartao = (rotulo, valor, n, cls) =>
+    '<button type="button" class="resumo-card ' + cls + (ativo === valor ? ' ativo' : '') + (n ? '' : ' vazio') + '" onclick="filtrarPorStatus(\'' + valor + '\')">' +
+      '<span class="resumo-n">' + n + '</span><span class="resumo-rotulo">' + escMelhoria(rotulo) + '</span></button>';
+  box.innerHTML = cartao('Todas', '', base.length, 'resumo-total') +
+    ORDEM_STATUS.map(st => cartao(st, st, cont[st] || 0, statusClass(st))).join('');
+}
+
+function atualizarFiltroClientes() {
+  const sel = document.getElementById('filter-cliente');
+  if (!sel) return;
+  const atual = sel.value;
+  const clientes = Array.from(new Set(servicos.map(s => (s.cliente || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const html = '<option value="">Todos os clientes</option>' + clientes.map(c => '<option' + (c === atual ? ' selected' : '') + '>' + escMelhoria(c) + '</option>').join('');
+  if (sel.innerHTML !== html) sel.innerHTML = html;
+  if (atual && !clientes.includes(atual)) sel.value = '';
+}
+
 function renderServicos() {
+  atualizarFiltroClientes();
+  renderResumoStatus();
   const list = filterServicos();
   const tbody = document.getElementById('tbody-servicos');
   document.getElementById('servico-count').textContent = list.length + ' serviço' + (list.length === 1 ? '' : 's');
