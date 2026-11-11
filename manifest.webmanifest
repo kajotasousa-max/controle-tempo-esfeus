@@ -1,0 +1,12 @@
+{
+  "name": "Gestão de Serviços — Ferramentaria",
+  "short_name": "Gestão OS",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F5F5F5",
+  "theme_color": "#004A80",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "assets/marca/logo.jpg", "sizes": "400x400", "type": "image/jpeg" }
+  ]
+}
