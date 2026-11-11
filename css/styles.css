@@ -457,3 +457,13 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
 .resumo-n { font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 700; line-height: 1.1; }
 .resumo-rotulo { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
 .status-resumo-nota { font-size: 11px; color: #64748b; margin: 0 0 12px; }
+
+/* Fluxo de Qualidade */
+.ql-liberada { color: #15803d; font-weight: 700; font-size: 11px; white-space: nowrap; }
+.ql-bloqueada { color: #b45309; font-weight: 700; font-size: 11px; white-space: nowrap; cursor: help; }
+.ql-prod-pct { font-size: 10px; color: #64748b; }
+.ql-qualidade { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: .4px; }
+.ql-qualidade.ok { background: #00B050; color: #fff; }
+.ql-qualidade.pend { background: #FFC000; color: #000; }
+.ql-linha-bloqueada { opacity: .7; }
+.ql-linha-bloqueada td { cursor: default; }

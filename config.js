@@ -32,7 +32,8 @@ window.APP_CONFIG = {
 
   /* Listas usadas no apontamento e nas etapas da OS */
   /* Etapas criadas automaticamente em toda OS nova (podem ser editadas/removidas na OS) */
-  etapasPadrao: ['Planejamento-PCP', 'Compras', 'Recebimento - Matéria-prima', 'Caldeiraria', 'Usinagem', 'Inspeção (visual/dimensional)', 'Pintura/Tratamento superficial', 'Montagem', 'Inspeção Final', 'Expedição'],
+  /* "Inspeção Final" é preenchida sozinha pela aba Qualidade (aprovado = OK). Deixe-a por último. */
+  etapasPadrao: ['Planejamento-PCP', 'Compras', 'Recebimento - Matéria-prima', 'Terceirização de Usinagem', 'Caldeiraria', 'Usinagem', 'Inspeção (visual/dimensional)', 'Pintura/Tratamento superficial', 'Montagem', 'Inspeção Final'],
 
   operacoes: ['Torneamento', 'Fresamento', 'Furação', 'Retífica', 'Acabamento', 'Processo externo', 'Inspeção Final'],
   maquinas: ['Torno Pequeno', 'Torno Clever', 'Romi', 'Wotan', 'Dyna', 'Sinitron', 'Mandrilhadora Wotan', 'Furadeira Radial', 'Fresadora Zocca', 'Retifica', 'Prensa', 'Qualidade Final'],

@@ -8,7 +8,7 @@
  * Abas de dados (criadas automaticamente na planilha vinculada):
  *   Servicos · Apontamentos · Materiais · Movimentacoes · Checklists · Responsaveis · Fornecedores
  * Abas de consulta (reescritas a cada gravação, não edite):
- *   Saldos · Análise por OS
+ *   Saldos · Análise por OS · Finalizadas
  *
  * Senhas: menu "Gestão de Serviços" da planilha (aparece ao recarregar a página).
  *   Escritório → tudo. Operador → só grava apontamentos e lê a lista de responsáveis.
@@ -275,6 +275,23 @@ function salvarFoto(dataUrl, os, timestamp, i) {
 function atualizarPaineis_() {
   try { atualizarSaldos_(); } catch (err) { console.warn('Saldos: ' + err); }
   try { atualizarAnalise_(); } catch (err) { console.warn('Análise: ' + err); }
+  try { atualizarFinalizadas_(); } catch (err) { console.warn('Finalizadas: ' + err); }
+}
+
+/** OS finalizadas (inspeção aprovada no app ou entregues antes dele), da entrega mais recente para a mais antiga. */
+function atualizarFinalizadas_() {
+  const dia = t => { const m = String(t || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? Date.UTC(+m[1], m[2] - 1, +m[3]) : null; };
+  const br = t => { const m = String(t || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; };
+  const lista = listarServicos().filter(s => !s.excluido && s.status === 'Finalizado')
+    .sort((a, b) => String(b.dt || b.prazo).localeCompare(String(a.dt || a.prazo)));
+  const linhas = lista.map(s => {
+    const p = dia(s.prazo), e = dia(s.dt);
+    return [s.cliente, s.oc, s.os, s.it, s.des, s.desc, s.qty, s.material, s.tratamento, br(s.prazo), br(s.dt), s.nf,
+      p !== null && e !== null ? Math.round((p - e) / 86400000) : '', s.obs || ''];
+  });
+  escreverPainel_('Finalizadas',
+    ['Cliente', 'Pedido (OC)', 'OS', 'Item', 'Desenho', 'Descrição', 'Qtd', 'Material', 'Tratamento', 'Prazo', 'Entrega', 'NF', 'Prazo x Entrega (dias)', 'Obs.'],
+    linhas);
 }
 
 function atualizarSaldos_() {

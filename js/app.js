@@ -431,6 +431,7 @@ function fmtDate(iso) {
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+  if (tab === 'finalizadas') renderFinalizadas();
   if (tab === 'materiais') {
     const data = document.getElementById('mov-data');
     if (data && !data.value) data.value = hojeLocal();
@@ -819,7 +820,24 @@ function activateViewerMode(data) {
 const MELHORIAS_OPERACOES = CONFIG.operacoes;
 const MELHORIAS_MAQUINAS = CONFIG.maquinas;
 const MELHORIAS_OPERADORES = CONFIG.operadoresPadrao;
-const MELHORIAS_ETAPA_STATUS = ['Pendente','Em andamento','Concluída','Parada'];
+const MELHORIAS_ETAPA_STATUS = ['Pendente','Em andamento','Parada','OK','N.A.'];
+
+/* =============== FLUXO DA OS: etapas → Qualidade → Finalizado =============== */
+/* OK e N.A. contam como etapa concluída. A "Inspeção Final" é preenchida pela aba Qualidade:
+   aprovado = OK; reprovado ou sem inspeção = Pendente. A OS só vai para a Qualidade com todas as
+   outras etapas OK/N.A., e só fica Finalizada com a inspeção aprovada. */
+function semAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+function ehInspecaoFinal(e) { return semAcento(e && e.nome).includes('inspecao final'); }
+function etapaConcluida(e) { return e.status === 'OK' || e.status === 'N.A.'; }
+function etapasDe(s) { return Array.isArray(s.etapas) ? s.etapas : []; }
+function etapaInspecaoFinal(s) { return etapasDe(s).find(ehInspecaoFinal) || null; }
+/** Etapas de produção (todas menos a Inspeção Final) que ainda não estão OK/N.A. */
+function etapasPendentesProducao(s) { return etapasDe(s).filter(e => !ehInspecaoFinal(e) && !etapaConcluida(e)); }
+function liberadaParaQualidade(s) { return etapasPendentesProducao(s).length === 0; }
+function qualidadeAprovada(s) {
+  const fin = etapaInspecaoFinal(s);
+  return fin ? fin.status === 'OK' : s.status === 'Finalizado';
+}
 let melhoriaTimer = null;
 
 function escMelhoria(value) {
@@ -844,7 +862,11 @@ function normalizarServicoMelhoria(s) {
   n.id = n.id || nextId++;
   FIELDS.forEach(f => { if (n[f] == null) n[f] = ''; });
   n.status = n.status || 'Aguardando';
-  n.etapas = Array.isArray(n.etapas) ? n.etapas.map(e => Object.assign(novaEtapaMelhoria(), e)) : [];
+  n.etapas = Array.isArray(n.etapas) ? n.etapas.map(e => {
+    const et = Object.assign(novaEtapaMelhoria(), e);
+    if (et.status === 'Concluída') et.status = 'OK'; // nome antigo
+    return et;
+  }) : [];
   n.imagem = n.imagem || '';
   return n;
 }
@@ -883,16 +905,18 @@ function diasParaPrazoMelhoria(prazo) {
   return Math.ceil((limite - hoje) / 86400000);
 }
 
+/** Status da OS calculado pelo fluxo: ninguém precisa atualizar à mão. */
 function statusInteligente(s) {
   const base = s.status || 'Aguardando';
-  const etapas = Array.isArray(s.etapas) ? s.etapas : [];
-  if (etapas.length && etapas.every(e => e.status === 'Concluída')) return 'Finalizado';
-  if (base === 'Finalizado' || base === 'Expedição') return base;
+  const etapas = etapasDe(s);
+  if (etapas.length ? qualidadeAprovada(s) : base === 'Finalizado') return 'Finalizado';
+  if (base === 'Expedição') return base;
   const dias = diasParaPrazoMelhoria(s.prazo);
   if (dias !== null && dias < 0) return 'Atrasado';
-  if (base === 'Atrasado') return 'Atrasado';
-  if (base === 'Aguardando') return 'Aguardando';
-  if (base === 'Externo com terceiros') return base;
+  const terceiros = etapas.some(e => semAcento(e.nome).includes('terceiriz') && (e.status === 'Em andamento' || e.status === 'Parada'));
+  if (terceiros || base === 'Externo com terceiros') return 'Externo com terceiros';
+  const iniciou = etapas.some(e => e.status === 'Em andamento' || e.status === 'Parada' || e.status === 'OK');
+  if (!iniciou && base === 'Aguardando') return 'Aguardando';
   return dias !== null && dias <= 7 ? 'Alerta' : 'Em processo';
 }
 
@@ -983,7 +1007,7 @@ function statusClass(st) {
 
 /** % de uma etapa: concluída = 100; em andamento/parada = o informado; pendente = 0. */
 function percentualEtapa(e) {
-  if (e.status === 'Concluída') return 100;
+  if (etapaConcluida(e)) return 100;
   if (e.status === 'Em andamento' || e.status === 'Parada') return Math.min(99, Math.max(0, Number(e.percentual) || 0));
   return 0;
 }
@@ -991,7 +1015,7 @@ function percentualEtapa(e) {
 function selectPercentualEtapa(e, i) {
   const editavel = e.status === 'Em andamento' || e.status === 'Parada';
   const atual = percentualEtapa(e);
-  if (!editavel) return '<select disabled title="Disponível com a etapa em andamento ou parada"><option>' + (e.status === 'Concluída' ? '100%' : '—') + '</option></select>';
+  if (!editavel) return '<select disabled title="Disponível com a etapa em andamento ou parada"><option>' + (e.status === 'OK' ? '100%' : e.status === 'N.A.' ? 'N.A.' : '—') + '</option></select>';
   let opts = '';
   for (let p = 0; p <= 90; p += 10) opts += '<option value="' + p + '"' + (p === Math.floor(atual / 10) * 10 ? ' selected' : '') + '>' + p + '%</option>';
   return '<select title="Quanto desta etapa já foi feito" onchange="updateEtapa(' + i + ',\'percentual\',Number(this.value))">' + opts + '</select>';
@@ -999,7 +1023,7 @@ function selectPercentualEtapa(e, i) {
 
 function resumoEtapasMelhoria(s) {
   const etapas = Array.isArray(s.etapas) ? s.etapas : [];
-  const concluidas = etapas.filter(e => e.status === 'Concluída').length;
+  const concluidas = etapas.filter(etapaConcluida).length;
   const soma = etapas.reduce((t, e) => t + percentualEtapa(e), 0);
   const percentual = etapas.length ? Math.round(soma / etapas.length) : 0;
   return { total: etapas.length, concluidas, percentual };
@@ -1025,7 +1049,9 @@ function renderEtapasEditor() {
       '<select onchange="updateEtapa(' + i + ',\'operacao\',this.value)">' + optionsMelhoria(MELHORIAS_OPERACOES, e.operacao) + '</select>' +
       '<select onchange="updateEtapa(' + i + ',\'maquina\',this.value)">' + optionsMelhoria(MELHORIAS_MAQUINAS, e.maquina) + '</select>' +
       '<select onchange="updateEtapa(' + i + ',\'operador\',this.value)">' + optionsMelhoria(MELHORIAS_OPERADORES, e.operador, '— responsável —') + '</select>' +
-      '<select onchange="updateEtapa(' + i + ',\'status\',this.value)">' + optionsMelhoria(MELHORIAS_ETAPA_STATUS, e.status) + '</select>' +
+      (ehInspecaoFinal(e)
+        ? '<select disabled title="Automático: aprovada na aba Qualidade = OK; reprovada ou sem inspeção = Pendente"><option>' + escMelhoria(e.status === 'OK' ? 'OK (aprovada)' : 'Pendente') + '</option></select>'
+        : '<select onchange="updateEtapa(' + i + ',\'status\',this.value)">' + optionsMelhoria(MELHORIAS_ETAPA_STATUS, e.status) + '</select>') +
       selectPercentualEtapa(e, i) +
       '<button type="button" class="stage-remove" onclick="removeEtapa(' + i + ')" title="Remover etapa">✕</button>' +
     '</div>'
@@ -1045,6 +1071,7 @@ function addEtapa() {
 function updateEtapa(index, campo, valor) {
   const s = servicos.find(x => x.id === currentId);
   if (!s || !s.etapas[index]) return;
+  if (campo === 'status' && ehInspecaoFinal(s.etapas[index])) return; // só a Qualidade muda
   s.etapas[index][campo] = valor;
   if (campo === 'status' && valor === 'Pendente') s.etapas[index].percentual = 0;
   saveServicos();
@@ -1108,6 +1135,12 @@ function updateServico() {
   if (currentId === null) return;
   const s = servicos.find(x => x.id === currentId);
   if (!s) return;
+  const statusSel = document.getElementById('f-status');
+  if (statusSel && statusSel.value === 'Finalizado' && etapasDe(s).length && !qualidadeAprovada(s)) {
+    alert('A OS só fica Finalizada com a inspeção aprovada na aba Qualidade.' +
+      (liberadaParaQualidade(s) ? '' : ' Antes disso, todas as etapas precisam estar OK ou N.A.'));
+    statusSel.value = s.status === 'Finalizado' ? 'Em processo' : (s.status || 'Aguardando');
+  }
   FIELDS.forEach(f => {
     const el = document.getElementById('f-' + f);
     if (el) s[f] = el.value;
@@ -1137,10 +1170,12 @@ function servicosSemFiltroStatus() {
 
 function filterServicos() {
   const status = document.getElementById('filter-status').value;
-  return servicosSemFiltroStatus().filter(s => !status || statusInteligente(s) === status);
+  // Finalizadas ficam na aba própria; aparecem aqui só se o filtro pedir
+  return servicosSemFiltroStatus().filter(s => status ? statusInteligente(s) === status : statusInteligente(s) !== 'Finalizado');
 }
 
 function filtrarPorStatus(status) {
+  if (status === 'Finalizado') { switchTab('finalizadas'); return; }
   const sel = document.getElementById('filter-status');
   sel.value = sel.value === status ? '' : status;
   renderServicos();
@@ -1159,6 +1194,59 @@ function renderResumoStatus() {
       '<span class="resumo-n">' + n + '</span><span class="resumo-rotulo">' + escMelhoria(rotulo) + '</span></button>';
   box.innerHTML = cartao('Todas', '', base.length, 'resumo-total') +
     ORDEM_STATUS.map(st => cartao(st, st, cont[st] || 0, statusClass(st))).join('');
+}
+
+/* =============== ABA FINALIZADAS =============== */
+function diasPrazoXEntrega(s) {
+  if (!s.prazo || !s.dt) return '';
+  return Math.round((new Date(s.prazo + 'T00:00:00') - new Date(s.dt + 'T00:00:00')) / 86400000);
+}
+
+function listaFinalizadas() {
+  const busca = semAcento((document.getElementById('search-fin') || {}).value || '');
+  const cliente = (document.getElementById('filter-cliente-fin') || {}).value || '';
+  return servicos.filter(s => statusInteligente(s) === 'Finalizado')
+    .filter(s => !cliente || (s.cliente || '').trim() === cliente)
+    .filter(s => !busca || semAcento([s.cliente, s.oc, s.os, s.it, s.des, s.desc, s.nf, s.obs].join(' ')).includes(busca))
+    .sort((a, b) => (b.dt || b.prazo || '').localeCompare(a.dt || a.prazo || ''));
+}
+
+function renderFinalizadas() {
+  const sel = document.getElementById('filter-cliente-fin');
+  if (sel) {
+    const atual = sel.value;
+    const clientes = Array.from(new Set(servicos.filter(s => statusInteligente(s) === 'Finalizado').map(s => (s.cliente || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    sel.innerHTML = '<option value="">Todos os clientes</option>' + clientes.map(c => '<option' + (c === atual ? ' selected' : '') + '>' + escMelhoria(c) + '</option>').join('');
+  }
+  const list = listaFinalizadas();
+  document.getElementById('fin-count').textContent = list.length + ' OS finalizada' + (list.length === 1 ? '' : 's');
+  const tbody = document.getElementById('tbody-finalizadas');
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="12" class="empty">Nenhuma OS finalizada.</td></tr>'; return; }
+  tbody.innerHTML = list.map(s => {
+    const d = diasPrazoXEntrega(s);
+    const cor = d === '' ? '' : (d < 0 ? ' style="color:#b91c1c;font-weight:bold"' : ' style="color:#15803d;font-weight:bold"');
+    return '<tr onclick="abrirFinalizada(' + Number(s.id) + ')" style="cursor:pointer">' +
+      '<td><strong>' + escMelhoria(s.cliente || '—') + '</strong></td><td>' + escMelhoria(s.oc || '—') + '</td>' +
+      '<td>' + escMelhoria(s.os || '—') + '</td><td>' + escMelhoria(s.it || '—') + '</td>' +
+      '<td>' + escMelhoria(s.des || '—') + '</td><td>' + escMelhoria(s.desc || '—') + '</td><td>' + escMelhoria(s.qty || '—') + '</td>' +
+      '<td>' + escMelhoria(fmtDate(s.prazo) || '—') + '</td><td>' + escMelhoria(fmtDate(s.dt) || '—') + '</td>' +
+      '<td>' + escMelhoria(s.nf || '—') + '</td><td' + cor + '>' + (d === '' ? '—' : d) + '</td><td>' + escMelhoria(s.obs || '') + '</td></tr>';
+  }).join('');
+}
+
+function abrirFinalizada(id) {
+  switchTab('servicos');
+  selectServico(id);
+}
+
+function exportarFinalizadas() {
+  const list = listaFinalizadas();
+  if (!list.length) { alert('Nenhuma OS finalizada.'); return; }
+  const cols = ['cliente','oc','os','it','des','desc','qty','material','tratamento','prazo','dt','nf','prazoXEntrega','obs'];
+  const rows = list.map(s => cols.map(c => '"' + String(c === 'prazoXEntrega' ? diasPrazoXEntrega(s) : (s[c] || '')).replace(/"/g, '""') + '"').join(';'));
+  const blob = new Blob(['\uFEFF' + cols.join(';') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = 'os-finalizadas-' + new Date().toISOString().slice(0, 10) + '.csv'; link.click(); URL.revokeObjectURL(url);
 }
 
 function atualizarFiltroClientes() {
@@ -1726,10 +1814,12 @@ async function renderQualidade() {
   const busca = (document.getElementById('search-quali').value || '').toLowerCase();
   const filtro = document.getElementById('filter-quali').value;
 
-  const list = servicos.map(s => ({ s, sit: situacaoOS(s) })).filter(o => {
-    if (filtro && o.sit.badge !== filtro) return false;
+  const list = servicos.map(s => ({ s, sit: situacaoOS(s), lib: liberadaParaQualidade(s) })).filter(o => {
+    if (filtro === 'liberada' && !(o.lib && !qualidadeAprovada(o.s))) return false;
+    if (filtro === 'bloqueada' && o.lib) return false;
+    if (filtro && filtro !== 'liberada' && filtro !== 'bloqueada' && o.sit.badge !== filtro) return false;
     if (busca) {
-      const hay = ((o.s.os||'') + ' ' + (o.s.cliente||'') + ' ' + (o.s.desc||'') + ' ' + (o.sit.ultimo?.inspetor||'')).toLowerCase();
+      const hay = ((o.s.os||'') + ' ' + (o.s.it||'') + ' ' + (o.s.cliente||'') + ' ' + (o.s.desc||'') + ' ' + (o.sit.ultimo?.inspetor||'')).toLowerCase();
       if (!hay.includes(busca)) return false;
     }
     return true;
@@ -1738,21 +1828,31 @@ async function renderQualidade() {
   document.getElementById('quali-count').textContent = list.length + ' OS' + (list.length === 1 ? '' : 's');
   const tbody = document.getElementById('tbody-qualidade');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="mat-empty">Nenhuma OS pra inspecionar.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="mat-empty">Nenhuma OS pra inspecionar.</td></tr>';
     return;
   }
   tbody.innerHTML = list.map(o => {
     const s = o.s, sit = o.sit;
-    return '<tr onclick="abrirChecklist(' + Number(s.id) + ')">' +
+    const resumo = resumoEtapasMelhoria(s);
+    const pend = etapasPendentesProducao(s);
+    const producao = o.lib
+      ? '<span class="ql-liberada">✔ Liberada</span>'
+      : '<span class="ql-bloqueada" title="Pendentes: ' + escMelhoria(pend.map(e => e.nome || 'etapa').join(', ')) + '">🔒 ' + pend.length + ' etapa' + (pend.length === 1 ? '' : 's') + ' pendente' + (pend.length === 1 ? '' : 's') + '</span>';
+    const qOk = qualidadeAprovada(s);
+    return '<tr' + (o.lib ? ' onclick="abrirChecklist(' + Number(s.id) + ')"' : ' class="ql-linha-bloqueada"') + '>' +
       '<td><strong>' + escMelhoria(s.os || '—') + '</strong></td>' +
       '<td>' + escMelhoria(s.it || '—') + '</td>' +
-      '<td>' + (s.cliente || '—') + '</td>' +
-      '<td>' + (s.desc || '—') + '</td>' +
-      '<td>' + (s.qty || '—') + '</td>' +
+      '<td>' + escMelhoria(s.cliente || '—') + '</td>' +
+      '<td>' + escMelhoria(s.desc || '—') + '</td>' +
+      '<td>' + escMelhoria(s.qty || '—') + '</td>' +
+      '<td>' + producao + '<div class="ql-prod-pct">' + resumo.percentual + '%</div></td>' +
+      '<td><span class="ql-qualidade ' + (qOk ? 'ok' : 'pend') + '">' + (qOk ? 'OK' : 'PENDENTE') + '</span></td>' +
       '<td><span class="ql-situacao-badge ' + sit.badge + '">' + sit.texto + '</span></td>' +
-      '<td>' + (sit.ultimo?.inspetor || '—') + '</td>' +
+      '<td>' + escMelhoria(sit.ultimo?.inspetor || '—') + '</td>' +
       '<td>' + (sit.ultimo ? (sit.ultimo.timestamp || '').substring(0,10).split('-').reverse().join('/') : '—') + '</td>' +
-      '<td class="actions"><button class="btn-primary btn-sm" onclick="event.stopPropagation(); abrirChecklist(' + Number(s.id) + ')">📋 Inspecionar</button></td>' +
+      '<td class="actions">' + (o.lib
+        ? '<button class="btn-primary btn-sm" onclick="event.stopPropagation(); abrirChecklist(' + Number(s.id) + ')">📋 Inspecionar</button>'
+        : '<button class="btn-secondary btn-sm" disabled title="Conclua (OK) ou marque N.A. em todas as etapas antes">🔒 Bloqueada</button>') + '</td>' +
     '</tr>';
   }).join('');
 }
@@ -1760,6 +1860,11 @@ async function renderQualidade() {
 function abrirChecklist(servicoId) {
   const s = servicos.find(x => x.id === servicoId);
   if (!s) return;
+  if (!liberadaParaQualidade(s)) {
+    const pend = etapasPendentesProducao(s);
+    alert('Esta OS ainda não pode ir para a Qualidade.\n\nEtapas pendentes (precisam estar OK ou N.A.):\n• ' + pend.map(e => e.nome || 'etapa sem nome').join('\n• '));
+    return;
+  }
   qualiOSAtual = s;
   qualiFotos = [];
   qualiMarcacoes = {};
@@ -1883,6 +1988,10 @@ async function salvarChecklist(situacao) {
   }
 
   const s = qualiOSAtual;
+  if (situacao === 'Aprovado' && !liberadaParaQualidade(s)) {
+    alert('Não dá para aprovar: ainda há etapas de produção pendentes.');
+    return;
+  }
   const now = new Date();
   const pad = n => String(n).padStart(2,'0');
   const timestamp = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+' '+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
@@ -1925,12 +2034,7 @@ async function salvarChecklist(situacao) {
       checklistsRemoto = null;
       await fetchChecklistsRemoto();
       renderQualidade();
-      // Se aprovado, atualiza status do serviço para Finalizado
-      if (situacao === 'Aprovado' && s.status !== 'Finalizado') {
-        s.status = 'Finalizado';
-        saveServicos();
-        renderServicos();
-      }
+      aplicarResultadoInspecao(s, situacao);
       setTimeout(() => closeQualiPanel(), 1200);
     } else {
       feedback.textContent = '✗ ' + (data.erro || 'erro');
@@ -1940,6 +2044,27 @@ async function salvarChecklist(situacao) {
     feedback.textContent = '✗ ' + err.message;
     feedback.style.color = '#dc2626';
   }
+}
+
+/**
+ * Resultado da inspeção → etapa "Inspeção Final" e status da OS, automaticamente.
+ * Aprovado: Inspeção Final = OK e OS Finalizada. Reprovado: Inspeção Final = Pendente e a OS volta para produção.
+ * Rascunho não muda nada.
+ */
+function aplicarResultadoInspecao(s, situacao) {
+  if (situacao !== 'Aprovado' && situacao !== 'Reprovado') return;
+  let fin = etapaInspecaoFinal(s);
+  if (!fin) { fin = Object.assign(novaEtapaMelhoria(), { nome: 'Inspeção Final' }); s.etapas = etapasDe(s).concat([fin]); }
+  if (situacao === 'Aprovado') {
+    fin.status = 'OK'; fin.percentual = 100;
+    s.status = 'Finalizado';
+  } else {
+    fin.status = 'Pendente'; fin.percentual = 0;
+    if (s.status === 'Finalizado') s.status = 'Em processo';
+  }
+  saveServicos();
+  renderServicos();
+  if (currentId === s.id) openEditPanel();
 }
 
 /* =============== CADASTROS: Responsáveis + Fornecedores =============== */
@@ -2359,6 +2484,7 @@ function editandoPainelServico() {
 
 function atualizarTelaServicos() {
   renderServicos();
+  if (abaAtiva() === 'finalizadas') renderFinalizadas();
   if (currentId === null) return;
   if (!servicos.some(s => s.id === currentId)) { currentId = null; closeEditPanel(); return; }
   if (!editandoPainelServico()) openEditPanel();

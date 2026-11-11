@@ -33,7 +33,7 @@ window.APP_CONFIG = {
 
   /* Listas usadas no apontamento e nas etapas da OS */
   /* Etapas criadas automaticamente em toda OS nova. Vazio = uma etapa em branco. */
-  etapasPadrao: ['Planejamento-PCP', 'Compras', 'Usinagem', 'Inspeção Final', 'Expedição'],
+  etapasPadrao: ['Planejamento-PCP', 'Compras', 'Usinagem', 'Inspeção Final'],
 
   operacoes: ['Torneamento', 'Fresamento', 'Furação', 'Retífica', 'Acabamento', 'Processo externo', 'Inspeção Final'],
   maquinas: ['Torno 1', 'Torno 2', 'Fresadora', 'Furadeira Radial', 'Retífica', 'Qualidade Final'],
