@@ -2363,7 +2363,11 @@ async function entrarComSenha(ev) {
   try {
     const resp = await fetchOriginal(getSyncUrl() + '?action=versao&k=' + encodeURIComponent(senha), { method: 'GET', redirect: 'follow' });
     const data = JSON.parse(await resp.text());
-    if (!data.ok) { msg.textContent = 'Senha incorreta.'; input.select(); return; }
+    if (!data.ok) {
+      msg.textContent = data.semAcesso ? 'Senha incorreta.' : 'Erro da planilha: ' + (data.erro || 'resposta inesperada') + ' (' + getSyncUrl().slice(-20) + ')';
+      input.select();
+      return;
+    }
     localStorage.setItem(SENHA_KEY, senha);
     location.reload();
   } catch (err) {
