@@ -8,7 +8,8 @@
  * Abas de dados (criadas automaticamente na planilha vinculada):
  *   Servicos · Apontamentos · Materiais · Movimentacoes · Checklists · Responsaveis · Fornecedores
  * Abas de consulta (reescritas a cada gravação, não edite):
- *   Saldos · Análise por OS · Finalizadas · Cliente <NOME> (uma por cliente em PAINEL_CLIENTES)
+ *   Saldos · Análise por OS · Finalizadas · Acompanhamento (todas as OS, com avanço e progresso)
+ *   · Cliente <NOME> (uma por cliente em PAINEL_CLIENTES)
  *
  * Senhas: menu "Gestão de Serviços" da planilha (aparece ao recarregar a página).
  *   Escritório → tudo. Operador → só grava apontamentos e lê a lista de responsáveis.
@@ -115,8 +116,8 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.3.1', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
-      case 'recursos':           return json({ ok: true, versao: '1.3.1', etiqueta: true });
+      case 'versao':             return json({ ok: true, versao: '1.3.2', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
+      case 'recursos':           return json({ ok: true, versao: '1.3.2', etiqueta: true });
       case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
@@ -351,15 +352,15 @@ function pctEtapa_(e) {
  * o avanço e uma barra de progresso em texto (funciona também via IMPORTRANGE).
  */
 function atualizarPaineisClientes_() {
-  if (!PAINEL_CLIENTES.length) return;
   const hoje = Utilities.formatDate(new Date(), FUSO, 'yyyy-MM-dd');
   const br = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; };
   const todas = listarServicos().filter(s => !s.excluido);
   // Colunas de etapa: na ordem em que aparecem nas OS (padrão da empresa)
   const nomesEtapas = [];
   todas.forEach(s => (s.etapas || []).forEach(e => { if (e.nome && nomesEtapas.indexOf(e.nome) < 0) nomesEtapas.push(e.nome); }));
-  PAINEL_CLIENTES.forEach(cliente => {
-    const lista = todas.filter(s => String(s.cliente || '').trim().toUpperCase() === cliente.toUpperCase())
+  // null = aba "Acompanhamento" com todas as OS (e coluna Cliente); depois uma aba por cliente
+  [null].concat(PAINEL_CLIENTES).forEach(cliente => {
+    const lista = todas.filter(s => !cliente || String(s.cliente || '').trim().toUpperCase() === cliente.toUpperCase())
       .map(s => Object.assign(s, { _st: statusOS_(s, hoje) }))
       .sort((a, b) => (a._st === 'Finalizado') - (b._st === 'Finalizado') || String(a.prazo || '9').localeCompare(String(b.prazo || '9')) || String(a.os + a.it).localeCompare(String(b.os + b.it)));
     const linhas = lista.map(s => {
@@ -367,7 +368,7 @@ function atualizarPaineisClientes_() {
       const porNome = {}; etapas.forEach(e => { porNome[e.nome] = e; });
       const avanco = etapas.length ? etapas.reduce((t, e) => t + pctEtapa_(e), 0) / etapas.length / 100 : (s._st === 'Finalizado' ? 1 : 0);
       const blocos = Math.round(avanco * 10);
-      return [s.os, s.it, s.oc, s.desc || s.des || '', s.qty, br(s.prazo), s._st]
+      return (cliente ? [] : [s.cliente]).concat([s.os, s.it, s.oc, s.desc || s.des || '', s.qty, br(s.prazo), s._st])
         .concat(nomesEtapas.map(n => {
           const e = porNome[n];
           if (!e) return '—';
@@ -376,11 +377,12 @@ function atualizarPaineisClientes_() {
         }))
         .concat([avanco, '█'.repeat(blocos) + '░'.repeat(10 - blocos), br(s.dt), s.nf]);
     });
-    const cab = ['OS', 'Item', 'Pedido / Projeto', 'Descrição da Peça', 'Qtd', 'Prazo', 'Status Geral']
+    const cab = (cliente ? [] : ['Cliente']).concat(['OS', 'Item', 'Pedido / Projeto', 'Descrição da Peça', 'Qtd', 'Prazo', 'Status Geral'])
       .concat(nomesEtapas.map((n, i) => (i + 1) + '. ' + n))
       .concat(['Avanço (%)', 'Progresso', 'Entrega', 'NF']);
-    escreverPainel_('Cliente ' + cliente, cab, linhas);
-    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Cliente ' + cliente);
+    const nomeAba = cliente ? 'Cliente ' + cliente : 'Acompanhamento';
+    escreverPainel_(nomeAba, cab, linhas);
+    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nomeAba);
     if (linhas.length) sh.getRange(2, cab.indexOf('Avanço (%)') + 1, linhas.length, 1).setNumberFormat('0%');
   });
 }
