@@ -116,8 +116,8 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.3.3', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
-      case 'recursos':           return json({ ok: true, versao: '1.3.3', etiqueta: true });
+      case 'versao':             return json({ ok: true, versao: '1.3.4', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
+      case 'recursos':           return json({ ok: true, versao: '1.3.4', etiqueta: true });
       case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
@@ -427,7 +427,9 @@ function atualizarPaineisClientes_() {
 
   // ----- Uma aba por cliente, agrupada por OS -----
   PAINEL_CLIENTES.forEach(cliente => {
-    const lista = todas.filter(s => String(s.cliente || '').trim().toUpperCase() === cliente.toUpperCase());
+    // O cliente não vê o "Alerta" (prazo em até 7 dias): para ele o item segue "Em processo"
+    const lista = todas.filter(s => String(s.cliente || '').trim().toUpperCase() === cliente.toUpperCase())
+      .map(s => Object.assign({}, s, { _st: s._st === 'Alerta' ? 'Em processo' : s._st }));
     const nomesEtapas = etapasDe(lista); // só as etapas que as OS deste cliente têm
     const grupos = {};
     lista.forEach(s => { (grupos[s.os] = grupos[s.os] || []).push(s); });
@@ -570,7 +572,6 @@ function formatarPlanilhaCliente_(sh, cab, idFerramenta, aba) {
   cor(etapas, F().whenTextEqualTo('—'), '#ffffff', '#d0d3d8');
   // Situação do item
   cor(status, F().whenTextEqualTo('Atrasado'), '#d93025', '#ffffff');
-  cor(status, F().whenTextEqualTo('Alerta'), '#fbbc04', '#3c2a00');
   cor(status, F().whenTextEqualTo('Em processo'), '#d2e3fc', '#174ea6');
   cor(status, F().whenTextEqualTo('Externo com terceiros'), '#e9d5f5', '#5b2a86');
   cor(status, F().whenTextEqualTo('Aguardando'), '#f1f3f4', '#5f6368');
