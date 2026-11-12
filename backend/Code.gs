@@ -116,8 +116,8 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.3.2', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
-      case 'recursos':           return json({ ok: true, versao: '1.3.2', etiqueta: true });
+      case 'versao':             return json({ ok: true, versao: '1.3.3', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
+      case 'recursos':           return json({ ok: true, versao: '1.3.3', etiqueta: true });
       case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
