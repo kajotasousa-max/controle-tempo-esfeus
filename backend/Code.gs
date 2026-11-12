@@ -8,7 +8,7 @@
  * Abas de dados (criadas automaticamente na planilha vinculada):
  *   Servicos · Apontamentos · Materiais · Movimentacoes · Checklists · Responsaveis · Fornecedores
  * Abas de consulta (reescritas a cada gravação, não edite):
- *   Saldos · Análise por OS · Finalizadas
+ *   Saldos · Análise por OS · Finalizadas · Cliente <NOME> (uma por cliente em PAINEL_CLIENTES)
  *
  * Senhas: menu "Gestão de Serviços" da planilha (aparece ao recarregar a página).
  *   Escritório → tudo. Operador → só grava apontamentos e lê a lista de responsáveis.
@@ -44,6 +44,12 @@ function osItem_(r) { const o = separarOsItem_(r); return o.os + (o.item ? '/' +
 
 /** Campos da OS que viram colunas próprias na aba Servicos. O resto vai na coluna "extras". */
 const CAMPOS_SERVICO = ['os', 'it', 'cliente', 'oc', 'des', 'desc', 'qty', 'material', 'tratamento', 'emb', 'prazo', 'status', 'nf', 'dt'];
+
+/**
+ * Clientes que recebem uma aba de acompanhamento ("Cliente COMAU"), refeita a cada gravação.
+ * A planilha que o cliente vê puxa essa aba com IMPORTRANGE (veja docs/PAINEL_CLIENTE.md).
+ */
+const PAINEL_CLIENTES = ['COMAU'];
 
 /** Pasta do Drive onde as fotos dos checklists e das peças são gravadas. */
 const PASTA_FOTOS = 'Gestão de Serviços - Fotos de Qualidade';
@@ -109,8 +115,8 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.3.0', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
-      case 'recursos':           return json({ ok: true, versao: '1.3.0', etiqueta: true });
+      case 'versao':             return json({ ok: true, versao: '1.3.1', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
+      case 'recursos':           return json({ ok: true, versao: '1.3.1', etiqueta: true });
       case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
@@ -315,6 +321,68 @@ function atualizarPaineis_() {
   try { atualizarSaldos_(); } catch (err) { console.warn('Saldos: ' + err); }
   try { atualizarAnalise_(); } catch (err) { console.warn('Análise: ' + err); }
   try { atualizarFinalizadas_(); } catch (err) { console.warn('Finalizadas: ' + err); }
+  try { atualizarPaineisClientes_(); } catch (err) { console.warn('Painel cliente: ' + err); }
+}
+
+/* ---------- Status da OS (mesma regra do app) ---------- */
+function semAcento_(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+function statusOS_(s, hoje) {
+  const etapas = Array.isArray(s.etapas) ? s.etapas : [];
+  const fin = etapas.find(e => semAcento_(e.nome).indexOf('inspecao final') >= 0);
+  const aprovada = fin ? fin.status === 'OK' : s.status === 'Finalizado';
+  if (etapas.length ? aprovada : s.status === 'Finalizado') return 'Finalizado';
+  if (s.status === 'Expedição') return 'Expedição';
+  const dias = s.prazo ? Math.round((Date.UTC(+s.prazo.slice(0, 4), s.prazo.slice(5, 7) - 1, +s.prazo.slice(8, 10)) - Date.UTC(+hoje.slice(0, 4), hoje.slice(5, 7) - 1, +hoje.slice(8, 10))) / 86400000) : null;
+  if (dias !== null && dias < 0) return 'Atrasado';
+  const ativa = e => e.status === 'Em andamento' || e.status === 'Parada';
+  if (etapas.some(e => semAcento_(e.nome).indexOf('terceiriz') >= 0 && ativa(e)) || s.status === 'Externo com terceiros') return 'Externo com terceiros';
+  const iniciou = etapas.some(e => ativa(e) || e.status === 'OK');
+  if (!iniciou && (s.status || 'Aguardando') === 'Aguardando') return 'Aguardando';
+  return dias !== null && dias <= 7 ? 'Alerta' : 'Em processo';
+}
+function pctEtapa_(e) {
+  if (e.status === 'OK' || e.status === 'N.A.' || e.status === 'Concluída') return 100;
+  if (e.status === 'Em andamento' || e.status === 'Parada') return Math.min(99, Math.max(0, Number(e.percentual) || 0));
+  return 0;
+}
+
+/**
+ * Aba "Cliente <NOME>": uma linha por OS/item do cliente, com o status de cada etapa,
+ * o avanço e uma barra de progresso em texto (funciona também via IMPORTRANGE).
+ */
+function atualizarPaineisClientes_() {
+  if (!PAINEL_CLIENTES.length) return;
+  const hoje = Utilities.formatDate(new Date(), FUSO, 'yyyy-MM-dd');
+  const br = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; };
+  const todas = listarServicos().filter(s => !s.excluido);
+  // Colunas de etapa: na ordem em que aparecem nas OS (padrão da empresa)
+  const nomesEtapas = [];
+  todas.forEach(s => (s.etapas || []).forEach(e => { if (e.nome && nomesEtapas.indexOf(e.nome) < 0) nomesEtapas.push(e.nome); }));
+  PAINEL_CLIENTES.forEach(cliente => {
+    const lista = todas.filter(s => String(s.cliente || '').trim().toUpperCase() === cliente.toUpperCase())
+      .map(s => Object.assign(s, { _st: statusOS_(s, hoje) }))
+      .sort((a, b) => (a._st === 'Finalizado') - (b._st === 'Finalizado') || String(a.prazo || '9').localeCompare(String(b.prazo || '9')) || String(a.os + a.it).localeCompare(String(b.os + b.it)));
+    const linhas = lista.map(s => {
+      const etapas = s.etapas || [];
+      const porNome = {}; etapas.forEach(e => { porNome[e.nome] = e; });
+      const avanco = etapas.length ? etapas.reduce((t, e) => t + pctEtapa_(e), 0) / etapas.length / 100 : (s._st === 'Finalizado' ? 1 : 0);
+      const blocos = Math.round(avanco * 10);
+      return [s.os, s.it, s.oc, s.desc || s.des || '', s.qty, br(s.prazo), s._st]
+        .concat(nomesEtapas.map(n => {
+          const e = porNome[n];
+          if (!e) return '—';
+          if (e.status === 'Em andamento' || e.status === 'Parada') return e.status + ' ' + pctEtapa_(e) + '%';
+          return e.status === 'Concluída' ? 'OK' : (e.status || 'Pendente');
+        }))
+        .concat([avanco, '█'.repeat(blocos) + '░'.repeat(10 - blocos), br(s.dt), s.nf]);
+    });
+    const cab = ['OS', 'Item', 'Pedido / Projeto', 'Descrição da Peça', 'Qtd', 'Prazo', 'Status Geral']
+      .concat(nomesEtapas.map((n, i) => (i + 1) + '. ' + n))
+      .concat(['Avanço (%)', 'Progresso', 'Entrega', 'NF']);
+    escreverPainel_('Cliente ' + cliente, cab, linhas);
+    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Cliente ' + cliente);
+    if (linhas.length) sh.getRange(2, cab.indexOf('Avanço (%)') + 1, linhas.length, 1).setNumberFormat('0%');
+  });
 }
 
 /** OS finalizadas (inspeção aprovada no app ou entregues antes dele), da entrega mais recente para a mais antiga. */
