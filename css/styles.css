@@ -519,3 +519,14 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
 .ea-fill { height: 100%; border-radius: 999px; transition: width .3s; }
 
 @media print { .sync-badge, #sync-badge { display: none !important; } }
+
+/* Impressão: cores e fundos saem mesmo com "Gráficos de plano de fundo" desmarcado.
+   O selo do QR interno também não depende de fundo: engrenagem laranja sobre branco com borda laranja. */
+@media print {
+  #print-area, #print-area * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  #print-area .qr-wrap.interno .qr-overlay { background: #fff !important; border: .5mm solid #f59e0b; box-shadow: 0 0 0 .4mm #fff !important; box-sizing: border-box; }
+  #print-area .qr-wrap.interno .qr-overlay svg { fill: #f59e0b !important; width: 80% !important; height: 80% !important; }
+  #print-area .print-tag { border: .25mm solid currentColor; }
+  #print-area .print-tag.externo { color: #006699; background: #fff; }
+  #print-area .print-tag.interno { color: #b45309; background: #fff; }
+}
