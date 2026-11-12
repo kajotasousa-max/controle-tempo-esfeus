@@ -1361,21 +1361,64 @@ function openEditPanel() {
   renderQr();
 }
 
-function buildApontamentoUrl(d) {
-  const base = urlBaseQr();
-  return base + '#i=' + b64enc({
-    os: d.os, it: d.it, cliente: d.cliente, desc: d.desc, oc: d.oc,
-    etapas: (d.etapas || []).map(e => ({ nome: e.nome, operacao: e.operacao, maquina: e.maquina, operador: e.operador, status: e.status }))
+/* =============== QR COMPACTO =============== */
+/*
+ * O QR é impresso com 20 x 20 mm, então o link precisa ser curto: sem JSON/base64,
+ * campos separados por "!" e etapas padrão viram números (índice em CONFIG.etapasPadrao).
+ * Formato: #i=~os!it!cliente!oc!desc!etapas   e   #e=~cliente!os!it!oc!qty!desc!des!material!tratamento!emb!nf!dt!status
+ * QRs antigos (base64) continuam funcionando.
+ */
+const QR_STATUS = ['Aguardando', 'Em processo', 'Alerta', 'Atrasado', 'Externo com terceiros', 'Expedição', 'Finalizado'];
+function qrEnc(v) { return encodeURIComponent(String(v == null ? '' : v)).replace(/[!*.'()~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase()); }
+function qrDec(v) { try { return decodeURIComponent(v || ''); } catch (e) { return v || ''; } }
+function qrCorta(t, n) { return String(t || '').trim().slice(0, n).trim(); }
+
+function qrEtapas(etapas) {
+  const padrao = Array.isArray(CONFIG.etapasPadrao) ? CONFIG.etapasPadrao : [];
+  const lista = (etapas || []).map(e => {
+    const i = padrao.indexOf(e.nome);
+    const nome = i >= 0 ? String(i) : qrEnc(e.nome || e.operacao || '');
+    const extra = [e.operacao, e.maquina, e.operador].some(Boolean) ? '.' + [e.operacao, e.maquina, e.operador].map(qrEnc).join('.') : '';
+    return nome + extra;
+  });
+  // Lista igual à padrão inteira: só "P"
+  if (lista.length === padrao.length && lista.every((x, i) => x === String(i))) return 'P';
+  return lista.join('*');
+}
+function qrEtapasDec(txt) {
+  const padrao = Array.isArray(CONFIG.etapasPadrao) ? CONFIG.etapasPadrao : [];
+  if (txt === 'P') return padrao.map(nome => ({ nome }));
+  if (!txt) return [];
+  return txt.split('*').map(p => {
+    const [n, op, maq, oper] = p.split('.');
+    const nome = /^\d+$/.test(n) && padrao[Number(n)] !== undefined ? padrao[Number(n)] : qrDec(n);
+    return { nome, operacao: qrDec(op), maquina: qrDec(maq), operador: qrDec(oper) };
   });
 }
 
+function buildApontamentoUrl(d) {
+  return urlBaseQr() + '#i=~' + [d.os, d.it, d.cliente, d.oc, qrCorta(d.desc, 40)].map(qrEnc).join('!') + '!' + qrEtapas(d.etapas);
+}
+
 function buildViewerUrl(d) {
-  const base = urlBaseQr();
-  return base + '#e=' + b64enc({
-    cliente: d.cliente, os: d.os, qty: d.qty, desc: d.desc, des: d.des,
-    material: d.material, tratamento: d.tratamento, emb: d.emb, oc: d.oc,
-    it: d.it, nf: d.nf, dt: fmtDate(d.dt), status: statusInteligente(d)
-  });
+  const st = QR_STATUS.indexOf(statusInteligente(d));
+  return urlBaseQr() + '#e=~' + [d.cliente, d.os, d.it, d.oc, d.qty, qrCorta(d.desc, 60), qrCorta(d.des, 40), d.material, d.tratamento, d.emb, d.nf, fmtDate(d.dt)]
+    .map(qrEnc).join('!') + '!' + (st >= 0 ? st : qrEnc(statusInteligente(d)));
+}
+
+/** Lê o conteúdo do QR (formato compacto "~..." ou o antigo em base64). */
+function lerQr(tipo, txt) {
+  if (txt.charAt(0) !== '~') return b64dec(txt);
+  const p = txt.slice(1).split('!');
+  if (tipo === 'i') {
+    return { os: qrDec(p[0]), it: qrDec(p[1]), cliente: qrDec(p[2]), oc: qrDec(p[3]), desc: qrDec(p[4]), etapas: qrEtapasDec(p[5] || '') };
+  }
+  const st = p[12] || '';
+  return {
+    cliente: qrDec(p[0]), os: qrDec(p[1]), it: qrDec(p[2]), oc: qrDec(p[3]), qty: qrDec(p[4]), desc: qrDec(p[5]), des: qrDec(p[6]),
+    material: qrDec(p[7]), tratamento: qrDec(p[8]), emb: qrDec(p[9]), nf: qrDec(p[10]), dt: qrDec(p[11]),
+    status: /^\d+$/.test(st) ? (QR_STATUS[Number(st)] || '') : qrDec(st)
+  };
 }
 
 async function ensureApontamentosCarregados() {
@@ -2743,11 +2786,11 @@ async function conferirSenhaNaAbertura() {
   const hash = window.location.hash;
   if (!hash.startsWith('#e=')) conferirSenhaNaAbertura();
   if (hash.startsWith('#e=')) {
-    try { activateViewerMode(b64dec(hash.substring(3))); return; }
+    try { activateViewerMode(lerQr('e', hash.substring(3))); return; }
     catch(e) { alert('QR inválido.'); }
   }
   if (hash.startsWith('#i=')) {
-    try { activateApontaMode(b64dec(hash.substring(3))); return; }
+    try { activateApontaMode(lerQr('i', hash.substring(3))); return; }
     catch(e) { alert('QR de apontamento inválido.'); }
   }
 

@@ -250,16 +250,16 @@ body.aponta-mode #aponta-app { display: block; }
 }
 .qr-wrap.externo .qr-overlay {
   background: white; border-radius: 50%;
-  padding: 3px; width: 22%; height: 22%;
-  box-shadow: 0 0 0 2px #006699, 0 0 0 4px white;
+  padding: 2px; width: 34%; height: 34%;
+  box-shadow: 0 0 0 2px #006699, 0 0 0 3px white;
 }
 .qr-wrap.externo .qr-overlay img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 .qr-wrap.interno .qr-overlay {
   background: #f59e0b; border-radius: 6px;
-  width: 24%; height: 24%;
-  box-shadow: 0 0 0 3px white, 0 0 0 5px #f59e0b;
+  width: 26%; height: 26%;
+  box-shadow: 0 0 0 2px white, 0 0 0 3px #f59e0b;
 }
-.qr-wrap.interno .qr-overlay svg { width: 65%; height: 65%; fill: white; }
+.qr-wrap.interno .qr-overlay svg { width: 72%; height: 72%; fill: white; }
 
 /* ===== Sync badge (indicador de sincronização com Sheets) ===== */
 .sync-badge {
@@ -491,3 +491,13 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
 .insp-final.bloq { background: #f1f5f9; color: #64748b; cursor: help; }
 .insp-final.btn-inspecionar { background: #006699; color: #fff; border: 0; cursor: pointer; padding: 0 8px; }
 .insp-final.btn-inspecionar:hover { background: #004A80; }
+
+/* QR impresso: sempre 20 x 20 mm, em qualquer etiqueta (margem branca de 2 mm para a leitura) */
+@media print {
+  #print-area .qr-wrap { width: 20mm !important; height: 20mm !important; margin: 2mm auto !important; display: block !important; }
+  #print-area .qr-wrap > div:first-child { width: 20mm !important; height: 20mm !important; }
+  #print-area .qr-wrap img, #print-area .qr-wrap canvas { width: 20mm !important; height: 20mm !important; max-width: none !important; }
+  #print-area .qr-wrap .qr-overlay img { width: 100% !important; height: 100% !important; }
+  #print-area .qr-wrap.externo .qr-overlay { box-shadow: 0 0 0 .4mm #006699, 0 0 0 .7mm white; padding: .3mm; }
+  #print-area .qr-wrap.interno .qr-overlay { box-shadow: 0 0 0 .4mm white, 0 0 0 .7mm #f59e0b; border-radius: 1mm; }
+}
