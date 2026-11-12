@@ -250,7 +250,7 @@ body.aponta-mode #aponta-app { display: block; }
 }
 .qr-wrap.externo .qr-overlay {
   background: white; border-radius: 50%;
-  padding: 2px; width: 34%; height: 34%;
+  padding: 2px; width: 28%; height: 28%;
   box-shadow: 0 0 0 2px #006699, 0 0 0 3px white;
 }
 .qr-wrap.externo .qr-overlay img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
@@ -339,23 +339,29 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
   .app, .top-bar, .tabs, #viewer-app, #aponta-app { display: none !important; }
   #print-area { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8mm; padding: 8mm; }
   #print-area.single { grid-template-columns: 1fr; place-items: center; padding: 20mm; }
-  .print-qr { text-align: center; page-break-inside: avoid; padding: 4mm; border: 1px dashed #999; border-radius: 2mm; }
-  .print-qr.externo { border-color: #006699; }
-  .print-qr.interno { border-color: #f59e0b; }
-  .print-tag { font-size: 8px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2mm; padding: 1mm 3mm; border-radius: 2mm; display: inline-block; }
+  /* Etiqueta avulsa de QR: cartão 88 x 30 mm */
+  .print-qr { display: flex; align-items: center; gap: 3.5mm; width: 88mm; min-height: 30mm; box-sizing: border-box; padding: 3mm 4mm 3mm 3mm;
+    border: .3mm solid #cbd5e1; border-left: 2.2mm solid #006699; border-radius: 2mm; background: #fff; page-break-inside: avoid; font-family: 'Open Sans', Arial, sans-serif; color: #111; }
+  .print-qr.interno { border-left-color: #f59e0b; }
+  .print-qr .pq-qr { flex: 0 0 20mm; }
+  .print-qr .pq-qr .qr-wrap { margin: 0 !important; }
+  .print-qr .pq-info { flex: 1; min-width: 0; text-align: left; line-height: 1.25; }
+  .print-qr .pq-top { display: flex; align-items: center; gap: 2mm; margin-bottom: 1.2mm; }
+  .print-tag { font-size: 6.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; padding: .6mm 2mm; border-radius: 1mm; display: inline-block; white-space: nowrap; }
   .print-tag.externo { background: #006699; color: white; }
   .print-tag.interno { background: #f59e0b; color: white; }
-  .print-qr .qr-container { display: flex; justify-content: center; }
-  .print-qr .qr-container canvas, .print-qr .qr-container img { display: block; width: 100%; max-width: 45mm; height: auto; }
-  #print-area.single .print-qr .qr-container canvas, #print-area.single .print-qr .qr-container img { max-width: 90mm; }
-  .print-qr .qr-info { font-size: 9px; margin-top: 3mm; color: #000; line-height: 1.3; }
-  .print-qr .qr-info strong { display: block; font-size: 11px; margin-bottom: 1mm; }
-  #print-area.single .print-qr .qr-info { font-size: 12px; margin-top: 6mm; }
-  #print-area.single .print-qr .qr-info strong { font-size: 16px; }
+  .print-qr .pq-cli { font-size: 8pt; font-weight: 700; color: #475569; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .print-qr .pq-os { font-family: 'Montserrat', Arial, sans-serif; font-size: 15pt; font-weight: 800; color: #004A80; letter-spacing: -.2px; white-space: nowrap; }
+  .print-qr.interno .pq-os { color: #b45309; }
+  .print-qr .pq-it { font-weight: 600; color: #334155; }
+  .print-qr .pq-oc { font-size: 8pt; font-weight: 700; margin-top: .6mm; }
+  .print-qr .pq-desc { font-size: 7.5pt; color: #334155; margin-top: .6mm; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .print-qr .pq-rodape { font-size: 6pt; color: #94a3b8; margin-top: 1mm; }
   @page { margin: 0; size: A4; }
   /* Etiqueta interna: grade 2x4 em A4 quando várias, centralizada quando 1 */
   #print-area .etq-interna { page-break-inside: avoid; }
   #print-area:not(.single):not(.etq-full-mode) { grid-template-columns: repeat(2, 1fr); gap: 6mm; padding: 8mm; }
+  #print-area.qr-avulso { grid-template-columns: repeat(2, 88mm) !important; gap: 5mm 6mm !important; padding: 10mm !important; place-items: start !important; justify-content: center; }
   #print-area.single .etq-interna { max-width: 130mm; }
   /* Etiqueta completa: uma por página */
   #print-area.etq-full-mode { display: block !important; grid-template-columns: none !important; padding: 8mm !important; }

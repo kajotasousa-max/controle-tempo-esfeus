@@ -545,13 +545,14 @@ function buildQrWithOverlay(url, size, tipo) {
   const codeDiv = document.createElement('div');
   wrap.appendChild(codeDiv);
   // High correction level pra tolerar overlay no centro (~30% resistência)
-  try {
-    new QRCode(codeDiv, { text: url, width: size, height: size, correctLevel: QRCode.CorrectLevel.H });
-  } catch (e) {
-    // A biblioteca erra o tamanho do QR em algumas faixas de comprimento com nível H; Q ainda tolera o logo no centro
-    codeDiv.innerHTML = '';
-    new QRCode(codeDiv, { text: url, width: size, height: size, correctLevel: QRCode.CorrectLevel.Q });
+  // Nível H (30% de correção) para o logo no centro. A biblioteca erra o tamanho do QR em algumas
+  // faixas de comprimento; nesse caso o link ganha "!" no fim (ignorados na leitura) até caber.
+  let texto = url, ok = false;
+  for (let i = 0; i < 40 && !ok; i++) {
+    try { codeDiv.innerHTML = ''; new QRCode(codeDiv, { text: texto, width: size, height: size, correctLevel: QRCode.CorrectLevel.H }); ok = true; }
+    catch (e) { texto += '!'; }
   }
+  if (!ok) { codeDiv.innerHTML = ''; new QRCode(codeDiv, { text: url, width: size, height: size, correctLevel: QRCode.CorrectLevel.Q }); }
   const overlay = document.createElement('div');
   overlay.className = 'qr-overlay';
   overlay.innerHTML = tipo === 'interno'
@@ -718,23 +719,25 @@ function printEtiquetaCompleta() {
   setTimeout(() => window.print(), 200);
 }
 
+/** Etiqueta avulsa de QR: cartão horizontal (QR 20 mm à esquerda, dados à direita). */
 function generatePrintQR(s, tipo) {
   const wrapper = document.createElement('div');
   wrapper.className = 'print-qr ' + tipo;
-  const tag = document.createElement('div');
-  tag.className = 'print-tag ' + tipo;
-  tag.textContent = tipo === 'interno' ? 'Chão de fábrica' : 'Cliente';
-  wrapper.appendChild(tag);
   const qrDiv = document.createElement('div');
-  qrDiv.className = 'qr-container';
+  qrDiv.className = 'pq-qr';
   const url = tipo === 'interno' ? buildApontamentoUrl(s) : buildViewerUrl(s);
   qrDiv.appendChild(buildQrWithOverlay(url, 400, tipo));
   wrapper.appendChild(qrDiv);
+  const linha2 = [s.oc ? 'OC ' + s.oc : '', s.qty ? 'Qtd ' + s.qty : ''].filter(Boolean).join('  ·  ');
   const info = document.createElement('div');
-  info.className = 'qr-info';
-  const osFull = (s.os || '(sem OS)') + (s.it ? '/' + s.it : '');
-  info.innerHTML = '<strong>OC ' + (s.oc || '(sem OC)') + '</strong>' +
-                   osFull + '<br>' + (s.desc || '') + (s.cliente ? ' · ' + s.cliente : '');
+  info.className = 'pq-info';
+  info.innerHTML =
+    '<div class="pq-top"><span class="print-tag ' + tipo + '">' + (tipo === 'interno' ? 'Chão de fábrica' : 'Cliente') + '</span>' +
+      '<span class="pq-cli">' + escMelhoria(s.cliente || '') + '</span></div>' +
+    '<div class="pq-os">' + escMelhoria(s.os || '(sem OS)') + (s.it ? '<span class="pq-it"> / ' + escMelhoria(s.it) + '</span>' : '') + '</div>' +
+    (linha2 ? '<div class="pq-oc">' + escMelhoria(linha2) + '</div>' : '') +
+    (s.desc ? '<div class="pq-desc">' + escMelhoria(s.desc) + '</div>' : '') +
+    '<div class="pq-rodape">' + escMelhoria(tipo === 'interno' ? 'Aponte o celular para registrar a produção' : 'Aponte a câmera do celular para ver a ficha da peça') + '</div>';
   wrapper.appendChild(info);
   return wrapper;
 }
@@ -747,7 +750,8 @@ function printSelecionadas(tipo) {
     if (!confirm('Nada selecionado. Imprimir TODAS as ' + lista.length + ' OSs filtradas?')) return;
   }
   const area = document.getElementById('print-area');
-  area.className = tipo === 'completa' ? 'etq-full-mode' : (lista.length === 1 ? 'single' : '');
+  const avulso = tipo !== 'completa' && tipo !== 'interno';
+  area.className = tipo === 'completa' ? 'etq-full-mode' : (avulso ? 'qr-avulso' : (lista.length === 1 ? 'single' : ''));
   area.innerHTML = '';
   lista.forEach(s => {
     if (tipo === 'completa') area.appendChild(generateEtiquetaCompleta(s));
@@ -761,7 +765,7 @@ function printCurrent(tipo) {
   const s = servicos.find(x => x.id === currentId);
   if (!s) { alert('Selecione um serviço primeiro.'); return; }
   const area = document.getElementById('print-area');
-  area.className = 'single';
+  area.className = 'qr-avulso';
   area.innerHTML = '';
   area.appendChild(generatePrintQR(s, tipo));
   setTimeout(() => window.print(), 150);
@@ -771,7 +775,7 @@ function printAll(tipo) {
   const list = filterServicos();
   if (!list.length) { alert('Nenhum serviço na visualização atual.'); return; }
   const area = document.getElementById('print-area');
-  area.className = '';
+  area.className = 'qr-avulso';
   area.innerHTML = '';
   list.forEach(s => area.appendChild(generatePrintQR(s, tipo)));
   setTimeout(() => window.print(), 150);
@@ -1402,7 +1406,7 @@ function buildApontamentoUrl(d) {
 
 function buildViewerUrl(d) {
   const st = QR_STATUS.indexOf(statusInteligente(d));
-  return urlBaseQr() + '#e=~' + [d.cliente, d.os, d.it, d.oc, d.qty, qrCorta(d.desc, 60), qrCorta(d.des, 40), d.material, d.tratamento, d.emb, d.nf, fmtDate(d.dt)]
+  return urlBaseQr() + '#e=~' + [d.cliente, d.os, d.it, d.oc, d.qty, qrCorta(d.desc, 45), qrCorta(d.des, 25), d.material, d.tratamento, d.emb, d.nf, fmtDate(d.dt)]
     .map(qrEnc).join('!') + '!' + (st >= 0 ? st : qrEnc(statusInteligente(d)));
 }
 
