@@ -1086,8 +1086,14 @@ function updateEtapa(index, campo, valor) {
   const s = servicos.find(x => x.id === currentId);
   if (!s || !s.etapas[index]) return;
   if (campo === 'status' && ehInspecaoFinal(s.etapas[index])) return; // só a Qualidade muda
+  const reabre = campo === 'status' && qualidadeAprovada(s) && etapaConcluida(s.etapas[index]) && !etapaConcluida({ status: valor });
+  if (reabre && !confirm('Esta OS já está FINALIZADA (inspeção aprovada).\n\nMudar "' + (s.etapas[index].nome || 'etapa') + '" para ' + valor + ' reabre a OS: ela sai das Finalizadas e precisará de nova inspeção na Qualidade depois que todas as etapas estiverem OK/N.A.\n\nContinuar?')) {
+    renderEtapasEditor();
+    return;
+  }
   s.etapas[index][campo] = valor;
   if (campo === 'status' && valor === 'Pendente') s.etapas[index].percentual = 0;
+  if (reabre) reabrirOS(s);
   saveServicos();
   renderEtapasEditor();
   renderServicos();
@@ -1838,10 +1844,11 @@ async function fetchChecklistsRemoto() {
 }
 
 function situacaoOS(s) {
-  const cls = (checklistsRemoto || []).filter(c => {
-    return osItem(c) === osItemServico(s);
-  });
-  if (!cls.length) return { badge: 'pendente', texto: 'Pendente', ultimo: null };
+  const todas = (checklistsRemoto || []).filter(c => osItem(c) === osItemServico(s));
+  const cls = todas.filter(c => inspecaoValida(s, c));
+  if (!cls.length) return todas.length && s.reabertaEm
+    ? { badge: 'pendente', texto: 'Reaberta', ultimo: null }
+    : { badge: 'pendente', texto: 'Pendente', ultimo: null };
   // Pega o mais recente
   cls.sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
   const ult = cls[0];
@@ -2095,6 +2102,25 @@ async function salvarChecklist(situacao) {
  * Aprovado: Inspeção Final = OK e OS Finalizada. Reprovado: Inspeção Final = Pendente e a OS volta para produção.
  * Rascunho não muda nada.
  */
+function agoraTimestamp() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+/**
+ * Reabre uma OS finalizada: Inspeção Final volta a Pendente, sai de Finalizado e a aprovação
+ * anterior deixa de valer (reabertaEm). Só uma inspeção nova, depois disso, finaliza de novo.
+ */
+function reabrirOS(s) {
+  const fin = etapaInspecaoFinal(s);
+  if (fin) { fin.status = 'Pendente'; fin.percentual = 0; }
+  if (s.status === 'Finalizado') s.status = 'Em processo';
+  s.reabertaEm = agoraTimestamp();
+}
+
+/** Inspeção que ainda vale para a OS (feita depois da última reabertura). */
+function inspecaoValida(s, c) { return !s.reabertaEm || (c.timestamp || '') > s.reabertaEm; }
+
 /** Ajusta a OS ao resultado da inspeção. Devolve true se mudou algo (sem salvar). */
 function ajustarOSAoResultado(s, situacao) {
   if (situacao !== 'Aprovado' && situacao !== 'Reprovado') return false;
@@ -2117,17 +2143,19 @@ function ajustarOSAoResultado(s, situacao) {
  * ou antes desta regra existir. Roda sempre que as inspeções são carregadas.
  */
 function conciliarInspecoes() {
-  if (!Array.isArray(checklistsRemoto)) return;
   const ultima = {};
-  checklistsRemoto.forEach(c => {
+  (checklistsRemoto || []).forEach(c => {
     if (c.situacao !== 'Aprovado' && c.situacao !== 'Reprovado') return;
     const k = osItem(c);
     if (!ultima[k] || (c.timestamp || '') > (ultima[k].timestamp || '')) ultima[k] = c;
   });
   let mudou = false;
   servicos.forEach(s => {
+    // Aprovada com etapa pendente (ex.: alguém voltou uma etapa): reabre
+    const fin = etapaInspecaoFinal(s);
+    if (fin && fin.status === 'OK' && !liberadaParaQualidade(s)) { reabrirOS(s); mudou = true; return; }
     const c = ultima[osItemServico(s)];
-    if (c && ajustarOSAoResultado(s, c.situacao)) mudou = true;
+    if (c && inspecaoValida(s, c) && ajustarOSAoResultado(s, c.situacao)) mudou = true;
   });
   if (mudou) {
     saveServicos();
@@ -2559,6 +2587,7 @@ async function receberServicos() {
 async function sincronizarServicos() {
   const mudou = await receberServicos();
   if (mudou) atualizarTelaServicos();
+  conciliarInspecoes();
   if (servicosPlanilhaOk) await enviarServicos();
   updateSyncBadge();
 }
