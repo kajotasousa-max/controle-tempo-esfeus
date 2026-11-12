@@ -347,44 +347,236 @@ function pctEtapa_(e) {
   return 0;
 }
 
+/* ---------- Datas e ordenação dos painéis ---------- */
+/** Aceita '2026-11-16', '16/11/2026' ou Date e devolve 'yyyy-MM-dd' (ou ''). */
+function isoData_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, FUSO, 'yyyy-MM-dd');
+  const t = String(v || '').trim();
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) : '';
+}
+/** Data de verdade para a célula (a planilha formata como dd/mm/aaaa). */
+function celulaData_(v) {
+  const iso = isoData_(v);
+  return iso ? new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) : '';
+}
+/** "001-51" antes de "001-212"; "CO 26.004" antes de "CO 26.005". */
+function compararNatural_(a, b) {
+  const pa = String(a || '').match(/\d+|\D+/g) || [], pb = String(b || '').match(/\d+|\D+/g) || [];
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i], y = pb[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    const nx = /^\d/.test(x), ny = /^\d/.test(y);
+    const c = nx && ny ? Number(x) - Number(y) : x.localeCompare(y, 'pt-BR');
+    if (c) return c;
+  }
+  return 0;
+}
+/** Situação mais urgente primeiro: é a que aparece na linha da OS. */
+const GRAVIDADE_STATUS = ['Atrasado', 'Alerta', 'Externo com terceiros', 'Em processo', 'Expedição', 'Aguardando', 'Finalizado'];
+
 /**
- * Aba "Cliente <NOME>": uma linha por OS/item do cliente, com o status de cada etapa,
- * o avanço e uma barra de progresso em texto (funciona também via IMPORTRANGE).
+ * Aba "Acompanhamento" (todas as OS) e abas "Cliente <NOME>".
+ * Na aba do cliente as peças ficam agrupadas por OS: uma linha-título por OS (OS preenchida, Item vazio)
+ * com o resumo, e logo abaixo os itens em ordem. A planilha do cliente puxa essa aba com IMPORTRANGE
+ * e pinta as linhas com a formatação aplicada por formatarPlanilhasClientes().
  */
 function atualizarPaineisClientes_() {
   const hoje = Utilities.formatDate(new Date(), FUSO, 'yyyy-MM-dd');
-  const br = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; };
-  const todas = listarServicos().filter(s => !s.excluido);
-  // Colunas de etapa: na ordem em que aparecem nas OS (padrão da empresa)
-  const nomesEtapas = [];
-  todas.forEach(s => (s.etapas || []).forEach(e => { if (e.nome && nomesEtapas.indexOf(e.nome) < 0) nomesEtapas.push(e.nome); }));
-  // null = aba "Acompanhamento" com todas as OS (e coluna Cliente); depois uma aba por cliente
-  [null].concat(PAINEL_CLIENTES).forEach(cliente => {
-    const lista = todas.filter(s => !cliente || String(s.cliente || '').trim().toUpperCase() === cliente.toUpperCase())
-      .map(s => Object.assign(s, { _st: statusOS_(s, hoje) }))
-      .sort((a, b) => (a._st === 'Finalizado') - (b._st === 'Finalizado') || String(a.prazo || '9').localeCompare(String(b.prazo || '9')) || String(a.os + a.it).localeCompare(String(b.os + b.it)));
-    const linhas = lista.map(s => {
-      const etapas = s.etapas || [];
-      const porNome = {}; etapas.forEach(e => { porNome[e.nome] = e; });
-      const avanco = etapas.length ? etapas.reduce((t, e) => t + pctEtapa_(e), 0) / etapas.length / 100 : (s._st === 'Finalizado' ? 1 : 0);
-      const blocos = Math.round(avanco * 10);
-      return (cliente ? [] : [s.cliente]).concat([s.os, s.it, s.oc, s.desc || s.des || '', s.qty, br(s.prazo), s._st])
-        .concat(nomesEtapas.map(n => {
-          const e = porNome[n];
-          if (!e) return '—';
-          if (e.status === 'Em andamento' || e.status === 'Parada') return e.status + ' ' + pctEtapa_(e) + '%';
-          return e.status === 'Concluída' ? 'OK' : (e.status || 'Pendente');
-        }))
-        .concat([avanco, '█'.repeat(blocos) + '░'.repeat(10 - blocos), br(s.dt), s.nf]);
-    });
-    const cab = (cliente ? [] : ['Cliente']).concat(['OS', 'Item', 'Pedido / Projeto', 'Descrição da Peça', 'Qtd', 'Prazo', 'Status Geral'])
-      .concat(nomesEtapas.map((n, i) => (i + 1) + '. ' + n))
-      .concat(['Avanço (%)', 'Progresso', 'Entrega', 'NF']);
-    const nomeAba = cliente ? 'Cliente ' + cliente : 'Acompanhamento';
-    escreverPainel_(nomeAba, cab, linhas);
-    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nomeAba);
-    if (linhas.length) sh.getRange(2, cab.indexOf('Avanço (%)') + 1, linhas.length, 1).setNumberFormat('0%');
+  const todas = listarServicos().filter(s => !s.excluido).map(s => {
+    s.prazo = isoData_(s.prazo) || s.prazo;
+    s._st = statusOS_(s, hoje);
+    return s;
   });
+  const etapasDe = lista => {
+    const nomes = [];
+    lista.forEach(s => (s.etapas || []).forEach(e => { if (e.nome && nomes.indexOf(e.nome) < 0) nomes.push(e.nome); }));
+    return nomes;
+  };
+  const avancoDe = s => {
+    const etapas = s.etapas || [];
+    return etapas.length ? etapas.reduce((t, e) => t + pctEtapa_(e), 0) / etapas.length / 100 : (s._st === 'Finalizado' ? 1 : 0);
+  };
+  const barra = v => { const n = Math.round(v * 10); return '█'.repeat(n) + '░'.repeat(10 - n); };
+  const celulaEtapa = e => {
+    if (!e) return '—';
+    if (e.status === 'Em andamento' || e.status === 'Parada') return e.status + ' ' + pctEtapa_(e) + '%';
+    return e.status === 'Concluída' ? 'OK' : (e.status || 'Pendente');
+  };
+  const linhaItem = (s, nomesEtapas) => {
+    const porNome = {}; (s.etapas || []).forEach(e => { porNome[e.nome] = e; });
+    const av = avancoDe(s);
+    return [s.os, s.it || '—', s.oc, s.desc || s.des || '', s.qty, celulaData_(s.prazo), s._st]
+      .concat(nomesEtapas.map(n => celulaEtapa(porNome[n])))
+      .concat([av, barra(av), celulaData_(s.dt), s.nf]);
+  };
+  const ordemItens = (a, b) => compararNatural_(a.os, b.os) || compararNatural_(a.it, b.it);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // ----- Acompanhamento: uma linha por item, por cliente → OS → item -----
+  const nomesTodas = etapasDe(todas);
+  const geral = todas.slice().sort((a, b) => String(a.cliente || '').localeCompare(String(b.cliente || ''), 'pt-BR') || ordemItens(a, b));
+  const cabGeral = ['Cliente', 'OS', 'Item', 'Pedido / Projeto', 'Descrição da Peça', 'Qtd', 'Prazo', 'Status Geral']
+    .concat(nomesTodas.map((n, i) => (i + 1) + '. ' + n)).concat(['Avanço (%)', 'Progresso', 'Entrega', 'NF']);
+  const linhasGeral = geral.map(s => [s.cliente].concat(linhaItem(s, nomesTodas)));
+  escreverPainel_('Acompanhamento', cabGeral, linhasGeral);
+  formatarColunasPainel_(ss.getSheetByName('Acompanhamento'), 1, cabGeral, linhasGeral.length);
+
+  // ----- Uma aba por cliente, agrupada por OS -----
+  PAINEL_CLIENTES.forEach(cliente => {
+    const lista = todas.filter(s => String(s.cliente || '').trim().toUpperCase() === cliente.toUpperCase());
+    const nomesEtapas = etapasDe(lista); // só as etapas que as OS deste cliente têm
+    const grupos = {};
+    lista.forEach(s => { (grupos[s.os] = grupos[s.os] || []).push(s); });
+    const ordemOS = Object.keys(grupos).sort((a, b) => {
+      const fa = grupos[a].every(s => s._st === 'Finalizado'), fb = grupos[b].every(s => s._st === 'Finalizado');
+      return (fa - fb) || compararNatural_(a, b); // OS inteiramente finalizadas vão para o fim
+    });
+    const linhas = [];
+    ordemOS.forEach(os => {
+      const itens = grupos[os].sort(ordemItens);
+      const n = itens.length;
+      const pior = itens.map(s => s._st).sort((a, b) => {
+        const ia = GRAVIDADE_STATUS.indexOf(a), ib = GRAVIDADE_STATUS.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      })[0];
+      const prazos = itens.map(s => s.prazo).filter(Boolean).sort();
+      const pedidos = itens.map(s => s.oc).filter((v, i, arr) => v && arr.indexOf(v) === i);
+      const avMedio = itens.reduce((t, s) => t + avancoDe(s), 0) / n;
+      const resumoEtapas = nomesEtapas.map(nome => {
+        const comEtapa = itens.filter(s => (s.etapas || []).some(e => e.nome === nome));
+        if (!comEtapa.length) return '—';
+        const prontos = comEtapa.filter(s => (s.etapas || []).some(e => e.nome === nome && pctEtapa_(e) === 100)).length;
+        return prontos + '/' + comEtapa.length + ' OK';
+      });
+      linhas.push([os, '', pedidos.join(' · '), n + (n === 1 ? ' item' : ' itens'), '', celulaData_(prazos[0]), pior]
+        .concat(resumoEtapas).concat([avMedio, barra(avMedio), '', '']));
+      itens.forEach(s => linhas.push(linhaItem(s, nomesEtapas)));
+    });
+    const cab = ['OS', 'Item', 'Pedido / Projeto', 'Descrição da Peça', 'Qtd', 'Prazo', 'Status Geral']
+      .concat(nomesEtapas.map((n, i) => (i + 1) + '. ' + n)).concat(['Avanço (%)', 'Progresso', 'Entrega', 'NF']);
+    const nomeAba = 'Cliente ' + cliente;
+    escreverPainel_(nomeAba, cab, linhas);
+    formatarColunasPainel_(ss.getSheetByName(nomeAba), 1, cab, linhas.length);
+  });
+}
+
+/** Formato numérico das colunas de avanço e datas (o cabeçalho diz qual coluna é qual). */
+function formatarColunasPainel_(sh, linhaCab, cab, qtd) {
+  if (!sh) return;
+  const linhas = Math.max(qtd, 1);
+  cab.forEach((c, i) => {
+    const r = sh.getRange(linhaCab + 1, i + 1, linhas, 1);
+    if (c === 'Avanço (%)') r.setNumberFormat('0%');
+    else if (c === 'Prazo' || c === 'Entrega') r.setNumberFormat('dd/mm/yyyy');
+  });
+}
+
+/* ---------- Planilha que o cliente vê ---------- */
+
+/**
+ * Planilhas dos clientes (ID da planilha do Google). Cada uma puxa a aba "Cliente <NOME>" com IMPORTRANGE
+ * na linha 4. Depois de mudar algo aqui, rode formatarPlanilhasClientes() uma vez pelo menu.
+ */
+const PLANILHAS_CLIENTES = { COMAU: '1QF3AYDIVGhCCTN_ZbJaaeN1PVFggWMaLPRpWJsfEhsI' };
+
+/**
+ * Menu › "Formatar planilha do cliente". Rode uma vez (e de novo se as etapas mudarem):
+ * fórmula IMPORTRANGE, indicadores do topo, cores por situação, linha-título de cada OS e larguras.
+ * Na primeira vez o Google pede autorização para abrir a planilha do cliente.
+ */
+function formatarPlanilhasClientes() {
+  atualizarPaineisClientes_();
+  const idFerramenta = SpreadsheetApp.getActiveSpreadsheet().getId();
+  const feitos = [];
+  Object.keys(PLANILHAS_CLIENTES).forEach(cliente => {
+    const origem = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Cliente ' + cliente);
+    if (!origem) return;
+    const cab = origem.getRange(1, 1, 1, origem.getLastColumn()).getValues()[0];
+    const sh = SpreadsheetApp.openById(PLANILHAS_CLIENTES[cliente]).getSheets()[0];
+    formatarPlanilhaCliente_(sh, cab, idFerramenta, 'Cliente ' + cliente);
+    feitos.push(cliente);
+  });
+  try { SpreadsheetApp.getUi().alert('Planilha formatada: ' + (feitos.join(', ') || 'nenhuma')); } catch (e) { console.log(feitos); }
+}
+
+function formatarPlanilhaCliente_(sh, cab, idFerramenta, aba) {
+  const L0 = 4;                       // linha do cabeçalho
+  const nCol = cab.length;
+  const letra = c => { let s = ''; for (; c > 0; c = Math.floor((c - 1) / 26)) s = String.fromCharCode(65 + (c - 1) % 26) + s; return s; };
+  const ult = letra(nCol);
+  const col = nome => cab.indexOf(nome) + 1;
+  const cAv = col('Avanço (%)'), cSt = col('Status Geral');
+  const primeiraEtapa = col('Status Geral') + 1, ultimaEtapa = cAv - 1;
+  const maxLin = Math.max(sh.getMaxRows(), 1000);
+  if (sh.getMaxRows() < maxLin) sh.insertRowsAfter(sh.getMaxRows(), maxLin - sh.getMaxRows());
+  if (sh.getMaxColumns() < nCol) sh.insertColumnsAfter(sh.getMaxColumns(), nCol - sh.getMaxColumns());
+
+  // Dados: limpa a área e põe o IMPORTRANGE
+  sh.getRange(L0, 1, maxLin - L0 + 1, sh.getMaxColumns()).clearContent().clearFormat();
+  sh.getRange(L0, 1).setFormula('=IMPORTRANGE("' + idFerramenta + '";"' + aba + '!A1:' + ult + '")');
+
+  // Indicadores do topo (só linhas de item: Item preenchido)
+  const S = letra(cSt), A = letra(cAv);
+  sh.getRange('B2').setFormula('=COUNTIF(B' + (L0 + 1) + ':B;"<>")');
+  sh.getRange('E2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"?*";' + S + (L0 + 1) + ':' + S + ';"<>Finalizado")');
+  sh.getRange('H2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"?*";' + S + (L0 + 1) + ':' + S + ';"Finalizado")');
+  sh.getRange('K2').setFormula('=IFERROR(AVERAGEIFS(' + A + (L0 + 1) + ':' + A + ';B' + (L0 + 1) + ':B;"<>");0)').setNumberFormat('0.0%');
+  sh.getRange('H3').setValue('Itens finalizados');
+  sh.getRange('E3').setValue('Itens ainda em fabricação');
+
+  // Cabeçalho
+  sh.getRange(L0, 1, 1, nCol).setBackground('#1f3864').setFontColor('#ffffff').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true).setFontSize(9);
+  sh.setRowHeight(L0, 42);
+  sh.setFrozenRows(L0);
+  sh.setFrozenColumns(2);
+
+  // Corpo
+  const corpo = sh.getRange(L0 + 1, 1, maxLin - L0, nCol);
+  corpo.setFontSize(9).setVerticalAlignment('middle').setHorizontalAlignment('center').setWrap(false)
+    .setBorder(null, null, true, null, true, false, '#e6e9ef', SpreadsheetApp.BorderStyle.SOLID);
+  sh.getRange(L0 + 1, col('Descrição da Peça'), maxLin - L0, 1).setHorizontalAlignment('left');
+  sh.getRange(L0 + 1, col('Pedido / Projeto'), maxLin - L0, 1).setHorizontalAlignment('left');
+  sh.getRange(L0 + 1, cAv, maxLin - L0, 1).setNumberFormat('0%').setFontWeight('bold');
+  ['Prazo', 'Entrega'].forEach(n => { if (col(n)) sh.getRange(L0 + 1, col(n), maxLin - L0, 1).setNumberFormat('dd/mm/yyyy'); });
+  sh.getRange(L0 + 1, col('Progresso'), maxLin - L0, 1).setFontFamily('Consolas').setFontColor('#2e7d32').setHorizontalAlignment('left');
+
+  // Larguras
+  const larg = { 'OS': 88, 'Item': 70, 'Pedido / Projeto': 120, 'Descrição da Peça': 260, 'Qtd': 70, 'Prazo': 82, 'Status Geral': 110,
+    'Avanço (%)': 72, 'Progresso': 110, 'Entrega': 82, 'NF': 70 };
+  cab.forEach((c, i) => sh.setColumnWidth(i + 1, larg[c] || 92));
+
+  // Cores (formatação condicional: vale para o que o IMPORTRANGE trouxer)
+  const F = SpreadsheetApp.newConditionalFormatRule;
+  const linha = L0 + 1;
+  const tudo = sh.getRange(linha, 1, maxLin - L0, nCol);
+  const etapas = ultimaEtapa >= primeiraEtapa ? sh.getRange(linha, primeiraEtapa, maxLin - L0, ultimaEtapa - primeiraEtapa + 1) : null;
+  const status = sh.getRange(linha, cSt, maxLin - L0, 1);
+  const regras = [
+    // Linha-título da OS (OS preenchida e Item vazio) — vem primeiro para valer sobre as outras cores
+    F().whenFormulaSatisfied('=AND($A' + linha + '<>"";$B' + linha + '="")').setBackground('#dbe4f3').setFontColor('#1f3864').setBold(true).setRanges([tudo]).build(),
+  ];
+  const cor = (rng, regra, fundo, fonte) => rng && regras.push(regra.setBackground(fundo).setFontColor(fonte).setRanges([rng]).build());
+  // Etapas
+  cor(etapas, F().whenTextEqualTo('OK'), '#c8e6c9', '#1b5e20');
+  cor(etapas, F().whenTextStartsWith('Em andamento'), '#fff3c4', '#7a5b00');
+  cor(etapas, F().whenTextStartsWith('Parada'), '#ffcdd2', '#b71c1c');
+  cor(etapas, F().whenTextEqualTo('N.A.'), '#f1f3f4', '#9aa0a6');
+  cor(etapas, F().whenTextEqualTo('Pendente'), '#ffffff', '#b0b4ba');
+  cor(etapas, F().whenTextEqualTo('—'), '#ffffff', '#d0d3d8');
+  // Situação do item
+  cor(status, F().whenTextEqualTo('Atrasado'), '#d93025', '#ffffff');
+  cor(status, F().whenTextEqualTo('Alerta'), '#fbbc04', '#3c2a00');
+  cor(status, F().whenTextEqualTo('Em processo'), '#d2e3fc', '#174ea6');
+  cor(status, F().whenTextEqualTo('Externo com terceiros'), '#e9d5f5', '#5b2a86');
+  cor(status, F().whenTextEqualTo('Aguardando'), '#f1f3f4', '#5f6368');
+  cor(status, F().whenTextEqualTo('Expedição'), '#ceead6', '#0d652d');
+  cor(status, F().whenTextEqualTo('Finalizado'), '#34a853', '#ffffff');
+  sh.setConditionalFormatRules(regras);
 }
 
 /** OS finalizadas (inspeção aprovada no app ou entregues antes dele), da entrega mais recente para a mais antiga. */
@@ -579,6 +771,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Ver situação das senhas', 'situacaoSenhas')
     .addItem('Remover todas as senhas (deixa o app aberto)', 'removerSenhas')
+    .addSeparator()
+    .addItem('Formatar planilha do cliente (Comau)', 'formatarPlanilhasClientes')
     .addToUi();
 }
 
