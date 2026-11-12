@@ -533,7 +533,7 @@ function formatarPlanilhaCliente_(sh, cab, idFerramenta, aba) {
     .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true).setFontSize(9);
   sh.setRowHeight(L0, 42);
   sh.setFrozenRows(L0);
-  sh.setFrozenColumns(2);
+  sh.setFrozenColumns(1); // B:D tem células mescladas nos indicadores
 
   // Corpo
   const corpo = sh.getRange(L0 + 1, 1, maxLin - L0, nCol);
