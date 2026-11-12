@@ -86,7 +86,11 @@ function nivelDe_(senha) {
 
 /** Devolve a resposta de recusa, ou null se pode seguir. */
 /** Leituras públicas: o que já vai impresso na etiqueta do cliente, pelo código do QR. */
-const PUBLICO = { get: ['etiqueta', 'recursos'], post: [] };
+/**
+ * Liberado sem senha: etiqueta do cliente e o QR do chão de fábrica
+ * (o operador lê o QR e registra o apontamento sem digitar senha).
+ */
+const PUBLICO = { get: ['etiqueta', 'recursos', 'list-responsaveis'], post: ['apontamentos'] };
 
 function verificarAcesso_(e, metodo, acao) {
   if (PUBLICO[metodo].indexOf(acao) >= 0) return null;
@@ -116,8 +120,8 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.3.5', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
-      case 'recursos':           return json({ ok: true, versao: '1.3.5', etiqueta: true });
+      case 'versao':             return json({ ok: true, versao: '1.3.6', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
+      case 'recursos':           return json({ ok: true, versao: '1.3.6', etiqueta: true });
       case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }

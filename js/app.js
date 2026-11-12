@@ -2780,7 +2780,8 @@ window.fetch = function(input, init) {
 
 let pedindoSenha = false;
 function pedirSenha(msg) {
-  if (pedindoSenha || window.location.hash.startsWith('#e=')) return; // etiqueta do cliente não usa a planilha
+  // Etiqueta do cliente e QR do operador (apontamento) funcionam sem senha
+  if (pedindoSenha || window.location.hash.startsWith('#e=') || window.location.hash.startsWith('#i=')) return;
   pedindoSenha = true;
   const el = document.getElementById('tela-senha');
   document.getElementById('senha-msg').textContent = msg || '';
@@ -2852,7 +2853,8 @@ async function conferirSenhaNaAbertura() {
   if (getSyncUrl() && loadQueue().length > 0) setTimeout(syncAgora, 500);
 
   const hash = window.location.hash;
-  if (!hash.startsWith('#e=')) { conferirSenhaNaAbertura(); conferirRecursosBackend(); }
+  if (!hash.startsWith('#e=')) conferirRecursosBackend();
+  if (!hash.startsWith('#e=') && !hash.startsWith('#i=')) conferirSenhaNaAbertura();
   if (hash.startsWith('#e=')) {
     try { activateViewerMode(lerQr('e', hash.substring(3))); return; }
     catch(e) { alert('QR inválido.'); }
