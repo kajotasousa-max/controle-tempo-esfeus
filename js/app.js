@@ -808,6 +808,23 @@ function limparApontamentos() {
 /* =============== VIEWER EXTERNO =============== */
 function activateViewerMode(data) {
   document.body.classList.add('viewer-mode');
+  if (data && data.codigo) { carregarEtiquetaPorCodigo(data.codigo); return; }
+  preencherViewer(data);
+}
+
+/** QR curto: busca a ficha na planilha (leitura pública, só os dados da etiqueta). */
+async function carregarEtiquetaPorCodigo(codigo) {
+  preencherViewer({ cliente: 'Carregando…' });
+  try {
+    const r = await fetch(getSyncUrl() + '?action=etiqueta&t=' + encodeURIComponent(codigo), { method: 'GET', redirect: 'follow' }).then(x => x.json());
+    if (!r.ok) throw new Error(r.erro || 'erro');
+    preencherViewer(r.etiqueta);
+  } catch (e) {
+    preencherViewer({ cliente: 'Não foi possível carregar a etiqueta', desc: 'Verifique a internet e leia o QR de novo.' });
+  }
+}
+
+function preencherViewer(data) {
   ['cliente','os','status','qty','desc','des','material','tratamento','emb','oc','it','nf','dt'].forEach(f => {
     const el = document.getElementById('vv-' + f);
     if (el) {
@@ -1400,11 +1417,34 @@ function qrEtapasDec(txt) {
   });
 }
 
+/* QR interno: só OS, item e etapas (cliente/OC/descrição a planilha completa ao gravar). */
 function buildApontamentoUrl(d) {
-  return urlBaseQr() + '#i=~' + [d.os, d.it, d.cliente, d.oc, qrCorta(d.desc, 40)].map(qrEnc).join('!') + '!' + qrEtapas(d.etapas);
+  return urlBaseQr() + '#i=~' + [d.os, d.it, '', '', ''].map(qrEnc).join('!') + '!' + qrEtapas(d.etapas);
+}
+
+/* QR do cliente: com o backend 1.3, só um código curto; a ficha é lida da planilha ao abrir. */
+const BACKEND_ETIQUETA_KEY = chave('backend_etiqueta');
+function backendTemEtiqueta() { return localStorage.getItem(BACKEND_ETIQUETA_KEY) === '1'; }
+async function conferirRecursosBackend() {
+  if (!getSyncUrl()) return;
+  try {
+    const r = await fetch(getSyncUrl() + '?action=recursos', { method: 'GET', redirect: 'follow' }).then(x => x.json());
+    if (r && r.ok && r.etiqueta) localStorage.setItem(BACKEND_ETIQUETA_KEY, '1'); else localStorage.removeItem(BACKEND_ETIQUETA_KEY);
+  } catch (e) { /* sem internet: mantém o que sabia */ }
+}
+function tokenQr(s) {
+  if (!s.qr) {
+    const a = new Uint8Array(8); crypto.getRandomValues(a);
+    s.qr = Array.from(a, b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+    const real = servicos.find(x => x.id === s.id);
+    if (real && real !== s) real.qr = s.qr;
+    saveServicos();
+  }
+  return s.qr;
 }
 
 function buildViewerUrl(d) {
+  if (backendTemEtiqueta() && d.id != null) return urlBaseQr() + '#e=.' + tokenQr(d);
   const st = QR_STATUS.indexOf(statusInteligente(d));
   return urlBaseQr() + '#e=~' + [d.cliente, d.os, d.it, d.oc, d.qty, qrCorta(d.desc, 45), qrCorta(d.des, 25), d.material, d.tratamento, d.emb, d.nf, fmtDate(d.dt)]
     .map(qrEnc).join('!') + '!' + (st >= 0 ? st : qrEnc(statusInteligente(d)));
@@ -1412,6 +1452,7 @@ function buildViewerUrl(d) {
 
 /** Lê o conteúdo do QR (formato compacto "~..." ou o antigo em base64). */
 function lerQr(tipo, txt) {
+  if (tipo === 'e' && txt.charAt(0) === '.') return { codigo: txt.slice(1).replace(/[^a-z0-9]/g, '') };
   if (txt.charAt(0) !== '~') return b64dec(txt);
   const p = txt.slice(1).split('!');
   if (tipo === 'i') {
@@ -2788,7 +2829,7 @@ async function conferirSenhaNaAbertura() {
   if (getSyncUrl() && loadQueue().length > 0) setTimeout(syncAgora, 500);
 
   const hash = window.location.hash;
-  if (!hash.startsWith('#e=')) conferirSenhaNaAbertura();
+  if (!hash.startsWith('#e=')) { conferirSenhaNaAbertura(); conferirRecursosBackend(); }
   if (hash.startsWith('#e=')) {
     try { activateViewerMode(lerQr('e', hash.substring(3))); return; }
     catch(e) { alert('QR inválido.'); }

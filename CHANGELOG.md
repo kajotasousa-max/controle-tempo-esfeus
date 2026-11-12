@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.0] — 2026-11-11
+
+### Novo
+- QR impresso com 20 x 20 mm e link curto: o QR do cliente leva só um código (a ficha vem da planilha pela ação pública `etiqueta`); o QR interno leva só OS, item e etapas (a planilha completa cliente/OC/descrição no apontamento). QRs antigos continuam valendo.
+- Etiqueta avulsa de QR em cartão horizontal 88 x 30 mm.
+
 ## [1.2.0] — 2026-11-11
 
 ### Novo

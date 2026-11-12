@@ -78,7 +78,11 @@ function nivelDe_(senha) {
 }
 
 /** Devolve a resposta de recusa, ou null se pode seguir. */
+/** Leituras públicas: o que já vai impresso na etiqueta do cliente, pelo código do QR. */
+const PUBLICO = { get: ['etiqueta', 'recursos'], post: [] };
+
 function verificarAcesso_(e, metodo, acao) {
+  if (PUBLICO[metodo].indexOf(acao) >= 0) return null;
   const nivel = nivelDe_(e && e.parameter && e.parameter.k);
   if (nivel === null) {
     Utilities.sleep(1500); // atrasa quem tenta adivinhar
@@ -105,7 +109,9 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.2.0', servicos: true, item: true, nivel: nivelDe_(e.parameter.k) });
+      case 'versao':             return json({ ok: true, versao: '1.3.0', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
+      case 'recursos':           return json({ ok: true, versao: '1.3.0', etiqueta: true });
+      case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
   } catch (err) {
@@ -219,6 +225,38 @@ function linhaComoObjeto_(sh, linha, cols) {
   return cols.reduce((o, c, i) => (o[c] = v[i], o), {});
 }
 
+/* ======================= ETIQUETA DO CLIENTE ======================= */
+
+/**
+ * QR do cliente com link curto (só um código): devolve os dados da etiqueta daquela OS.
+ * Público de propósito: são os mesmos dados impressos na etiqueta. O código é aleatório (campo "qr").
+ */
+function etiquetaPorCodigo_(codigo) {
+  const t = String(codigo || '').trim();
+  if (!/^[a-z0-9]{6,16}$/.test(t)) return { ok: false, erro: 'Código inválido.' };
+  const s = listarServicos().find(x => !x.excluido && String(x.qr || '') === t);
+  if (!s) return { ok: false, erro: 'Etiqueta não encontrada.' };
+  const br = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; };
+  const hoje = Utilities.formatDate(new Date(), FUSO, 'yyyy-MM-dd');
+  let status = s.status || 'Em processo';
+  if (status !== 'Finalizado' && s.prazo && s.prazo < hoje) status = 'Atrasado';
+  return { ok: true, etiqueta: {
+    cliente: s.cliente, os: s.os, it: s.it, oc: s.oc, qty: s.qty, desc: s.desc, des: s.des, material: s.material,
+    tratamento: s.tratamento, emb: s.emb, nf: s.nf, dt: br(s.dt), status: status } };
+}
+
+/** Completa cliente/OC/descrição do apontamento pela OS (o QR interno só leva OS e item). */
+function completarApontamentos_(lista) {
+  if (!lista.some(a => !a.cliente || !a.descricao)) return lista;
+  const porOS = {};
+  listarServicos().forEach(s => { if (!s.excluido) porOS[(s.os || '') + '/' + (s.it || '')] = s; });
+  return lista.map(a => {
+    const s = porOS[(a.os || '') + '/' + (a.item || '')];
+    if (!s) return a;
+    return Object.assign({}, a, { cliente: a.cliente || s.cliente, oc: a.oc || s.oc, descricao: a.descricao || s.desc });
+  });
+}
+
 /* ======================= LEITURAS ======================= */
 
 function listarMateriais() {
@@ -242,6 +280,7 @@ function gravarApontamentos(lista) {
     if (a && !existentes.has(chave(a))) { novos.push(separarOsItem_(a)); existentes.add(chave(a)); }
   });
   if (novos.length) {
+    novos.splice(0, novos.length, ...completarApontamentos_(novos));
     const aba = aba_('apontamentos');
     const cols = ABAS.apontamentos.colunas;
     const linhas = novos.map(a => cols.map(c => texto(a[c])));
