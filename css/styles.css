@@ -339,29 +339,30 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
   .app, .top-bar, .tabs, #viewer-app, #aponta-app { display: none !important; }
   #print-area { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8mm; padding: 8mm; }
   #print-area.single { grid-template-columns: 1fr; place-items: center; padding: 20mm; }
-  /* Etiqueta avulsa de QR: cartão 88 x 30 mm */
-  .print-qr { display: flex; align-items: center; gap: 3.5mm; width: 88mm; min-height: 30mm; box-sizing: border-box; padding: 3mm 4mm 3mm 3mm;
-    border: .3mm solid #cbd5e1; border-left: 2.2mm solid #006699; border-radius: 2mm; background: #fff; page-break-inside: avoid; font-family: 'Open Sans', Arial, sans-serif; color: #111; }
+  /* Etiqueta avulsa de QR: cartão compacto 60 x 24 mm (QR 20 x 20 mm com 2 mm de margem branca para leitura) */
+  .print-qr { display: flex; align-items: center; gap: 1.8mm; width: 60mm; height: 24mm; box-sizing: border-box; padding: 2mm 1.6mm 2mm 2mm;
+    border: .25mm solid #cbd5e1; border-left: 1.4mm solid #006699; border-radius: 1.2mm; background: #fff; page-break-inside: avoid; break-inside: avoid; overflow: hidden;
+    font-family: 'Open Sans', Arial, sans-serif; color: #111; }
   .print-qr.interno { border-left-color: #f59e0b; }
-  .print-qr .pq-qr { flex: 0 0 20mm; }
-  .print-qr .pq-qr .qr-wrap { margin: 0 !important; }
-  .print-qr .pq-info { flex: 1; min-width: 0; text-align: left; line-height: 1.25; }
-  .print-qr .pq-top { display: flex; align-items: center; gap: 2mm; margin-bottom: 1.2mm; }
-  .print-tag { font-size: 6.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; padding: .6mm 2mm; border-radius: 1mm; display: inline-block; white-space: nowrap; }
+  .print-qr .pq-qr { flex: 0 0 20mm; width: 20mm; height: 20mm; }
+  #print-area .print-qr .pq-qr .qr-wrap { margin: 0 !important; }
+  .print-qr .pq-info { flex: 1; min-width: 0; text-align: left; line-height: 1.15; }
+  .print-qr .pq-top { display: flex; align-items: center; gap: 1.2mm; margin-bottom: .5mm; min-width: 0; }
+  .print-tag { font-size: 5pt; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; padding: .3mm 1.1mm; border-radius: .8mm; display: inline-block; white-space: nowrap; }
   .print-tag.externo { background: #006699; color: white; }
   .print-tag.interno { background: #f59e0b; color: white; }
-  .print-qr .pq-cli { font-size: 8pt; font-weight: 700; color: #475569; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .print-qr .pq-os { font-family: 'Montserrat', Arial, sans-serif; font-size: 15pt; font-weight: 800; color: #004A80; letter-spacing: -.2px; white-space: nowrap; }
+  .print-qr .pq-cli { font-size: 5.5pt; font-weight: 700; color: #475569; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .print-qr .pq-os { font-family: 'Montserrat', Arial, sans-serif; font-size: 10pt; font-weight: 800; color: #004A80; letter-spacing: -.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .print-qr.interno .pq-os { color: #b45309; }
   .print-qr .pq-it { font-weight: 600; color: #334155; }
-  .print-qr .pq-oc { font-size: 8pt; font-weight: 700; margin-top: .6mm; }
-  .print-qr .pq-desc { font-size: 7.5pt; color: #334155; margin-top: .6mm; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .print-qr .pq-rodape { font-size: 6pt; color: #94a3b8; margin-top: 1mm; }
+  .print-qr .pq-oc { font-size: 5.5pt; font-weight: 700; margin-top: .3mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .print-qr .pq-desc { font-size: 5.3pt; color: #334155; margin-top: .3mm; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .print-qr .pq-rodape { display: none; }
   @page { margin: 0; size: A4; }
   /* Etiqueta interna: grade 2x4 em A4 quando várias, centralizada quando 1 */
   #print-area .etq-interna { page-break-inside: avoid; }
   #print-area:not(.single):not(.etq-full-mode) { grid-template-columns: repeat(2, 1fr); gap: 6mm; padding: 8mm; }
-  #print-area.qr-avulso { grid-template-columns: repeat(2, 88mm) !important; gap: 5mm 6mm !important; padding: 10mm !important; place-items: start !important; justify-content: center; }
+  #print-area.qr-avulso { grid-template-columns: repeat(3, 60mm) !important; gap: 3mm 4mm !important; padding: 8mm !important; place-items: start !important; justify-content: center; }
   #print-area.single .etq-interna { max-width: 130mm; }
   /* Etiqueta completa: uma por página */
   #print-area.etq-full-mode { display: block !important; grid-template-columns: none !important; padding: 8mm !important; }

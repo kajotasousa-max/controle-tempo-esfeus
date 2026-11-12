@@ -750,7 +750,7 @@ function printSelecionadas(tipo) {
     if (!confirm('Nada selecionado. Imprimir TODAS as ' + lista.length + ' OSs filtradas?')) return;
   }
   const area = document.getElementById('print-area');
-  // Interno e cliente: mesmo cartão 88 x 30 mm da impressão individual (16 por folha A4)
+  // Interno e cliente: mesmo cartão compacto 60 x 24 mm da impressão individual (30 por folha A4)
   area.className = tipo === 'completa' ? 'etq-full-mode' : 'qr-avulso';
   area.innerHTML = '';
   lista.forEach(s => area.appendChild(tipo === 'completa' ? generateEtiquetaCompleta(s) : generatePrintQR(s, tipo)));
