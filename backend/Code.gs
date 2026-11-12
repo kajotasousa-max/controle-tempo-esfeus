@@ -522,8 +522,8 @@ function formatarPlanilhaCliente_(sh, cab, idFerramenta, aba) {
   // Indicadores do topo (só linhas de item: Item preenchido)
   const S = letra(cSt), A = letra(cAv);
   sh.getRange('B2').setFormula('=COUNTIF(B' + (L0 + 1) + ':B;"<>")');
-  sh.getRange('E2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"?*";' + S + (L0 + 1) + ':' + S + ';"<>Finalizado")');
-  sh.getRange('H2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"?*";' + S + (L0 + 1) + ':' + S + ';"Finalizado")');
+  sh.getRange('E2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"<>";' + S + (L0 + 1) + ':' + S + ';"<>Finalizado")');
+  sh.getRange('H2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"<>";' + S + (L0 + 1) + ':' + S + ';"Finalizado")');
   sh.getRange('K2').setFormula('=IFERROR(AVERAGEIFS(' + A + (L0 + 1) + ':' + A + ';B' + (L0 + 1) + ':B;"<>");0)').setNumberFormat('0.0%');
   sh.getRange('H3').setValue('Itens finalizados');
   sh.getRange('E3').setValue('Itens ainda em fabricação');
