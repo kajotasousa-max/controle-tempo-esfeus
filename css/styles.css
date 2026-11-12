@@ -507,3 +507,13 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
   #print-area .qr-wrap.externo .qr-overlay { box-shadow: 0 0 0 .4mm #006699, 0 0 0 .7mm white; padding: .3mm; }
   #print-area .qr-wrap.interno .qr-overlay { box-shadow: 0 0 0 .4mm white, 0 0 0 .7mm #f59e0b; border-radius: 1mm; }
 }
+
+/* Avanço da OS (acima das etapas) */
+.etapas-avanco { margin: 0 0 12px; }
+.etapas-avanco:empty { display: none; }
+.ea-topo { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.ea-rotulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #64748b; }
+.ea-pct { font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 800; line-height: 1; }
+.ea-info { font-size: 12px; color: #475569; }
+.ea-barra { height: 10px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.ea-fill { height: 100%; border-radius: 999px; transition: width .3s; }

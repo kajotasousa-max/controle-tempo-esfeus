@@ -1055,10 +1055,29 @@ function optionsMelhoria(lista, selecionado, placeholder) {
     lista.map(v => '<option' + (v === selecionado ? ' selected' : '') + '>' + escMelhoria(v) + '</option>').join('');
 }
 
+/** Avanço da OS no topo das etapas: % (OK e N.A. contam 100%), barra e contagem. */
+function renderAvancoEtapas(s) {
+  const el = document.getElementById('etapas-avanco');
+  if (!el) return;
+  const etapas = etapasDe(s);
+  if (!etapas.length) { el.innerHTML = ''; return; }
+  const r = resumoEtapasMelhoria(s);
+  const pend = etapasPendentesProducao(s).length;
+  const cor = qualidadeAprovada(s) ? '#00B050' : (r.percentual >= 70 ? '#006699' : r.percentual >= 30 ? '#f59e0b' : '#94a3b8');
+  const situacao = qualidadeAprovada(s) ? '✔ Finalizada (inspeção aprovada)'
+    : pend ? pend + ' etapa' + (pend === 1 ? '' : 's') + ' de produção pendente' + (pend === 1 ? '' : 's')
+    : 'Produção concluída · aguardando inspeção final';
+  el.innerHTML =
+    '<div class="ea-topo"><span class="ea-rotulo">Avanço</span><span class="ea-pct" style="color:' + cor + '">' + r.percentual + '%</span>' +
+    '<span class="ea-info">' + r.concluidas + '/' + r.total + ' etapas OK ou N.A. · ' + situacao + '</span></div>' +
+    '<div class="ea-barra"><div class="ea-fill" style="width:' + r.percentual + '%;background:' + cor + '"></div></div>';
+}
+
 function renderEtapasEditor() {
   const box = document.getElementById('etapas-editor');
   const s = servicos.find(x => x.id === currentId);
   if (!box || !s) return;
+  renderAvancoEtapas(s);
   const etapas = s.etapas || [];
   if (!etapas.length) {
     box.innerHTML = '<div class="stage-empty">Nenhuma etapa criada. Adicione as operações necessárias para esta OS.</div>';
