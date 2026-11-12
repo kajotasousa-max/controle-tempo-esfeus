@@ -116,8 +116,8 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.3.4', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
-      case 'recursos':           return json({ ok: true, versao: '1.3.4', etiqueta: true });
+      case 'versao':             return json({ ok: true, versao: '1.3.5', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
+      case 'recursos':           return json({ ok: true, versao: '1.3.5', etiqueta: true });
       case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
@@ -460,9 +460,11 @@ function atualizarPaineisClientes_() {
     });
     const cab = ['OS', 'Item', 'Pedido / Projeto', 'Descrição da Peça', 'Qtd', 'Prazo', 'Status Geral']
       .concat(nomesEtapas.map((n, i) => (i + 1) + '. ' + n)).concat(['Avanço (%)', 'Progresso', 'Entrega', 'NF']);
+    // O cliente não vê a coluna "Status Geral"
+    const semStatus = l => l.filter((v, i) => i !== 6);
     const nomeAba = 'Cliente ' + cliente;
-    escreverPainel_(nomeAba, cab, linhas);
-    formatarColunasPainel_(ss.getSheetByName(nomeAba), 1, cab, linhas.length);
+    escreverPainel_(nomeAba, semStatus(cab), linhas.map(semStatus));
+    formatarColunasPainel_(ss.getSheetByName(nomeAba), 1, semStatus(cab), linhas.length);
   });
 }
 
@@ -511,8 +513,8 @@ function formatarPlanilhaCliente_(sh, cab, idFerramenta, aba) {
   const letra = c => { let s = ''; for (; c > 0; c = Math.floor((c - 1) / 26)) s = String.fromCharCode(65 + (c - 1) % 26) + s; return s; };
   const ult = letra(nCol);
   const col = nome => cab.indexOf(nome) + 1;
-  const cAv = col('Avanço (%)'), cSt = col('Status Geral');
-  const primeiraEtapa = col('Status Geral') + 1, ultimaEtapa = cAv - 1;
+  const cAv = col('Avanço (%)');
+  const primeiraEtapa = col('Prazo') + 1, ultimaEtapa = cAv - 1;
   const maxLin = Math.max(sh.getMaxRows(), 1000);
   if (sh.getMaxRows() < maxLin) sh.insertRowsAfter(sh.getMaxRows(), maxLin - sh.getMaxRows());
   if (sh.getMaxColumns() < nCol) sh.insertColumnsAfter(sh.getMaxColumns(), nCol - sh.getMaxColumns());
@@ -522,10 +524,10 @@ function formatarPlanilhaCliente_(sh, cab, idFerramenta, aba) {
   sh.getRange(L0, 1).setFormula('=IMPORTRANGE("' + idFerramenta + '";"' + aba + '!A1:' + ult + '")');
 
   // Indicadores do topo (só linhas de item: Item preenchido)
-  const S = letra(cSt), A = letra(cAv);
+  const A = letra(cAv);
   sh.getRange('B2').setFormula('=COUNTIF(B' + (L0 + 1) + ':B;"<>")');
-  sh.getRange('E2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"<>";' + S + (L0 + 1) + ':' + S + ';"<>Finalizado")');
-  sh.getRange('H2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"<>";' + S + (L0 + 1) + ':' + S + ';"Finalizado")');
+  sh.getRange('E2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"<>";' + A + (L0 + 1) + ':' + A + ';"<1")');
+  sh.getRange('H2').setFormula('=COUNTIFS(B' + (L0 + 1) + ':B;"<>";' + A + (L0 + 1) + ':' + A + ';">=1")');
   sh.getRange('K2').setFormula('=IFERROR(AVERAGEIFS(' + A + (L0 + 1) + ':' + A + ';B' + (L0 + 1) + ':B;"<>");0)').setNumberFormat('0.0%');
   sh.getRange('H3').setValue('Itens finalizados');
   sh.getRange('E3').setValue('Itens ainda em fabricação');
@@ -548,7 +550,7 @@ function formatarPlanilhaCliente_(sh, cab, idFerramenta, aba) {
   sh.getRange(L0 + 1, col('Progresso'), maxLin - L0, 1).setFontFamily('Consolas').setFontColor('#2e7d32').setHorizontalAlignment('left');
 
   // Larguras
-  const larg = { 'OS': 88, 'Item': 70, 'Pedido / Projeto': 120, 'Descrição da Peça': 260, 'Qtd': 70, 'Prazo': 82, 'Status Geral': 110,
+  const larg = { 'OS': 88, 'Item': 70, 'Pedido / Projeto': 120, 'Descrição da Peça': 260, 'Qtd': 70, 'Prazo': 82,
     'Avanço (%)': 72, 'Progresso': 110, 'Entrega': 82, 'NF': 70 };
   cab.forEach((c, i) => sh.setColumnWidth(i + 1, larg[c] || 92));
 
@@ -557,7 +559,6 @@ function formatarPlanilhaCliente_(sh, cab, idFerramenta, aba) {
   const linha = L0 + 1;
   const tudo = sh.getRange(linha, 1, maxLin - L0, nCol);
   const etapas = ultimaEtapa >= primeiraEtapa ? sh.getRange(linha, primeiraEtapa, maxLin - L0, ultimaEtapa - primeiraEtapa + 1) : null;
-  const status = sh.getRange(linha, cSt, maxLin - L0, 1);
   const regras = [
     // Linha-título da OS (OS preenchida e Item vazio) — vem primeiro para valer sobre as outras cores
     F().whenFormulaSatisfied('=AND($A' + linha + '<>"";$B' + linha + '="")').setBackground('#dbe4f3').setFontColor('#1f3864').setBold(true).setRanges([tudo]).build(),
@@ -570,13 +571,6 @@ function formatarPlanilhaCliente_(sh, cab, idFerramenta, aba) {
   cor(etapas, F().whenTextEqualTo('N.A.'), '#f1f3f4', '#9aa0a6');
   cor(etapas, F().whenTextEqualTo('Pendente'), '#ffffff', '#b0b4ba');
   cor(etapas, F().whenTextEqualTo('—'), '#ffffff', '#d0d3d8');
-  // Situação do item
-  cor(status, F().whenTextEqualTo('Atrasado'), '#d93025', '#ffffff');
-  cor(status, F().whenTextEqualTo('Em processo'), '#d2e3fc', '#174ea6');
-  cor(status, F().whenTextEqualTo('Externo com terceiros'), '#e9d5f5', '#5b2a86');
-  cor(status, F().whenTextEqualTo('Aguardando'), '#f1f3f4', '#5f6368');
-  cor(status, F().whenTextEqualTo('Expedição'), '#ceead6', '#0d652d');
-  cor(status, F().whenTextEqualTo('Finalizado'), '#34a853', '#ffffff');
   sh.setConditionalFormatRules(regras);
 }
 
