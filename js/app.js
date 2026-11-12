@@ -720,6 +720,13 @@ function printEtiquetaCompleta() {
 }
 
 /** Etiqueta avulsa de QR: cartão horizontal (QR 20 mm à esquerda, dados à direita). */
+/** Data de entrega impressa na etiqueta: o prazo da OS em dd/mm/aaaa. */
+function dataEntregaEtiqueta(s) {
+  const t = String(s.prazo || '').trim();
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[3] + '/' + m[2] + '/' + m[1] : t;
+}
+
 function generatePrintQR(s, tipo) {
   const wrapper = document.createElement('div');
   wrapper.className = 'print-qr ' + tipo;
@@ -736,6 +743,7 @@ function generatePrintQR(s, tipo) {
       '<span class="pq-cli">' + escMelhoria(s.cliente || '') + '</span></div>' +
     '<div class="pq-os">' + escMelhoria(s.os || '(sem OS)') + (s.it ? '<span class="pq-it"> / ' + escMelhoria(s.it) + '</span>' : '') + '</div>' +
     (linha2 ? '<div class="pq-oc">' + escMelhoria(linha2) + '</div>' : '') +
+    (dataEntregaEtiqueta(s) ? '<div class="pq-entrega">Entrega: <b>' + escMelhoria(dataEntregaEtiqueta(s)) + '</b></div>' : '') +
     (s.desc ? '<div class="pq-desc">' + escMelhoria(s.desc) + '</div>' : '') +
     '<div class="pq-rodape">' + escMelhoria(tipo === 'interno' ? 'Aponte o celular para registrar a produção' : 'Aponte a câmera do celular para ver a ficha da peça') + '</div>';
   wrapper.appendChild(info);
