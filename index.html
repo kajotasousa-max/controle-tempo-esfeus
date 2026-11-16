@@ -150,6 +150,7 @@
             <label for="f-imagem">Imagem / desenho da peça (opcional)</label>
             <input type="file" id="f-imagem" accept="image/*" onchange="handleImagem(event)">
             <img id="f-imagem-preview" class="image-preview" alt="Pré-visualização da peça">
+            <button id="f-imagem-remover" class="btn-danger btn-sm" type="button" style="display:none; margin-top:8px;" onclick="removerImagem()">Remover imagem</button>
           </div>
         </div>
 
@@ -647,6 +648,6 @@
 <!-- Área de impressão -->
 <div id="print-area"></div>
 <script src="config.js?v=1.3.6"></script>
-<script src="js/app.js?v=1.3.6"></script>
+<script src="js/app.js?v=1.3.7"></script>
 </body>
 </html>
