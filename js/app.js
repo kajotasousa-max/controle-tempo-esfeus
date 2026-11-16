@@ -1155,13 +1155,28 @@ function removeEtapa(index) {
 function renderImagemMelhoria(s) {
   const preview = document.getElementById('f-imagem-preview');
   if (!preview) return;
+  const remover = document.getElementById('f-imagem-remover');
   if (s && s.imagem) {
     preview.src = s.imagem;
     preview.style.display = 'block';
+    if (remover) remover.style.display = 'inline-block';
   } else {
     preview.removeAttribute('src');
     preview.style.display = 'none';
+    if (remover) remover.style.display = 'none';
   }
+}
+
+/** Tira a imagem da OS aberta. O arquivo já enviado continua na pasta de fotos do Drive. */
+function removerImagem() {
+  const s = servicos.find(x => x.id === currentId);
+  if (!s || !s.imagem) return;
+  if (!confirm('Remover a imagem desta peça?')) return;
+  s.imagem = '';
+  const campo = document.getElementById('f-imagem');
+  if (campo) campo.value = '';
+  saveServicos();
+  renderImagemMelhoria(s);
 }
 
 function handleImagem(event) {
