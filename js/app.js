@@ -648,27 +648,29 @@ function dataBr(v) {
 function generateEtiquetaExterna(s) {
   const card = document.createElement('div');
   card.className = 'etq-ext7';
-  const linha2 = [s.oc ? 'OC ' + s.oc : '', s.qty ? 'Qtd ' + s.qty : ''].filter(Boolean).join('  ·  ');
+  const celula = (rotulo, valor, cls) =>
+    '<div class="e7-cel' + (cls ? ' ' + cls : '') + '"><span>' + rotulo + '</span><b>' + escMelhoria(valor || '—') + '</b></div>';
+  const peca = [s.desc, s.des ? 'Des. ' + s.des : ''].filter(Boolean).join('  ·  ');
   card.innerHTML =
     '<div class="e7-topo">' +
       '<img class="e7-logo" src="' + CONFIG.marca.logo + '" alt="">' +
       '<div class="e7-cab">' +
         '<div class="e7-tag">Etiqueta do produto</div>' +
-        '<div class="e7-cli">' + escMelhoria(s.cliente || '') + '</div>' +
-        '<div class="e7-os">' + escMelhoria(s.os || '(sem OS)') + (s.it ? '<span> / ' + escMelhoria(s.it) + '</span>' : '') + '</div>' +
-        (linha2 ? '<div class="e7-oc">' + escMelhoria(linha2) + '</div>' : '') +
+        '<div class="e7-cli-rot">Cliente</div>' +
+        '<div class="e7-cli">' + escMelhoria(s.cliente || '—') + '</div>' +
       '</div>' +
     '</div>' +
-    '<div class="e7-meio">' +
-      (s.desc ? '<div class="e7-desc">' + escMelhoria(s.desc) + '</div>' : '') +
-      (s.des ? '<div class="e7-des">Desenho: <b>' + escMelhoria(s.des) + '</b></div>' : '') +
+    '<div class="e7-grade">' +
+      celula('OS', s.os, 'e7-os') + celula('Item', s.it) +
+      celula('Pedido / OC', s.oc) + celula('Quantidade', s.qty) +
     '</div>' +
+    (peca ? '<div class="e7-peca">' + escMelhoria(peca) + '</div>' : '') +
     '<div class="e7-base">' +
       '<div class="e7-qr"></div>' +
       '<div class="e7-nf">' +
-        '<div class="e7-campo"><span>Nota fiscal</span><b>' + escMelhoria(s.nf || '—') + '</b></div>' +
-        '<div class="e7-campo"><span>Data da NF</span><b>' + escMelhoria(dataBr(s.dt) || '—') + '</b></div>' +
-        '<div class="e7-rod">Aponte a câmera do celular para ver a ficha da peça</div>' +
+        celula('Nota fiscal', s.nf, 'e7-nfcel') +
+        celula('Data da NF', dataBr(s.dt), 'e7-nfcel') +
+        '<div class="e7-rod">Leia o QR com a câmera do celular para ver a ficha da peça</div>' +
       '</div>' +
     '</div>';
   card.querySelector('.e7-qr').appendChild(buildQrWithOverlay(buildViewerUrl(s), 400, 'externo'));
