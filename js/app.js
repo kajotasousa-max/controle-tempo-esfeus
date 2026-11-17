@@ -45,8 +45,21 @@ let nextMovimentoMaterialId = 1;
 
 /* =============== STORAGE =============== */
 function saveServicos() {
-  localStorage.setItem(chave('servicos'), JSON.stringify({ servicos, nextId }));
+  gravarServicosLocal();
   if (typeof agendarEnvioServicos === 'function') agendarEnvioServicos();
+}
+/**
+ * Guarda a cópia local das OS. Se o navegador não tiver espaço, apaga a cópia
+ * (OS e base) em vez de deixar uma versão velha: na próxima abertura tudo vem
+ * da planilha. Nunca deixa a cópia local "menor" que a base.
+ */
+function gravarServicosLocal() {
+  try {
+    localStorage.setItem(chave('servicos'), JSON.stringify({ servicos, nextId }));
+  } catch (e) {
+    try { localStorage.removeItem(chave('servicos')); localStorage.removeItem(chave('servicos_base')); } catch (e2) {}
+    console.warn('Sem espaço para a cópia local das OS; ela será recarregada da planilha.', e);
+  }
 }
 /** ID único entre computadores (as OS agora são compartilhadas pela planilha). */
 function novoIdServico() { return Date.now() * 1000 + Math.floor(Math.random() * 1000); }
@@ -467,6 +480,7 @@ function switchTab(tab) {
 function deleteServico(id, ev) {
   if (ev) ev.stopPropagation();
   if (!confirm('Remover este serviço? Ele some também da planilha e dos outros computadores.')) return;
+  marcarApagadas([id]);
   servicos = servicos.filter(s => s.id !== id);
   if (currentId === id) { currentId = null; closeEditPanel(); }
   saveServicos();
@@ -478,6 +492,8 @@ function selectServico(id) { currentId = id; renderServicos(); openEditPanel(); 
 
 function clearAllServicos() {
   if (!confirm('Apagar TODOS os serviços cadastrados? Eles somem também da planilha e dos outros computadores.')) return;
+  if (prompt('Isso apaga ' + servicos.length + ' OS de todos os computadores. Para confirmar, digite APAGAR') !== 'APAGAR') return;
+  marcarApagadas(servicos.map(s => s.id));
   servicos = []; currentId = null; nextId = 1;
   saveServicos();
   closeEditPanel();
@@ -2430,7 +2446,44 @@ let envioServicosTimer = null;
 let tempoRealTimer = null;
 
 try { servicosBase = JSON.parse(localStorage.getItem(SERVICOS_BASE_KEY) || '{}') || {}; } catch (e) { servicosBase = {}; }
-function salvarServicosBase() { localStorage.setItem(SERVICOS_BASE_KEY, JSON.stringify(servicosBase)); }
+function salvarServicosBase() {
+  try { localStorage.setItem(SERVICOS_BASE_KEY, JSON.stringify(servicosBase)); }
+  catch (e) { try { localStorage.removeItem(SERVICOS_BASE_KEY); localStorage.removeItem(chave('servicos')); } catch (e2) {} }
+}
+
+/** Marca curta de uma versão da OS (a base guarda só isto, não a OS inteira: ocupa bem menos espaço). */
+function marcaTexto(str) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 'm' + (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36) + '.' + str.length.toString(36);
+}
+function marcaServico(s) { return marcaTexto(retratoServico(s)); }
+// Bases antigas guardavam a OS inteira: converte para a marca, sem gerar alterações falsas.
+(function converterBaseAntiga() {
+  let mudou = false;
+  Object.keys(servicosBase).forEach(id => {
+    const v = servicosBase[id];
+    if (typeof v === 'string' && v.charAt(0) === '{') { servicosBase[id] = marcaTexto(v); mudou = true; }
+  });
+  if (mudou) salvarServicosBase();
+})();
+
+/*
+ * Exclusões só vão para a planilha quando alguém apagou de propósito (✕ ou "Limpar todos").
+ * OS que apenas "faltam" na cópia local (cópia velha, navegador sem espaço etc.) NUNCA são apagadas:
+ * são baixadas de novo da planilha.
+ */
+const SERVICOS_APAGADOS_KEY = chave('servicos_apagados');
+let servicosApagados = new Set();
+try { servicosApagados = new Set((JSON.parse(localStorage.getItem(SERVICOS_APAGADOS_KEY) || '[]') || []).map(String)); } catch (e) {}
+function salvarApagadas() { try { localStorage.setItem(SERVICOS_APAGADOS_KEY, JSON.stringify([...servicosApagados])); } catch (e) {} }
+function marcarApagadas(ids) { ids.forEach(id => servicosApagados.add(String(id))); salvarApagadas(); }
 
 /** JSON com chaves em ordem fixa, para comparar versões. */
 function jsonEstavel(v) {
@@ -2449,11 +2502,11 @@ function servicosPendentes() {
   if (!servicosPlanilhaOk) return [];
   const itens = [];
   servicos.forEach(s => {
-    if (servicosBase[String(s.id)] !== retratoServico(s)) itens.push({ acao: 'salvar', servico: s });
+    if (servicosBase[String(s.id)] !== marcaServico(s)) itens.push({ acao: 'salvar', servico: s });
   });
   const ids = new Set(servicos.map(s => String(s.id)));
   Object.keys(servicosBase).forEach(id => {
-    if (!ids.has(id)) itens.push({ acao: 'excluir', servico: { id: Number(id) || id } });
+    if (!ids.has(id) && servicosApagados.has(id)) itens.push({ acao: 'excluir', servico: { id: Number(id) || id } });
   });
   return itens;
 }
@@ -2486,21 +2539,22 @@ async function enviarServicos() {
     let mudou = false;
     (data.servicos || []).forEach(r => {
       const id = String(r.id);
-      if (r.excluido) { delete servicosBase[id]; return; }
+      if (r.excluido) { delete servicosBase[id]; servicosApagados.delete(id); return; }
       const confirmado = normalizarServicoMelhoria(Object.assign({}, r, { atualizadoEm: undefined, excluido: undefined }));
       delete confirmado.atualizadoEm; delete confirmado.excluido;
       const local = servicos.find(s => String(s.id) === id);
       if (local && retratoServico(local) === enviados[id]) {
         // Nada mudou durante o envio: adota a versão da planilha (ex.: imagem virou link do Drive)
         if (local.imagem !== confirmado.imagem) { local.imagem = confirmado.imagem; mudou = true; }
-        servicosBase[id] = retratoServico(local);
+        servicosBase[id] = marcaServico(local);
       } else if (local && local.imagem === imagensEnviadas[id] && local.imagem !== confirmado.imagem) {
         local.imagem = confirmado.imagem; // mudou outro campo durante o envio, mas a imagem já subiu
         mudou = true;
       }
     });
     salvarServicosBase();
-    localStorage.setItem(chave('servicos'), JSON.stringify({ servicos, nextId }));
+    salvarApagadas();
+    gravarServicosLocal();
     if (mudou && currentId !== null) renderImagemMelhoria(servicos.find(x => x.id === currentId));
     sucesso = true;
     updateSyncBadge();
@@ -2537,17 +2591,18 @@ async function receberServicos() {
     delete remoto.atualizadoEm; delete remoto.excluido;
     // OS criada neste navegador antes da planilha existir, com o mesmo número de outra: ganha um ID novo
     if (local && !(id in servicosBase)) {
-      if (retratoServico(local) === retratoServico(remoto)) { servicosBase[id] = retratoServico(remoto); return; }
+      if (retratoServico(local) === retratoServico(remoto)) { servicosBase[id] = marcaServico(remoto); return; }
       if (!r.excluido) { local.id = novoIdServico(); if (currentId === Number(id)) currentId = local.id; local = null; }
     }
     if (pendentes.has(id) && (local || id in servicosBase)) return; // alteração local ainda não enviada vence
     if (r.excluido) {
       if (local) servicos = servicos.filter(s => s !== local);
       delete servicosBase[id];
+      servicosApagados.delete(id);
       return;
     }
     if (local) servicos[servicos.indexOf(local)] = remoto; else servicos.push(remoto);
-    servicosBase[id] = retratoServico(remoto);
+    servicosBase[id] = marcaServico(remoto);
   });
   // OS apagada direto na planilha (linha removida): some daqui também
   Object.keys(servicosBase).forEach(id => {
@@ -2556,8 +2611,9 @@ async function receberServicos() {
     delete servicosBase[id];
   });
   salvarServicosBase();
+  salvarApagadas();
   nextId = Math.max(nextId, 1);
-  localStorage.setItem(chave('servicos'), JSON.stringify({ servicos, nextId }));
+  gravarServicosLocal();
   return jsonEstavel(servicos) !== antes;
 }
 
@@ -2682,7 +2738,7 @@ function sairDoApp() {
   const pendentes = servicosPendentes().length + loadQueue().length;
   if (pendentes) { alert('Há ' + pendentes + ' alteração(ões) ainda não enviada(s) para a planilha. Aguarde o indicador ficar "Sincronizado" antes de sair.'); return; }
   if (!confirm('Sair deste aparelho? A cópia dos dados guardada neste navegador é apagada e, para usar de novo, será preciso digitar a senha.')) return;
-  [SENHA_KEY, chave('servicos'), SERVICOS_BASE_KEY, MATERIAIS_KEY, chave('apontamentos')].forEach(k => localStorage.removeItem(k));
+  [SENHA_KEY, chave('servicos'), SERVICOS_BASE_KEY, SERVICOS_APAGADOS_KEY, MATERIAIS_KEY, chave('apontamentos')].forEach(k => localStorage.removeItem(k));
   location.reload();
 }
 
