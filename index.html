@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=1.3.8">
+<link rel="stylesheet" href="css/styles.css?v=1.4.0">
 <script src="vendor/qrcodejs/qrcode.min.js"></script>
 </head>
 
@@ -579,7 +579,7 @@
   <div class="a-card" id="aponta-form-container">
     <div class="a-header">
       <img src="assets/marca/logo.jpg" alt="" class="a-logo" data-marca-img="logo">
-      <div class="a-title">Controle de tempo</div>
+      <div class="a-title">Apontamento</div>
       <div class="a-subtitle">da operação</div>
     </div>
     <div class="a-os-box">
@@ -589,39 +589,24 @@
     </div>
     <div class="a-form">
       <div class="a-field">
-        <label>Etapa da OS</label>
-        <select id="a-etapa" onchange="atualizarPainelAtividade()">
-          <option value="">— sem etapa definida —</option>
-        </select>
-      </div>
-      <div class="a-field">
         <label>Operação <span class="req">*</span></label>
-        <select id="a-operacao" onchange="atualizarPainelAtividade()"><option value="">— selecione —</option></select>
+        <select id="a-operacao"><option value="">— selecione —</option></select>
       </div>
       <div class="a-field">
         <label>Máquina <span class="req">*</span></label>
-        <select id="a-maquina" onchange="atualizarPainelAtividade()"><option value="">— selecione —</option></select>
+        <select id="a-maquina"><option value="">— selecione —</option></select>
       </div>
       <div class="a-field">
         <label>Operador <span class="req">*</span></label>
-        <select id="a-operador" onchange="atualizarPainelAtividade()"><option value="">— selecione —</option></select>
+        <select id="a-operador"><option value="">— selecione —</option></select>
       </div>
       <div class="a-field">
         <label>Qtd peças</label>
         <input type="number" id="a-qtd" placeholder="opcional" min="0">
       </div>
-      <div class="a-help">Preencha uma vez. Cada toque registra um evento com data e hora: <strong>Iniciar / retomar</strong> começa ou continua a contagem; <strong>Pausar</strong> interrompe; <strong>Pronta para próxima etapa</strong> encerra a operação.</div>
-      <div class="a-quick-actions">
-        <button type="button" class="a-quick-start" onclick="registrarRapido('Iniciando')">▶ Iniciar / retomar</button>
-        <button type="button" class="a-quick-stop" onclick="registrarRapido('Parado')">⏸ Pausar</button>
-        <button type="button" class="a-quick-next" onclick="registrarRapido('Etapa concluída')">✓ Pronta para próxima etapa</button>
-      </div>
-      <div class="a-activity-panel">
-        <div class="a-activity-label">Controle da operação</div>
-        <div id="a-activity-status" class="a-activity-status">Selecione operação, máquina e operador</div>
-        <div id="a-activity-clock" class="a-activity-clock">00:00:00</div>
-        <div id="a-activity-feedback" class="a-activity-feedback"></div>
-      </div>
+      <div class="a-help">Preencha os dados e toque em <strong>Pronta para próxima etapa</strong> quando terminar a sua parte.</div>
+      <button type="button" class="a-quick-next" onclick="registrarEtapaPronta()">✓ Pronta para próxima etapa</button>
+      <div id="a-feedback" class="a-feedback"></div>
     </div>
   </div>
 </div>
@@ -647,6 +632,6 @@
 <!-- Área de impressão -->
 <div id="print-area"></div>
 <script src="config.js?v=1.3.6"></script>
-<script src="js/app.js?v=1.3.8"></script>
+<script src="js/app.js?v=1.4.0"></script>
 </body>
 </html>

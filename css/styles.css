@@ -371,18 +371,10 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
 .image-box label { display: block; font-size: 10px; font-weight: bold; color: #666; margin-bottom: 5px; text-transform: uppercase; }
 .image-box input { width: 100%; font-size: 12px; }
 .image-preview { max-width: 100%; max-height: 150px; margin-top: 8px; border: 1px solid #e5e7eb; border-radius: 5px; display: none; object-fit: contain; }
-.a-quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 10px; }
-.a-quick-actions button { padding: 14px 8px; border-radius: 8px; color: white; font-size: 13px; }
-.a-quick-start { background: #16a34a; }
-.a-quick-stop { background: #dc2626; }
-.a-quick-next { background: #2563eb; }
-.a-quick-actions button:hover { filter: brightness(.92); }
+.a-quick-next { display: block; width: 100%; margin: 4px 0 10px; padding: 18px 8px; border: 0; border-radius: 8px; background: #16a34a; color: white; font-size: 16px; font-weight: bold; cursor: pointer; }
+.a-quick-next:hover { filter: brightness(.92); }
 .a-help { padding: 9px 10px; margin: -4px 0 12px; background: #f8fafc; border-radius: 5px; color: #64748b; font-size: 11px; line-height: 1.4; }
-.a-activity-panel { padding: 12px; margin: 4px 0 14px; background: #111827; color: white; border-radius: 8px; text-align: center; }
-.a-activity-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: .7; }
-.a-activity-status { font-size: 14px; font-weight: bold; margin-top: 4px; }
-.a-activity-clock { font-family: monospace; font-size: 26px; font-weight: bold; letter-spacing: 1px; margin-top: 6px; }
-.a-activity-feedback { min-height: 18px; margin-top: 6px; color: #bbf7d0; font-size: 11px; }
+.a-feedback { min-height: 18px; color: #15803d; font-size: 13px; font-weight: bold; text-align: center; }
 @media (max-width: 900px) {
   .stage-row { grid-template-columns: 1fr 1fr; }
   .stage-row .stage-remove { justify-self: end; }
