@@ -656,13 +656,14 @@ function generateEtiquetaExterna(s) {
       '<img class="e7-logo" src="' + CONFIG.marca.logo + '" alt="">' +
       '<div class="e7-cab">' +
         '<div class="e7-tag">Etiqueta do produto</div>' +
-        '<div class="e7-cli-rot">Cliente</div>' +
+        '<div class="e7-rot">Cliente</div>' +
         '<div class="e7-cli">' + escMelhoria(s.cliente || '—') + '</div>' +
+        '<div class="e7-rot">OS</div>' +
+        '<div class="e7-osv">' + escMelhoria(s.os || '—') + '</div>' +
       '</div>' +
     '</div>' +
     '<div class="e7-grade">' +
-      celula('OS', s.os, 'e7-os') + celula('Item', s.it) +
-      celula('Pedido / OC', s.oc) + celula('Quantidade', s.qty) +
+      celula('Item', s.it) + celula('Pedido / OC', s.oc) + celula('Quantidade', s.qty) +
     '</div>' +
     (peca ? '<div class="e7-peca">' + escMelhoria(peca) + '</div>' : '') +
     '<div class="e7-base">' +

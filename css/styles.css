@@ -508,28 +508,29 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
     border: .5mm solid #004A80; border-radius: 3mm; background: #fff; overflow: hidden; break-inside: avoid; page-break-inside: avoid;
     font-family: 'Open Sans', Arial, sans-serif; color: #0f172a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   /* Topo: logo grande + cliente */
-  .etq-ext7 .e7-topo { display: flex; align-items: center; gap: 3mm; padding-bottom: 1.8mm; border-bottom: .4mm solid #006699; }
-  .etq-ext7 .e7-logo { flex: 0 0 21mm; width: 21mm; height: 21mm; border-radius: 50%; object-fit: cover; display: block;
-    box-shadow: 0 0 0 .35mm #004A80; }
+  .etq-ext7 .e7-topo { display: flex; align-items: center; gap: 2.5mm; padding-bottom: 1.5mm; border-bottom: .4mm solid #006699; }
+  .etq-ext7 .e7-logo { flex: 0 0 30mm; width: 30mm; height: 30mm; border-radius: 50%; object-fit: cover; display: block;
+    box-shadow: 0 0 0 .4mm #004A80; margin: -.5mm 0 -.5mm -.5mm; }
   .etq-ext7 .e7-cab { flex: 1; min-width: 0; }
-  .etq-ext7 .e7-tag { display: inline-block; background: #004A80; color: #fff; font-size: 5.5pt; font-weight: 800; letter-spacing: .5px;
+  .etq-ext7 .e7-tag { display: inline-block; background: #004A80; color: #fff; font-size: 5pt; font-weight: 800; letter-spacing: .5px;
     text-transform: uppercase; padding: .5mm 1.8mm; border-radius: 3mm; }
-  .etq-ext7 .e7-cli-rot { font-size: 5pt; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: #64748b; margin-top: 1.6mm; }
-  .etq-ext7 .e7-cli { font-family: 'Montserrat', Arial, sans-serif; font-size: 12pt; font-weight: 800; color: #004A80; line-height: 1.05;
+  .etq-ext7 .e7-rot { font-size: 4.8pt; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: #64748b; margin-top: 1.4mm; }
+  .etq-ext7 .e7-cli { font-family: 'Montserrat', Arial, sans-serif; font-size: 9.5pt; font-weight: 800; color: #004A80; line-height: 1.05;
     text-transform: uppercase; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .etq-ext7 .e7-osv { font-family: 'Montserrat', Arial, sans-serif; font-size: 11pt; font-weight: 800; color: #0f172a; line-height: 1.1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* Células de dados (rótulo pequeno + valor) */
   .etq-ext7 .e7-cel { background: #eef4fa; border-radius: 1.2mm; padding: .7mm 1.6mm .8mm; min-width: 0; line-height: 1.1; }
   .etq-ext7 .e7-cel span { display: block; font-size: 4.8pt; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: #64748b; }
-  .etq-ext7 .e7-cel b { display: block; font-size: 8.5pt; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .etq-ext7 .e7-grade { display: grid; grid-template-columns: 1.25fr 1fr; gap: 1.2mm; }
-  .etq-ext7 .e7-os b { font-family: 'Montserrat', Arial, sans-serif; font-size: 10.5pt; color: #004A80; }
-  .etq-ext7 .e7-peca { font-size: 7pt; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .etq-ext7 .e7-cel b { display: block; font-size: 7.5pt; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .etq-ext7 .e7-grade { display: grid; grid-template-columns: .8fr 1.25fr 1fr; gap: 1.2mm; }
+  .etq-ext7 .e7-peca { font-size: 6.5pt; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* Base: QR + nota fiscal */
   .etq-ext7 .e7-base { display: flex; align-items: stretch; gap: 2.5mm; }
   .etq-ext7 .e7-qr { flex: 0 0 22mm; height: 22mm; box-sizing: border-box; padding: 1mm; border: .3mm solid #cbd5e1; border-radius: 1.2mm; }
   #print-area .etq-ext7 .qr-wrap { margin: 0 !important; }
   .etq-ext7 .e7-nf { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 1mm; }
   .etq-ext7 .e7-nfcel { background: #fff; border: .3mm solid #006699; }
-  .etq-ext7 .e7-nfcel b { font-size: 9pt; }
+  .etq-ext7 .e7-nfcel b { font-size: 8.5pt; }
   .etq-ext7 .e7-rod { font-size: 4.8pt; color: #64748b; line-height: 1.2; }
 }
