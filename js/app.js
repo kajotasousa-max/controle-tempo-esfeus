@@ -574,89 +574,6 @@ function renderQr() {
 
 /* =============== PRINT =============== */
 
-// Extrai logo e assinatura embutidos na página pra reusar na etiqueta completa
-function getLogoSrc() { return document.querySelector('#viewer-app .v-logo').src; }
-function getSigSrc() { return document.querySelector('#viewer-app .v-sig-img').src; }
-
-function generateEtiquetaCompleta(s) {
-  const wrap = document.createElement('div');
-  wrap.className = 'etq-full-wrap';
-
-  const etq = document.createElement('div');
-  etq.className = 'etq-full';
-
-  const logoSrc = getLogoSrc();
-  const sigSrc = getSigSrc();
-  const osFull = (s.os || '') + (s.it ? '/' + s.it : '');
-
-  etq.innerHTML =
-    '<table>' +
-      '<tr>' +
-        '<td class="logo-cell" style="width:35%;"><img src="' + logoSrc + '" alt="' + escMelhoria(CONFIG.empresa.nomeCurto) + '"></td>' +
-        '<td class="title" colspan="3">ETIQUETA DO PRODUTO</td>' +
-      '</tr>' +
-      '<tr class="h">' +
-        '<td>CLIENTE</td><td>OS</td><td colspan="2">QUANTIDADE</td>' +
-      '</tr>' +
-      '<tr>' +
-        '<td class="data">' + (s.cliente || '') + '</td>' +
-        '<td class="data">' + osFull + '</td>' +
-        '<td class="data" colspan="2">' + (s.qty || '') + '</td>' +
-      '</tr>' +
-      '<tr class="h">' +
-        '<td>DESCRIÇÃO</td><td colspan="3">Nº DO DESENHO</td>' +
-      '</tr>' +
-      '<tr>' +
-        '<td class="data">' + (s.desc || '') + '</td>' +
-        '<td class="data" colspan="3">' + (s.des || '') + '</td>' +
-      '</tr>' +
-      '<tr class="h">' +
-        '<td>MATERIAL</td><td colspan="3">TRATAMENTO TÉRMICO</td>' +
-      '</tr>' +
-      '<tr>' +
-        '<td class="data">' + (s.material || '') + '</td>' +
-        '<td class="data" colspan="3">' + (s.tratamento || '') + '</td>' +
-      '</tr>' +
-      '<tr class="h">' +
-        '<td colspan="4">TIPO DE EMBALAGEM</td>' +
-      '</tr>' +
-      '<tr>' +
-        '<td class="data" colspan="4">' + (s.emb || '') + '</td>' +
-      '</tr>' +
-      '<tr class="h">' +
-        '<td>ORDEM DE COMPRA</td><td>ITEM</td><td>NOTA FISCAL</td><td>DATA</td>' +
-      '</tr>' +
-      '<tr>' +
-        '<td class="data">' + (s.oc || '') + '</td>' +
-        '<td class="data">' + (s.it || '') + '</td>' +
-        '<td class="data">' + (s.nf || '') + '</td>' +
-        '<td class="data">' + (fmtDate(s.dt) || '') + '</td>' +
-      '</tr>' +
-      '<tr class="h">' +
-        '<td>QR CODE (cliente)</td><td colspan="3">ASSINATURA</td>' +
-      '</tr>' +
-      '<tr>' +
-        '<td class="qr-cell" id="etq-qr-' + s.id + '"></td>' +
-        '<td class="sig-cell" colspan="3">' +
-          '<img src="' + sigSrc + '" alt="Assinatura">' +
-          '<div class="sig-name">' + escMelhoria(CONFIG.empresa.razaoSocial) + '</div>' +
-        '</td>' +
-      '</tr>' +
-    '</table>';
-
-  wrap.appendChild(etq);
-
-  // Gera o QR dentro da célula (com overlay do logo — QR externo)
-  setTimeout(() => {
-    const qrCell = wrap.querySelector('#etq-qr-' + s.id);
-    if (qrCell) {
-      qrCell.appendChild(buildQrWithOverlay(buildViewerUrl(s), 200, 'externo'));
-    }
-  }, 10);
-
-  return wrap;
-}
-
 // Constante do logo com fundo branco (usado na etiqueta interna impressa)
 const LOGO_BRANCO_SRC = CONFIG.marca.logoEtiquetaInterna;
 
@@ -709,16 +626,6 @@ function generateEtiquetaInterna(s) {
   return wrap;
 }
 
-function printEtiquetaCompleta() {
-  const s = servicos.find(x => x.id === currentId);
-  if (!s) { alert('Selecione um serviço primeiro.'); return; }
-  const area = document.getElementById('print-area');
-  area.className = 'etq-full-mode';
-  area.innerHTML = '';
-  area.appendChild(generateEtiquetaCompleta(s));
-  setTimeout(() => window.print(), 200);
-}
-
 /** Etiqueta avulsa de QR: cartão horizontal (QR 20 mm à esquerda, dados à direita). */
 /** Data de entrega impressa na etiqueta: o prazo da OS em dd/mm/aaaa. */
 function dataEntregaEtiqueta(s) {
@@ -759,9 +666,9 @@ function printSelecionadas(tipo) {
   }
   const area = document.getElementById('print-area');
   // Interno e cliente: mesmo cartão compacto 60 x 24 mm da impressão individual (30 por folha A4)
-  area.className = tipo === 'completa' ? 'etq-full-mode' : 'qr-avulso';
+  area.className = 'qr-avulso';
   area.innerHTML = '';
-  lista.forEach(s => area.appendChild(tipo === 'completa' ? generateEtiquetaCompleta(s) : generatePrintQR(s, tipo)));
+  lista.forEach(s => area.appendChild(generatePrintQR(s, tipo)));
   setTimeout(() => window.print(), 300);
 }
 
@@ -1394,7 +1301,6 @@ function renderServicos() {
       '<td class="stage-progress">' + (resumo.total ? '<div class="stage-progress-text">' + resumo.concluidas + '/' + resumo.total + ' concluídas · ' + resumo.percentual + '%</div><div class="progress-track"><div class="progress-fill" style="width:' + resumo.percentual + '%"></div></div>' : '—') + '</td>' +
       '<td><span class="status-badge ' + statusClass(smartStatus) + '">' + escMelhoria(smartStatus) + '</span></td>' +
       '<td class="actions">' +
-        '<button class="btn-success btn-sm" onclick="event.stopPropagation(); selectServico(' + Number(s.id) + '); printEtiquetaCompleta()" title="Etiqueta completa (dados + QR)">🖨 Etq</button>' +
         '<button class="btn-primary btn-sm" onclick="event.stopPropagation(); selectServico(' + Number(s.id) + '); printCurrent(\'externo\')" title="Só QR externo (cliente)">🖨 Ext</button>' +
         '<button class="btn-warning btn-sm" onclick="event.stopPropagation(); selectServico(' + Number(s.id) + '); printCurrent(\'interno\')" title="Só QR interno (apontamento)">🖨 Int</button>' +
         '<button class="btn-danger btn-sm" onclick="deleteServico(' + Number(s.id) + ', event)">✕</button>' +
