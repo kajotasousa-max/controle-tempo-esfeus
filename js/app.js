@@ -770,7 +770,6 @@ function qualidadeAprovada(s) {
   const fin = etapaInspecaoFinal(s);
   return fin ? fin.status === 'OK' : s.status === 'Finalizado';
 }
-let melhoriaTimer = null;
 
 function escMelhoria(value) {
   return String(value == null ? '' : value)
@@ -850,79 +849,6 @@ function statusInteligente(s) {
   const iniciou = etapas.some(e => e.status === 'Em andamento' || e.status === 'Parada' || e.status === 'OK');
   if (!iniciou && base === 'Aguardando') return 'Aguardando';
   return dias !== null && dias <= 7 ? 'Alerta' : 'Em processo';
-}
-
-function dataEventoMelhoria(timestamp) {
-  const d = new Date(String(timestamp || '').replace(' ', 'T'));
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function chaveAtividadeMelhoria() {
-  if (!apontamentoDados) return '';
-  const osFull = (apontamentoDados.os || '') + (apontamentoDados.it ? '/' + apontamentoDados.it : '');
-  const etapa = (document.getElementById('a-etapa') || {}).value || '';
-  const operacao = (document.getElementById('a-operacao') || {}).value || '';
-  const maquina = (document.getElementById('a-maquina') || {}).value || '';
-  const operador = (document.getElementById('a-operador') || {}).value || '';
-  return [osFull, etapa, operacao, maquina, operador].join('||');
-}
-
-function estadoAtividadeMelhoria() {
-  const chave = chaveAtividadeMelhoria();
-  if (!chave || chave.split('||').slice(2).some(v => !v)) {
-    return { totalMs: 0, running: false, start: null, lastStatus: '', eventos: [] };
-  }
-  const eventos = loadApontamentos().filter(a =>
-    [osItem(a), a.etapa || '', a.operacao || '', a.maquina || '', a.operador || ''].join('||') === chave
-  ).sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
-  let totalMs = 0, inicio = null, lastStatus = '';
-  eventos.forEach(e => {
-    const t = dataEventoMelhoria(e.timestamp);
-    if (!t) return;
-    lastStatus = e.status || lastStatus;
-    if (e.status === 'Iniciando') {
-      if (!inicio) inicio = t;
-    } else if (e.status === 'Parado' || e.status === 'Concluído Parcial' || e.status === 'Etapa concluída' || e.status === 'Finalizado') {
-      if (inicio) totalMs += Math.max(0, t - inicio);
-      inicio = null;
-    }
-  });
-  if (inicio) totalMs += Math.max(0, Date.now() - inicio.getTime());
-  return { totalMs, running: !!inicio, start: inicio, lastStatus, eventos };
-}
-
-function duracaoMelhoria(ms) {
-  const totalSegundos = Math.max(0, Math.floor(ms / 1000));
-  const h = String(Math.floor(totalSegundos / 3600)).padStart(2, '0');
-  const m = String(Math.floor((totalSegundos % 3600) / 60)).padStart(2, '0');
-  const s = String(totalSegundos % 60).padStart(2, '0');
-  return h + ':' + m + ':' + s;
-}
-
-function pintarPainelAtividade() {
-  const statusEl = document.getElementById('a-activity-status');
-  const clockEl = document.getElementById('a-activity-clock');
-  if (!statusEl || !clockEl) return;
-  const estado = estadoAtividadeMelhoria();
-  const campos = chaveAtividadeMelhoria().split('||');
-  if (campos.length < 5 || campos.slice(2).some(v => !v)) {
-    statusEl.textContent = 'Selecione operação, máquina e operador';
-    clockEl.textContent = '00:00:00';
-    return;
-  }
-  const statusTexto = {
-    'Parado': 'Pausada — toque em Iniciar / retomar',
-    'Concluído Parcial': 'Pronta para a próxima etapa', 'Etapa concluída': 'Pronta para a próxima etapa',
-    'Finalizado': 'Operação finalizada'
-  };
-  statusEl.textContent = estado.running ? 'Em andamento — cronômetro ativo' : (statusTexto[estado.lastStatus] || 'Aguardando início');
-  clockEl.textContent = duracaoMelhoria(estado.totalMs);
-}
-
-function atualizarPainelAtividade() {
-  if (melhoriaTimer) { clearInterval(melhoriaTimer); melhoriaTimer = null; }
-  pintarPainelAtividade();
-  if (estadoAtividadeMelhoria().running) melhoriaTimer = setInterval(pintarPainelAtividade, 1000);
 }
 
 function statusClass(st) {
@@ -1521,55 +1447,27 @@ function activateApontaMode(data) {
   if (data.cliente) info.push(data.cliente);
   if (data.oc) info.push('OC ' + data.oc);
   document.getElementById('a-os-info').textContent = info.join(' · ');
-  const etapaSelect = document.getElementById('a-etapa');
-  const etapas = Array.isArray(data.etapas) ? data.etapas : [];
-  etapaSelect.innerHTML = '<option value="">— sem etapa definida —</option>' + etapas.map(e => '<option value="' + escMelhoria(e.nome || e.operacao) + '">' + escMelhoria(e.nome || e.operacao || 'Etapa') + '</option>').join('');
-  atualizarPainelAtividade();
   document.title = 'Apontamento ' + osFull + ' — ' + CONFIG.empresa.nomeCurto;
 }
 
-function registrarApontamento(statusOverride) {
-  const etapa = document.getElementById('a-etapa').value;
+/** Operador registra que terminou: vai para os Apontamentos (uso interno). Não altera as etapas da OS. */
+function registrarEtapaPronta() {
+  const etapa = ''; // a etapa da OS é do escritório
   const operacao = document.getElementById('a-operacao').value;
   const maquina = document.getElementById('a-maquina').value;
   const operador = document.getElementById('a-operador').value;
   const qtd = document.getElementById('a-qtd').value;
-  const status = statusOverride || ((document.getElementById('a-status') || {}).value || '');
-  if (!operacao || !maquina || !operador || !status) { alert('Preencha operação, máquina e operador antes de iniciar.'); return; }
-  const antes = estadoAtividadeMelhoria();
-  const feedback = document.getElementById('a-activity-feedback');
-  if (status === 'Iniciando' && antes.running) {
-    if (feedback) feedback.textContent = 'Esta operação já está em andamento.';
-    return;
-  }
-  if (status === 'Parado' && !antes.running) {
-    if (feedback) feedback.textContent = 'Não há uma atividade em andamento para pausar.';
-    return;
-  }
-  if (status === 'Etapa concluída' && !antes.eventos.length) {
-    if (feedback) feedback.textContent = 'Inicie a operação antes de encerrá-la.';
-    return;
-  }
-  if (status === 'Iniciando' && (antes.lastStatus === 'Concluído Parcial' || antes.lastStatus === 'Etapa concluída' || antes.lastStatus === 'Finalizado')) {
-    if (feedback) feedback.textContent = 'Esta operação já foi encerrada. Use a próxima etapa.';
-    return;
-  }
+  const feedback = document.getElementById('a-feedback');
+  if (!operacao || !maquina || !operador) { alert('Preencha operação, máquina e operador.'); return; }
+  const osFull = (apontamentoDados.os || '') + (apontamentoDados.it ? '/' + apontamentoDados.it : '');
+  const chave = [osFull, etapa, operacao, maquina, operador].join('||');
+  const ja = loadApontamentos().find(a => a.status === 'Etapa concluída' && [a.os, a.etapa || '', a.operacao || '', a.maquina || '', a.operador || ''].join('||') === chave);
+  if (ja && !confirm('Isto já foi registrado em ' + String(ja.timestamp).slice(8, 10) + '/' + String(ja.timestamp).slice(5, 7) + ' às ' + String(ja.timestamp).slice(11, 16) + '. Registrar de novo?')) return;
   const now = new Date(), pad = n => String(n).padStart(2, '0');
   const timestamp = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
-  const osFull = (apontamentoDados.os || '') + (apontamentoDados.it ? '/' + apontamentoDados.it : '');
-  const apontamento = { timestamp, os: osFull, item: apontamentoDados.it || '', etapa, cliente: apontamentoDados.cliente || '', oc: apontamentoDados.oc || '', descricao: apontamentoDados.desc || '', operacao, maquina, operador, status, qtd: qtd || '' };
-  saveApontamento(apontamento);
-  atualizarPainelAtividade();
-  const nomes = {
-    'Iniciando': 'Início/retomada registrada',
-    'Parado': 'Pausa registrada',
-    'Concluído Parcial': 'Operação encerrada — pronta para a próxima etapa', 'Etapa concluída': 'Etapa encerrada — pronta para a próxima'
-  };
-  if (feedback) feedback.textContent = (nomes[status] || 'Evento registrado') + ' às ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '.';
-}
-
-function registrarRapido(status) {
-  registrarApontamento(status);
+  saveApontamento({ timestamp, os: osFull, item: apontamentoDados.it || '', etapa, cliente: apontamentoDados.cliente || '', oc: apontamentoDados.oc || '', descricao: apontamentoDados.desc || '', operacao, maquina, operador, status: 'Etapa concluída', qtd: qtd || '' });
+  document.getElementById('a-qtd').value = '';
+  if (feedback) feedback.textContent = '✓ Registrado às ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '.';
 }
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0] — 2026-11-17
+
+### Alterado
+- Tela do operador (QR interno) sem controle de tempo: sem Iniciar, Pausar e cronômetro. O operador preenche os dados e toca em **Pronta para próxima etapa**. O registro vai para os Apontamentos, para uso interno, e não altera a OS: as etapas continuam sendo atualizadas pelo escritório.
+- Removida a etiqueta completa do produto (botão "Etq" e impressão em lote).
+- Botão para remover a imagem da peça.
+
 ## [1.3.0] — 2026-11-11
 
 ### Novo
