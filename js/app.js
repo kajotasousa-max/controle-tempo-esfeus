@@ -634,7 +634,52 @@ function dataEntregaEtiqueta(s) {
   return m ? m[3] + '/' + m[2] + '/' + m[1] : t;
 }
 
+/** Data no formato dd/mm/aaaa (aceita aaaa-mm-dd). */
+function dataBr(v) {
+  const t = String(v || '').trim();
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[3] + '/' + m[2] + '/' + m[1] : t;
+}
+
+/**
+ * Etiqueta do cliente (QR externo): 70 x 70 mm, logo em destaque, QR 20 x 20 mm.
+ * Não mostra o prazo: mostra a nota fiscal e a data da NF (campo "Data de entrega" da OS).
+ */
+function generateEtiquetaExterna(s) {
+  const card = document.createElement('div');
+  card.className = 'etq-ext7';
+  const linha2 = [s.oc ? 'OC ' + s.oc : '', s.qty ? 'Qtd ' + s.qty : ''].filter(Boolean).join('  ·  ');
+  card.innerHTML =
+    '<div class="e7-topo">' +
+      '<img class="e7-logo" src="' + CONFIG.marca.logo + '" alt="">' +
+      '<div class="e7-cab">' +
+        '<div class="e7-tag">Etiqueta do produto</div>' +
+        '<div class="e7-cli">' + escMelhoria(s.cliente || '') + '</div>' +
+        '<div class="e7-os">' + escMelhoria(s.os || '(sem OS)') + (s.it ? '<span> / ' + escMelhoria(s.it) + '</span>' : '') + '</div>' +
+        (linha2 ? '<div class="e7-oc">' + escMelhoria(linha2) + '</div>' : '') +
+      '</div>' +
+    '</div>' +
+    '<div class="e7-meio">' +
+      (s.desc ? '<div class="e7-desc">' + escMelhoria(s.desc) + '</div>' : '') +
+      (s.des ? '<div class="e7-des">Desenho: <b>' + escMelhoria(s.des) + '</b></div>' : '') +
+    '</div>' +
+    '<div class="e7-base">' +
+      '<div class="e7-qr"></div>' +
+      '<div class="e7-nf">' +
+        '<div class="e7-campo"><span>Nota fiscal</span><b>' + escMelhoria(s.nf || '—') + '</b></div>' +
+        '<div class="e7-campo"><span>Data da NF</span><b>' + escMelhoria(dataBr(s.dt) || '—') + '</b></div>' +
+        '<div class="e7-rod">Aponte a câmera do celular para ver a ficha da peça</div>' +
+      '</div>' +
+    '</div>';
+  card.querySelector('.e7-qr').appendChild(buildQrWithOverlay(buildViewerUrl(s), 400, 'externo'));
+  return card;
+}
+
+/** Classe da área de impressão: a etiqueta do cliente tem grade própria (70 x 70 mm). */
+function classeImpressao(tipo) { return tipo === 'externo' ? 'qr-ext7' : 'qr-avulso'; }
+
 function generatePrintQR(s, tipo) {
+  if (tipo === 'externo') return generateEtiquetaExterna(s);
   const wrapper = document.createElement('div');
   wrapper.className = 'print-qr ' + tipo;
   const qrDiv = document.createElement('div');
@@ -665,8 +710,8 @@ function printSelecionadas(tipo) {
     if (!confirm('Nada selecionado. Imprimir TODAS as ' + lista.length + ' OSs filtradas?')) return;
   }
   const area = document.getElementById('print-area');
-  // Interno e cliente: mesmo cartão compacto 60 x 24 mm da impressão individual (30 por folha A4)
-  area.className = 'qr-avulso';
+  // Interno: cartão compacto 60 x 24 mm (30 por folha A4). Cliente: etiqueta 70 x 70 mm.
+  area.className = classeImpressao(tipo);
   area.innerHTML = '';
   lista.forEach(s => area.appendChild(generatePrintQR(s, tipo)));
   setTimeout(() => window.print(), 300);
@@ -676,7 +721,7 @@ function printCurrent(tipo) {
   const s = servicos.find(x => x.id === currentId);
   if (!s) { alert('Selecione um serviço primeiro.'); return; }
   const area = document.getElementById('print-area');
-  area.className = 'qr-avulso';
+  area.className = classeImpressao(tipo);
   area.innerHTML = '';
   area.appendChild(generatePrintQR(s, tipo));
   setTimeout(() => window.print(), 150);
@@ -686,7 +731,7 @@ function printAll(tipo) {
   const list = filterServicos();
   if (!list.length) { alert('Nenhum serviço na visualização atual.'); return; }
   const area = document.getElementById('print-area');
-  area.className = 'qr-avulso';
+  area.className = classeImpressao(tipo);
   area.innerHTML = '';
   list.forEach(s => area.appendChild(generatePrintQR(s, tipo)));
   setTimeout(() => window.print(), 150);

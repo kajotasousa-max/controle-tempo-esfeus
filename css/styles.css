@@ -499,3 +499,33 @@ body.aponta-mode .sync-badge { bottom: auto; top: 12px; right: 12px; }
   #print-area .print-tag.externo { color: #006699; background: #fff; }
   #print-area .print-tag.interno { color: #b45309; background: #fff; }
 }
+
+/* ===== Etiqueta do cliente (QR externo): 70 x 70 mm ===== */
+@media print {
+  #print-area.qr-ext7 { grid-template-columns: repeat(2, 70mm) !important; gap: 5mm !important; padding: 10mm !important;
+    place-items: start !important; justify-content: center; }
+  .etq-ext7 { width: 70mm; height: 70mm; box-sizing: border-box; padding: 3.5mm; display: flex; flex-direction: column; gap: 2mm;
+    border: .4mm solid #006699; border-radius: 2mm; background: #fff; overflow: hidden; break-inside: avoid; page-break-inside: avoid;
+    font-family: 'Open Sans', Arial, sans-serif; color: #111; }
+  .etq-ext7 .e7-topo { display: flex; align-items: center; gap: 3mm; padding-bottom: 2mm; border-bottom: .3mm solid #006699; }
+  .etq-ext7 .e7-logo { flex: 0 0 25mm; width: 25mm; height: 25mm; border-radius: 50%; object-fit: cover; display: block; }
+  .etq-ext7 .e7-cab { flex: 1; min-width: 0; line-height: 1.15; }
+  .etq-ext7 .e7-tag { font-size: 5.5pt; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: #006699; }
+  .etq-ext7 .e7-cli { font-size: 8pt; font-weight: 800; text-transform: uppercase; color: #334155; margin-top: .6mm;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .etq-ext7 .e7-os { font-family: 'Montserrat', Arial, sans-serif; font-size: 13pt; font-weight: 800; color: #004A80; margin-top: .6mm;
+    letter-spacing: -.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .etq-ext7 .e7-os span { font-weight: 700; color: #334155; }
+  .etq-ext7 .e7-oc { font-size: 7pt; font-weight: 700; margin-top: .6mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .etq-ext7 .e7-meio { line-height: 1.2; }
+  .etq-ext7 .e7-desc { font-size: 8pt; font-weight: 700; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .etq-ext7 .e7-des { font-size: 6.5pt; color: #334155; margin-top: .5mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .etq-ext7 .e7-base { display: flex; align-items: flex-end; gap: 3mm; margin-top: auto; }
+  .etq-ext7 .e7-qr { flex: 0 0 20mm; }
+  #print-area .etq-ext7 .qr-wrap { margin: 0 !important; }
+  .etq-ext7 .e7-nf { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1.2mm; }
+  .etq-ext7 .e7-campo { border: .25mm solid #94a3b8; border-radius: 1mm; padding: .6mm 1.5mm; line-height: 1.15; }
+  .etq-ext7 .e7-campo span { display: block; font-size: 5pt; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: #64748b; }
+  .etq-ext7 .e7-campo b { font-size: 9pt; font-weight: 800; }
+  .etq-ext7 .e7-rod { font-size: 5pt; color: #64748b; line-height: 1.2; }
+}
