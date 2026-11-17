@@ -490,15 +490,6 @@ function deleteServico(id, ev) {
 function selectServico(id) { currentId = id; renderServicos(); openEditPanel(); }
 
 
-function clearAllServicos() {
-  if (!confirm('Apagar TODOS os serviços cadastrados? Eles somem também da planilha e dos outros computadores.')) return;
-  if (prompt('Isso apaga ' + servicos.length + ' OS de todos os computadores. Para confirmar, digite APAGAR') !== 'APAGAR') return;
-  marcarApagadas(servicos.map(s => s.id));
-  servicos = []; currentId = null; nextId = 1;
-  saveServicos();
-  closeEditPanel();
-  renderServicos();
-}
 
 
 
@@ -2475,7 +2466,7 @@ function marcaServico(s) { return marcaTexto(retratoServico(s)); }
 })();
 
 /*
- * Exclusões só vão para a planilha quando alguém apagou de propósito (✕ ou "Limpar todos").
+ * Exclusões só vão para a planilha quando alguém apagou de propósito (✕ na linha da OS).
  * OS que apenas "faltam" na cópia local (cópia velha, navegador sem espaço etc.) NUNCA são apagadas:
  * são baixadas de novo da planilha.
  */
