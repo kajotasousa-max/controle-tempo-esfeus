@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.5.0] — 2026-11-24
+
+### Novo — Nota fiscal como registro principal
+- Aba **📦 Materiais e NF** com três partes: **Notas fiscais**, **Estoque e saldos** e **Retiradas e movimentações**.
+- **Cadastro de NF** com número, data, fornecedor, várias OS e vários clientes, e **vários itens**. Cada item tem descrição livre (com sugestões do estoque), unidade, quantidade, valor unitário, frete opcional, total calculado, tipo de movimentação, OS, cliente e data de movimentação próprios. Total do item e total da NF calculados na hora.
+- Tipos de item: **Compra para estoque** e **Entrada em estoque** (somam no saldo), **Consumo direto na OS** (compra direcionada à OS, não entra no estoque geral) e **Outros (sem efeito no estoque)** para frete, serviço e despesas. "Outros" com OS entra no custo da OS; sem OS fica só na NF.
+- Clicar na NF abre os detalhes para editar cabeçalho, itens, valores, tipo, OS e clientes, incluir ou remover itens, ou excluir a NF. A edição regrava a mesma movimentação de cada item: nada é duplicado, e item removido sai do saldo.
+- Material que entra no estoque por NF e ainda não existe é **cadastrado sozinho** (código `MAT-0001`, `MAT-0002`…). Não é preciso cadastrar o material antes.
+- **Retirada do estoque para OS sem NF**: escolhe o material do saldo, informa a OS e a quantidade; data automática; origem **SEM NF - MATERIAL DO ESTOQUE** (sem NF fictícia).
+- **Saldo nunca negativo**: retirada sem saldo é recusada, e reduzir ou excluir uma NF cujo material já saiu para OS também é recusado (no app e no Apps Script).
+- **Estoque** com valor médio, último valor de aquisição e valor total em estoque. **Histórico por material** com entradas, saídas, saldo após cada movimentação, NFs de origem e OS que usaram; exportável em CSV.
+- **Materiais da OS** no painel da OS: tudo o que foi comprado para ela ou retirado do estoque, com origem e custo total de material. Botões para lançar NF já vinculada à OS e para retirar do estoque. O campo Material da OS mostra se há saldo em estoque.
+
+### Alterado
+- Campo **Responsável** removido da movimentação.
+- Trocar o código de um material também atualiza os itens das NFs (antes, salvar de novo uma NF antiga recriava o código velho).
+- Material cujas movimentações são todas de NFs excluídas pode ser apagado de verdade.
+- Lançamentos de compra antigos continuam no saldo e no histórico; a NF que estava na observação aparece como origem ("NF 1234 (lançamento anterior)").
+- A aba `Movimentacoes` da planilha ganha colunas no fim (id, cliente, valores, NF, origem…) sem mexer nas existentes. Custo, fornecedor e NF deixam de se perder ao recarregar.
+- Apps Script 1.5.0: abas `NotasFiscais` e `ItensNF`, ações `list-nfs`, `nf` e `excluir-nf`; a aba **Saldos** ganha valor médio e último valor. **É preciso atualizar o Apps Script** para lançar NFs; até lá o app avisa e o resto continua funcionando.
+
 ## [1.4.1] — 2026-11-24
 
 ### Correções (Materiais / Estoque)

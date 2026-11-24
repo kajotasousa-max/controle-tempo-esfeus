@@ -6,7 +6,7 @@
  * Instalação: veja docs/INSTALACAO.md.
  *
  * Abas de dados (criadas automaticamente na planilha vinculada):
- *   Servicos · Apontamentos · Materiais · Movimentacoes · Checklists · Responsaveis · Fornecedores
+ *   Servicos · Apontamentos · Materiais · Movimentacoes · NotasFiscais · ItensNF · Checklists · Responsaveis · Fornecedores
  * Abas de consulta (reescritas a cada gravação, não edite):
  *   Saldos · Análise por OS · Finalizadas · Acompanhamento (todas as OS, com avanço e progresso)
  *   · Cliente <NOME> (uma por cliente em PAINEL_CLIENTES)
@@ -20,7 +20,12 @@ const ABAS = {
   servicos:     { nome: 'Servicos',      colunas: ['id', 'os', 'it', 'cliente', 'oc', 'des', 'desc', 'qty', 'material', 'tratamento', 'emb', 'prazo', 'status', 'nf', 'dt', 'etapas', 'imagem', 'extras', 'atualizadoEm', 'excluido'] },
   apontamentos: { nome: 'Apontamentos',  colunas: ['timestamp', 'os', 'item', 'etapa', 'cliente', 'oc', 'descricao', 'operacao', 'maquina', 'operador', 'status', 'qtd'] },
   materiais:    { nome: 'Materiais',     colunas: ['codigo', 'descricao', 'especificacao', 'unidade', 'estoqueMinimo', 'localizacao', 'ativo', 'atualizadoEm'] },
-  movimentacoes:{ nome: 'Movimentacoes', colunas: ['timestamp', 'codigo', 'tipo', 'quantidade', 'os', 'loteDimensao', 'observacao', 'operador'] },
+  // As 8 primeiras colunas são as originais; as demais (1.5) são acrescentadas no fim das abas existentes.
+  movimentacoes:{ nome: 'Movimentacoes', colunas: ['timestamp', 'codigo', 'tipo', 'quantidade', 'os', 'loteDimensao', 'observacao', 'operador',
+                  'id', 'cliente', 'valorUnitario', 'valorTotal', 'nf', 'nfId', 'itemNfId', 'origem', 'fornecedor', 'excluido', 'atualizadoEm'] },
+  notas:        { nome: 'NotasFiscais',  colunas: ['id', 'numero', 'data', 'fornecedor', 'os', 'clientes', 'observacao', 'criadoEm', 'atualizadoEm', 'excluido'] },
+  itensNf:      { nome: 'ItensNF',       colunas: ['id', 'nfId', 'descricao', 'codigo', 'unidade', 'quantidade', 'valorUnitario', 'frete', 'valorTotal',
+                  'os', 'cliente', 'tipo', 'dataMovimentacao', 'observacao', 'atualizadoEm', 'excluido'] },
   checklists:   { nome: 'Checklists',    colunas: ['timestamp', 'os', 'item', 'cliente', 'codigoPeca', 'qtd', 'revisaoDesenho', 'inspetor', 'situacao', 'observacao', 'motivoNf', 'fotos', 'marcacoes'] },
   responsaveis: { nome: 'Responsaveis',  colunas: ['nome', 'funcao', 'ativo', 'atualizadoEm'] },
   fornecedores: { nome: 'Fornecedores',  colunas: ['nome', 'tipo', 'cnpj', 'contato', 'observacao', 'ativo', 'atualizadoEm'] }
@@ -55,7 +60,11 @@ const PAINEL_CLIENTES = ['COMAU'];
 /** Pasta do Drive onde as fotos dos checklists e das peças são gravadas. */
 const PASTA_FOTOS = 'Gestão de Serviços - Fotos de Qualidade';
 const FUSO = Session.getScriptTimeZone() || 'America/Sao_Paulo';
-const TIPOS_SAIDA = ['Consumo na OS', 'Perda / descarte', 'Ajuste de saída'];
+const TIPOS_SAIDA = ['Consumo na OS', 'Retirada do estoque para OS', 'Perda / descarte', 'Ajuste de saída'];
+/** Registram a compra/uso mas não mexem no saldo (material comprado direto para a OS, despesas). */
+const TIPOS_NEUTROS = ['Compra direta para OS', 'Outros (sem efeito no estoque)'];
+function fator_(tipo) { return TIPOS_NEUTROS.indexOf(tipo) >= 0 ? 0 : (TIPOS_SAIDA.indexOf(tipo) >= 0 ? -1 : 1); }
+const VERSAO = '1.5.0';
 
 /* ======================= ACESSO ======================= */
 
@@ -116,12 +125,13 @@ function doGet(e) {
       case 'list':               return json({ ok: true, apontamentos: lerTudo('apontamentos') });
       case 'list-servicos':      return json({ ok: true, servicos: listarServicos(), agora: agora() });
       case 'list-materiais':     return json({ ok: true, materiais: listarMateriais() });
-      case 'list-movimentacoes': return json({ ok: true, movimentacoes: lerTudo('movimentacoes') });
+      case 'list-movimentacoes': return json({ ok: true, movimentacoes: listarMovimentacoes_() });
+      case 'list-nfs':           return json({ ok: true, nfs: listarNfs_() });
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.4.1', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
-      case 'recursos':           return json({ ok: true, versao: '1.4.1', etiqueta: true });
+      case 'versao':             return json({ ok: true, versao: VERSAO, servicos: true, item: true, etiqueta: true, nfs: true, nivel: nivelDe_(e.parameter.k) });
+      case 'recursos':           return json({ ok: true, versao: VERSAO, etiqueta: true, nfs: true });
       case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
@@ -150,7 +160,9 @@ function doPost(e) {
         case 'servicos':     resposta.servicos = gravarServicos(body.itens || []); break;
         case 'material':     resposta.material = gravarMaterial_(body); break;
         case 'excluir-material': Object.assign(resposta, excluirMaterial_(body)); break;
-        case 'movimentacao': anexar('movimentacoes', body); break;
+        case 'movimentacao': resposta.movimentacao = gravarMovimentacao_(body); break;
+        case 'nf':           Object.assign(resposta, gravarNf_(body)); break;
+        case 'excluir-nf':   Object.assign(resposta, excluirNf_(body)); break;
         case 'checklist':    gravarChecklist(body); break;
         case 'responsavel':  upsert('responsaveis', 'nome', body, { atualizadoEm: agora() }); break;
         case 'fornecedor':   upsert('fornecedores', 'nome', body, { atualizadoEm: agora() }); break;
@@ -596,17 +608,22 @@ function atualizarFinalizadas_() {
 }
 
 function atualizarSaldos_() {
-  const saldo = {};
-  lerTudo('movimentacoes').forEach(m => {
-    const k = String(m.codigo || '').trim().toUpperCase();
-    saldo[k] = (saldo[k] || 0) + numero(m.quantidade) * (TIPOS_SAIDA.indexOf(m.tipo) >= 0 ? -1 : 1);
+  const movs = listarMovimentacoes_();
+  const saldo = saldos_(movs);
+  const custo = {};   // valor médio ponderado e último valor de aquisição (entradas com valor)
+  movs.slice().sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp))).forEach(m => {
+    const k = chaveCodigo_(m.codigo), vu = numero(m.valorUnitario), q = numero(m.quantidade);
+    if (!k || fator_(m.tipo) <= 0 || vu <= 0 || q <= 0) return;
+    const c = custo[k] || (custo[k] = { q: 0, v: 0, ultimo: 0 });
+    c.q += q; c.v += q * vu; c.ultimo = vu;
   });
   const linhas = listarMateriais().map(m => {
-    const s = saldo[String(m.codigo || '').trim().toUpperCase()] || 0;
+    const k = chaveCodigo_(m.codigo), s = saldo[k] || 0, c = custo[k];
     const alerta = s <= 0 ? 'Zerado' : (s < m.estoqueMinimo ? 'Abaixo do mínimo' : '');
-    return [m.codigo, m.descricao, m.unidade, s, m.estoqueMinimo, alerta, m.localizacao, m.ativo ? 'Sim' : 'Não'];
+    return [m.codigo, m.descricao, m.unidade, s, m.estoqueMinimo, alerta,
+      c ? Math.round(c.v / c.q * 100) / 100 : '', c ? c.ultimo : '', m.localizacao, m.ativo ? 'Sim' : 'Não'];
   });
-  escreverPainel_('Saldos', ['Código', 'Descrição', 'Unidade', 'Saldo', 'Estoque mínimo', 'Alerta', 'Localização', 'Ativo'], linhas);
+  escreverPainel_('Saldos', ['Código', 'Descrição', 'Unidade', 'Saldo', 'Estoque mínimo', 'Alerta', 'Valor médio (R$)', 'Último valor (R$)', 'Localização', 'Ativo'], linhas);
 }
 
 /** Mesma regra da aba "Análise por OS" do app. */
@@ -672,14 +689,31 @@ function aba_(tipo) {
     sh.getRange(1, 1, 1, def.colunas.length).setValues([def.colunas]).setFontWeight('bold');
     sh.setFrozenRows(1);
     sh.getRange('A:Z').setNumberFormat('@'); // tudo como texto: datas não são convertidas
-  } else if (SEM_ITEM[tipo] && !colunaItemConferida_[tipo]) {
-    incluirColunaItem_(sh, tipo);
+  } else if (!colunaItemConferida_[tipo]) {
+    if (SEM_ITEM[tipo]) incluirColunaItem_(sh, tipo);
+    acrescentarColunasNovas_(sh, tipo);
   }
   colunaItemConferida_[tipo] = true;
   return sh;
 }
 
 const colunaItemConferida_ = {};
+
+/**
+ * Aba antiga com menos colunas que a versão atual (ex.: Movimentacoes antes da 1.5):
+ * acrescenta os cabeçalhos que faltam no fim, sem mexer nos dados. Só age se as
+ * colunas existentes forem exatamente o começo da lista atual.
+ */
+function acrescentarColunasNovas_(sh, tipo) {
+  const cols = ABAS[tipo].colunas;
+  const ult = Math.max(1, sh.getLastColumn());
+  const cab = sh.getRange(1, 1, 1, ult).getDisplayValues()[0];
+  while (cab.length && cab[cab.length - 1] === '') cab.pop();
+  if (cab.length >= cols.length || !cab.every((c, i) => c === cols[i])) return;
+  const faltam = cols.slice(cab.length);
+  sh.getRange(1, cab.length + 1, 1, faltam.length).setValues([faltam]).setFontWeight('bold');
+  sh.getRange(1, cab.length + 1, sh.getMaxRows(), faltam.length).setNumberFormat('@');
+}
 
 /** Aba no formato sem "item": regrava com a coluna nova, separando "CO 26.002/75" em OS e item. */
 function incluirColunaItem_(sh, tipo) {
@@ -782,11 +816,13 @@ function gravarMaterial_(body) {
 }
 
 function renomearCodigoMovimentos_(de, para) {
-  const linhas = linhasPorChave_('movimentacoes', 'codigo', [de]);
-  if (!linhas.length) return;
-  const sh = aba_('movimentacoes');
-  const col = ABAS.movimentacoes.colunas.indexOf('codigo') + 1;
-  linhas.forEach(r => sh.getRange(r, col).setValue(para));
+  ['movimentacoes', 'itensNf'].forEach(tipo => {
+    const linhas = linhasPorChave_(tipo, 'codigo', [de]);
+    if (!linhas.length) return;
+    const sh = aba_(tipo);
+    const col = ABAS[tipo].colunas.indexOf('codigo') + 1;
+    linhas.forEach(r => sh.getRange(r, col).setValue(para));
+  });
 }
 
 /**
@@ -799,7 +835,8 @@ function excluirMaterial_(body) {
   if (!codigo) throw new Error('Campo "codigo" é obrigatório.');
   const linhas = linhasPorChave_('materiais', 'codigo', [codigo]);
   if (!linhas.length) return { removido: true };
-  if (!linhasPorChave_('movimentacoes', 'codigo', [codigo]).length) {
+  const k = chaveCodigo_(codigo);
+  if (!listarMovimentacoes_().some(m => chaveCodigo_(m.codigo) === k)) {
     apagarLinhas_('materiais', linhas);
     return { removido: true };
   }
@@ -814,6 +851,270 @@ function excluirMaterial_(body) {
 function pastaFotos_() {
   const it = DriveApp.getFoldersByName(PASTA_FOTOS);
   return it.hasNext() ? it.next() : DriveApp.createFolder(PASTA_FOTOS);
+}
+
+
+/* ======================= NOTAS FISCAIS E MOVIMENTAÇÕES (1.5) ======================= */
+/*
+ * A NF é o registro principal: cada NF tem vários itens e cada item tem OS, cliente e tipo próprios.
+ * Os itens que mexem no estoque (ou que registram compra direta para a OS) geram UMA movimentação
+ * cada, identificada pelo id do item (itemNfId). Editar a NF regrava essa mesma linha; remover o item
+ * marca a movimentação como excluída. Assim o saldo nunca duplica.
+ * Material retirado do estoque não tem NF: a movimentação leva origem "SEM NF - MATERIAL DO ESTOQUE".
+ */
+
+/** Tipo do item da NF → tipo da movimentação gerada (null = não gera) e se exige material de estoque. */
+const TIPOS_ITEM_NF = {
+  'Compra para estoque':            { mov: 'Compra para estoque', estoque: true },
+  'Entrada em estoque':             { mov: 'Entrada em estoque', estoque: true },
+  'Consumo direto na OS':           { mov: 'Compra direta para OS', estoque: false, exigeOS: true },
+  'Outros (sem efeito no estoque)': { mov: 'Outros (sem efeito no estoque)', estoque: false }
+};
+const ORIGEM_SEM_NF = 'SEM NF - MATERIAL DO ESTOQUE';
+
+function chaveCodigo_(c) { return String(c || '').trim().toUpperCase(); }
+function chaveTexto_(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase(); }
+function excluido_(r) { return String(r.excluido).toUpperCase() === 'TRUE'; }
+function arred2_(n) { return Math.round(n * 100) / 100; }
+function novoId_(prefixo) { return prefixo + '-' + Utilities.getUuid().replace(/-/g, '').slice(0, 10).toUpperCase(); }
+
+/** Movimentações válidas (as excluídas ficam na planilha só para auditoria). */
+function listarMovimentacoes_() {
+  return lerTudo('movimentacoes').filter(m => !excluido_(m)).map(m => Object.assign(m, {
+    quantidade: numero(m.quantidade), valorUnitario: numero(m.valorUnitario), valorTotal: numero(m.valorTotal)
+  }));
+}
+
+function saldos_(movs) {
+  const saldo = {};
+  movs.forEach(m => {
+    const k = chaveCodigo_(m.codigo);
+    if (k) saldo[k] = (saldo[k] || 0) + numero(m.quantidade) * fator_(m.tipo);
+  });
+  return saldo;
+}
+
+/** Lê a aba devolvendo cada linha com o número dela na planilha (_linha). */
+function lerComLinhas_(tipo) {
+  const sh = aba_(tipo);
+  const n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  const cols = ABAS[tipo].colunas;
+  return sh.getRange(2, 1, n, cols.length).getDisplayValues()
+    .map((l, i) => { const o = cols.reduce((acc, c, j) => (acc[c] = l[j], acc), {}); o._linha = i + 2; return o; })
+    .filter(o => ABAS[tipo].colunas.some(c => o[c] !== ''));
+}
+
+/** Grava objetos: os que têm _linha sobrescrevem a linha; os outros vão para o fim, de uma vez. */
+function gravarObjetos_(tipo, objetos) {
+  const sh = aba_(tipo);
+  const cols = ABAS[tipo].colunas;
+  const novos = [];
+  objetos.forEach(o => {
+    const linha = cols.map(c => texto(o[c]));
+    if (o._linha) sh.getRange(o._linha, 1, 1, cols.length).setValues([linha]); else novos.push(linha);
+  });
+  if (novos.length) sh.getRange(sh.getLastRow() + 1, 1, novos.length, cols.length).setValues(novos);
+}
+
+function listarNfs_() {
+  const itens = {};
+  lerTudo('itensNf').forEach(it => {
+    if (excluido_(it)) return;
+    (itens[it.nfId] = itens[it.nfId] || []).push(montarItemNf_(it));
+  });
+  return lerTudo('notas').filter(n => !excluido_(n)).map(n => montarNf_(n, itens[n.id] || []));
+}
+
+function montarNf_(n, itens) {
+  return { id: n.id, numero: n.numero, data: n.data, fornecedor: n.fornecedor, os: parse(n.os, []), clientes: parse(n.clientes, []),
+    observacao: n.observacao, criadoEm: n.criadoEm, atualizadoEm: n.atualizadoEm, itens: itens };
+}
+function montarItemNf_(it) {
+  return { id: it.id, nfId: it.nfId, descricao: it.descricao, codigo: it.codigo, unidade: it.unidade, quantidade: numero(it.quantidade),
+    valorUnitario: numero(it.valorUnitario), frete: numero(it.frete), valorTotal: numero(it.valorTotal), os: it.os, cliente: it.cliente,
+    tipo: it.tipo, dataMovimentacao: it.dataMovimentacao, observacao: it.observacao };
+}
+
+/** Próximo código automático de material: MAT-0001, MAT-0002… */
+function proximoCodigoMaterial_(usados) {
+  let max = 0;
+  Object.keys(usados).forEach(c => { const m = c.match(/^MAT-(\d+)$/); if (m) max = Math.max(max, Number(m[1])); });
+  return 'MAT-' + String(max + 1).padStart(4, '0');
+}
+
+/**
+ * Acha o material do item (pelo código ou pela descrição). Itens que entram no estoque e não
+ * têm material cadastrado criam o cadastro sozinhos: o usuário não precisa cadastrar antes.
+ */
+function resolverMateriais_(itens, movsDoItem) {
+  const sh = aba_('materiais');
+  const cols = ABAS.materiais.colunas;
+  const lista = lerComLinhas_('materiais');
+  const porCodigo = {}, porDescricao = {};
+  lista.forEach(m => { porCodigo[chaveCodigo_(m.codigo)] = m; if (!porDescricao[chaveTexto_(m.descricao)]) porDescricao[chaveTexto_(m.descricao)] = m; });
+  const criados = [], reativar = [];
+  itens.forEach(it => {
+    const regra = TIPOS_ITEM_NF[it.tipo];
+    let m = it.codigo ? porCodigo[chaveCodigo_(it.codigo)] : null;
+    // Código que não existe mais (material renomeado com a NF aberta): fica com o material já gravado para o item
+    if (!m && movsDoItem && movsDoItem[it.id]) m = porCodigo[chaveCodigo_(movsDoItem[it.id])] || null;
+    if (!m) m = porDescricao[chaveTexto_(it.descricao)] || null;
+    if (!m && regra.estoque) {
+      m = { codigo: proximoCodigoMaterial_(porCodigo),
+            descricao: it.descricao, especificacao: '', unidade: it.unidade || 'unidade', estoqueMinimo: '0', localizacao: '', ativo: 'TRUE', atualizadoEm: agora() };
+      porCodigo[chaveCodigo_(m.codigo)] = m; porDescricao[chaveTexto_(m.descricao)] = m;
+      criados.push(m);
+    } else if (m && regra.estoque && !bool(m.ativo) && reativar.indexOf(m) < 0) {
+      m.ativo = 'TRUE'; m.atualizadoEm = agora(); reativar.push(m);
+    }
+    it.codigo = m ? m.codigo : '';
+    if (m && !it.unidade) it.unidade = m.unidade;
+  });
+  // Só grava depois que a NF passar na conferência de saldo
+  return {
+    codigos: criados.map(m => m.codigo),
+    gravar: () => {
+      if (criados.length) sh.getRange(sh.getLastRow() + 1, 1, criados.length, cols.length).setValues(criados.map(m => cols.map(c => texto(m[c]))));
+      if (reativar.length) gravarObjetos_('materiais', reativar);
+    }
+  };
+}
+
+/** Confere que nenhum material fica com saldo negativo depois de trocar as movimentações. */
+function conferirSaldos_(todas, sairao, entrarao) {
+  const ids = {};
+  sairao.forEach(m => { ids[m.id || ('L' + m._linha)] = true; });
+  const restantes = todas.filter(m => !ids[m.id || ('L' + m._linha)]);
+  const antes = saldos_(todas), depois = saldos_(restantes.concat(entrarao));
+  const afetados = {};
+  sairao.concat(entrarao).forEach(m => { if (chaveCodigo_(m.codigo)) afetados[chaveCodigo_(m.codigo)] = true; });
+  const problemas = Object.keys(afetados).filter(k => (depois[k] || 0) < -1e-9 && (depois[k] || 0) < (antes[k] || 0) - 1e-9);
+  if (problemas.length) {
+    throw new Error('Saldo insuficiente: ' + problemas.map(k => k + ' ficaria com ' + arred2_(depois[k] || 0)).join('; ') +
+      '. Parte desse material já saiu do estoque para alguma OS. Ajuste as retiradas antes de reduzir ou remover a entrada.');
+  }
+}
+
+/**
+ * Salva a NF inteira (cabeçalho + itens) e regrava as movimentações dela.
+ * body: { nf: { id, numero, data, fornecedor, os[], clientes[], observacao }, itens: [ { id, descricao, codigo, unidade,
+ *         quantidade, valorUnitario, frete, os, cliente, tipo, dataMovimentacao, observacao } ] }
+ * Reenviar o mesmo corpo não duplica nada (tudo é gravado pelo id).
+ */
+function gravarNf_(body) {
+  const nf = body.nf || {};
+  const numeroNf = String(nf.numero || '').trim();
+  const dataNf = String(nf.data || '').trim();
+  if (!numeroNf) throw new Error('Informe o número da NF.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataNf)) throw new Error('Informe a data da NF.');
+  const itensIn = Array.isArray(body.itens) ? body.itens : [];
+  if (!itensIn.length) throw new Error('A NF precisa de pelo menos um item.');
+  const id = String(nf.id || '').trim() || novoId_('NF');
+  const fornecedor = String(nf.fornecedor || '').trim();
+
+  const itens = itensIn.map((it, i) => {
+    const n = 'Item ' + (i + 1) + ': ';
+    const regra = TIPOS_ITEM_NF[it.tipo];
+    if (!regra) throw new Error(n + 'tipo de movimentação inválido (' + it.tipo + ').');
+    const descricao = String(it.descricao || '').trim();
+    const q = numero(it.quantidade), vu = numero(it.valorUnitario), fr = numero(it.frete);
+    if (!descricao) throw new Error(n + 'informe a descrição.');
+    if (!(q > 0)) throw new Error(n + 'a quantidade precisa ser maior que zero.');
+    if (vu < 0 || fr < 0) throw new Error(n + 'valores não podem ser negativos.');
+    if (regra.exigeOS && !String(it.os || '').trim()) throw new Error(n + 'consumo direto precisa de uma OS.');
+    const dm = /^\d{4}-\d{2}-\d{2}$/.test(String(it.dataMovimentacao || '')) ? it.dataMovimentacao : dataNf;
+    return { id: String(it.id || '').trim() || novoId_('IT'), nfId: id, descricao: descricao, codigo: String(it.codigo || '').trim(),
+      unidade: String(it.unidade || '').trim(), quantidade: q, valorUnitario: vu, frete: fr, valorTotal: arred2_(q * vu + fr),
+      os: String(it.os || '').trim(), cliente: String(it.cliente || '').trim(), tipo: it.tipo, dataMovimentacao: dm,
+      observacao: String(it.observacao || '').trim(), atualizadoEm: agora(), excluido: 'FALSE' };
+  });
+  const repetidos = itens.map(i => i.id).filter((x, i, a) => a.indexOf(x) !== i);
+  if (repetidos.length) throw new Error('Itens com o mesmo id: ' + repetidos.join(', '));
+
+  // Movimentações: confere o saldo ANTES de gravar qualquer coisa
+  const todas = lerComLinhas_('movimentacoes').filter(m => !excluido_(m));
+  const daNf = todas.filter(m => m.nfId === id);
+  const materiais = resolverMateriais_(itens, daNf.reduce((o, m) => (o[m.itemNfId] = m.codigo, o), {}));
+  // "Outros" (frete, serviço, despesa) só vira movimentação quando é custo de uma OS
+  const novas = itens.filter(it => TIPOS_ITEM_NF[it.tipo].mov && (TIPOS_ITEM_NF[it.tipo].estoque || it.os || TIPOS_ITEM_NF[it.tipo].exigeOS)).map(it => {
+    const atual = daNf.find(m => m.itemNfId === it.id);
+    const hora = atual && /^\d{4}-\d{2}-\d{2} /.test(atual.timestamp) ? atual.timestamp.slice(11) : agora().slice(11);
+    return { _linha: atual ? atual._linha : 0, id: atual && atual.id ? atual.id : 'MV-' + it.id,
+      timestamp: it.dataMovimentacao + ' ' + hora, codigo: it.codigo, tipo: TIPOS_ITEM_NF[it.tipo].mov, quantidade: it.quantidade,
+      os: it.os, loteDimensao: '', observacao: it.descricao + (it.observacao ? ' | ' + it.observacao : ''), operador: '',
+      cliente: it.cliente, valorUnitario: it.valorUnitario, valorTotal: it.valorTotal, nf: numeroNf, nfId: id, itemNfId: it.id,
+      origem: 'NF ' + numeroNf, fornecedor: fornecedor, excluido: 'FALSE', atualizadoEm: agora() };
+  });
+  conferirSaldos_(todas, daNf, novas);
+  materiais.gravar();
+
+  // Cabeçalho: guarda só as OS/clientes vinculados diretamente à NF. Os dos itens ficam nos itens
+  // (o app mostra a soma dos dois); assim, remover um item não deixa a OS dele presa na NF.
+  const unir = lista => lista.map(x => String(x || '').trim()).filter((x, i, a) => x && a.indexOf(x) === i);
+  const linhasNf = lerComLinhas_('notas');
+  const atualNf = linhasNf.find(n => n.id === id);
+  const cab = { _linha: atualNf ? atualNf._linha : 0, id: id, numero: numeroNf, data: dataNf, fornecedor: fornecedor,
+    os: JSON.stringify(unir(Array.isArray(nf.os) ? nf.os : [])),
+    clientes: JSON.stringify(unir(Array.isArray(nf.clientes) ? nf.clientes : [])),
+    observacao: String(nf.observacao || '').trim(), criadoEm: atualNf && atualNf.criadoEm ? atualNf.criadoEm : agora(),
+    atualizadoEm: agora(), excluido: 'FALSE' };
+  gravarObjetos_('notas', [cab]);
+
+  // Itens: atualiza/cria os enviados e marca como excluídos os que saíram da NF
+  const linhasItens = lerComLinhas_('itensNf').filter(i => i.nfId === id);
+  const ids = itens.map(i => i.id);
+  const itensGravar = itens.map(it => { const a = linhasItens.find(l => l.id === it.id); return Object.assign({ _linha: a ? a._linha : 0 }, it); });
+  linhasItens.filter(l => ids.indexOf(l.id) < 0 && !excluido_(l)).forEach(l => itensGravar.push(Object.assign(l, { excluido: 'TRUE', atualizadoEm: agora() })));
+  gravarObjetos_('itensNf', itensGravar);
+
+  // Movimentações: regrava as do item; as que não têm mais item (ou mudaram de tipo) são excluídas
+  const usadas = novas.map(m => m._linha).filter(Boolean);
+  const removidas = daNf.filter(m => usadas.indexOf(m._linha) < 0).map(m => Object.assign(m, { excluido: 'TRUE', atualizadoEm: agora() }));
+  gravarObjetos_('movimentacoes', novas.concat(removidas));
+
+  return { nf: montarNf_(cab, itens.map(montarItemNf_)), materiaisCriados: materiais.codigos };
+}
+
+/** Exclui a NF: itens e movimentações ficam marcados como excluídos (o estoque volta), se o saldo permitir. */
+function excluirNf_(body) {
+  const id = String(body.id || '').trim();
+  if (!id) throw new Error('Campo "id" é obrigatório.');
+  const nf = lerComLinhas_('notas').find(n => n.id === id && !excluido_(n));
+  if (!nf) return { removido: true };
+  const todas = lerComLinhas_('movimentacoes').filter(m => !excluido_(m));
+  const daNf = todas.filter(m => m.nfId === id);
+  conferirSaldos_(todas, daNf, []);
+  const quando = agora();
+  gravarObjetos_('notas', [Object.assign(nf, { excluido: 'TRUE', atualizadoEm: quando })]);
+  gravarObjetos_('itensNf', lerComLinhas_('itensNf').filter(i => i.nfId === id && !excluido_(i)).map(i => Object.assign(i, { excluido: 'TRUE', atualizadoEm: quando })));
+  gravarObjetos_('movimentacoes', daNf.map(m => Object.assign(m, { excluido: 'TRUE', atualizadoEm: quando })));
+  return { removido: true };
+}
+
+/**
+ * Movimentação avulsa (sem NF): retirada do estoque para OS, sobra, perda, ajuste.
+ * Saídas são recusadas se não houver saldo. Reenviar com o mesmo id não duplica.
+ */
+function gravarMovimentacao_(body) {
+  const m = Object.assign({}, body);
+  delete m.kind;
+  m.quantidade = numero(m.quantidade);
+  if (!(m.quantidade > 0)) throw new Error('A quantidade precisa ser maior que zero.');
+  if (!String(m.codigo || '').trim()) throw new Error('Informe o material.');
+  m.id = String(m.id || '').trim() || novoId_('MV');
+  const todas = lerComLinhas_('movimentacoes').filter(x => !excluido_(x));
+  if (todas.some(x => x.id === m.id)) return { id: m.id, repetida: true };
+  if (fator_(m.tipo) < 0 && body.validarSaldo !== false) {
+    const saldo = saldos_(todas)[chaveCodigo_(m.codigo)] || 0;
+    if (m.quantidade > saldo + 1e-9) throw new Error('Saldo insuficiente de ' + m.codigo + ': disponível ' + arred2_(saldo) + ', pedido ' + m.quantidade + '.');
+  }
+  if (!m.origem) m.origem = m.tipo === 'Retirada do estoque para OS' || m.tipo === 'Consumo na OS' ? ORIGEM_SEM_NF : 'Lançamento manual';
+  m.valorTotal = m.valorTotal || arred2_(m.quantidade * numero(m.valorUnitario));
+  m.excluido = 'FALSE';
+  m.atualizadoEm = agora();
+  gravarObjetos_('movimentacoes', [m]);
+  return { id: m.id };
 }
 
 /* ======================= UTILITÁRIOS ======================= */

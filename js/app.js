@@ -95,8 +95,13 @@ function hojeLocal() {
 function materialPorId(id) {
   return materiaisCadastro.find(m => String(m.id) === String(id));
 }
+/** Saídas reduzem o saldo; "neutros" registram a compra/uso sem mexer no estoque (compra direta para a OS, despesas). */
+const TIPOS_SAIDA_MAT = ['Consumo na OS', 'Retirada do estoque para OS', 'Perda / descarte', 'Ajuste de saída'];
+const TIPOS_NEUTROS_MAT = ['Compra direta para OS', 'Outros (sem efeito no estoque)'];
+const ORIGEM_SEM_NF = 'SEM NF - MATERIAL DO ESTOQUE';
 function fatorMovimentoMaterial(tipo) {
-  return ['Consumo na OS', 'Perda / descarte', 'Ajuste de saída'].includes(tipo) ? -1 : 1;
+  if (TIPOS_NEUTROS_MAT.includes(tipo)) return 0;
+  return TIPOS_SAIDA_MAT.includes(tipo) ? -1 : 1;
 }
 function saldoMaterial(materialId) {
   return movimentosMateriais
@@ -122,6 +127,10 @@ function limparFormMaterial() {
   document.getElementById('m-ativo').value = 'true';
   document.getElementById('material-form-title').textContent = 'Cadastro do material';
 }
+function mostrarFormMaterial() {
+  const card = document.getElementById('material-form-card');
+  if (card) { card.style.display = ''; card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+}
 function preencherFormMaterial(material) {
   if (!material) return;
   currentMaterialId = material.id;
@@ -133,10 +142,12 @@ function preencherFormMaterial(material) {
   document.getElementById('m-localizacao').value = material.localizacao || '';
   document.getElementById('m-ativo').value = String(material.ativo !== false);
   document.getElementById('material-form-title').textContent = 'Editando: ' + (material.codigo || material.descricao || 'material');
+  mostrarFormMaterial();
   document.getElementById('m-codigo').focus();
 }
 function novoMaterial() {
   limparFormMaterial();
+  mostrarFormMaterial();
   document.getElementById('m-codigo').focus();
 }
 function salvarMaterial() {
@@ -255,14 +266,9 @@ function atualizarSelectMateriais() {
   const atual = select.value;
   const ativos = materiaisCadastro.filter(m => m.ativo !== false).sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), 'pt-BR'));
   select.innerHTML = '<option value="">— selecione o material —</option>' + ativos.map(m =>
-    '<option value="' + Number(m.id) + '">' + escMelhoria(m.codigo) + ' · ' + escMelhoria(m.descricao) + '</option>'
+    '<option value="' + Number(m.id) + '">' + escMelhoria(m.codigo) + ' · ' + escMelhoria(m.descricao) + ' — saldo ' + numeroMaterial(saldoMaterial(m.id)) + ' ' + escMelhoria(m.unidade || '') + '</option>'
   ).join('');
   if (ativos.some(m => String(m.id) === String(atual))) select.value = atual;
-}
-function movimentoMaterialVisivel(m) {
-  const material = materialPorId(m.materialId);
-  return [m.data, m.tipo, material && material.codigo, material && material.descricao, m.os, m.lote, m.dimensao, m.responsavel, m.observacao]
-    .join(' ').toLowerCase();
 }
 function renderMateriais() {
   atualizarSelectMateriais();
@@ -273,7 +279,8 @@ function renderMateriais() {
   document.getElementById('mat-kpi-total').textContent = ativos.length;
   document.getElementById('mat-kpi-com-saldo').textContent = ativos.filter(m => saldoMaterial(m.id) > 0).length;
   document.getElementById('mat-kpi-baixo').textContent = baixo.filter(m => Number(m.minimo || 0) > 0).length;
-  document.getElementById('mat-kpi-mov').textContent = movimentosMateriais.length;
+  const kv = document.getElementById('mat-kpi-valor');
+  if (kv) kv.textContent = moedaNf(ativos.reduce((t, m) => t + Math.max(0, saldoMaterial(m.id)) * (custoMedioMaterial(m.id) || 0), 0));
   const lista = materiaisCadastro.filter(m => {
     const saldo = saldoMaterial(m.id);
     const minimo = Number(m.minimo || 0);
@@ -291,7 +298,7 @@ function renderMateriais() {
   document.getElementById('material-count').textContent = lista.length + ' material' + (lista.length === 1 ? '' : 'is');
   const tbody = document.getElementById('tbody-materiais');
   if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">Nenhum material encontrado. Cadastre o primeiro acima.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">Nenhum material encontrado. Os materiais entram aqui pelas notas fiscais.</td></tr>';
   } else {
     tbody.innerHTML = lista.map(m => {
       const saldo = saldoMaterial(m.id);
@@ -304,97 +311,19 @@ function renderMateriais() {
         '<td>' + escMelhoria(m.unidade || '—') + '</td>' +
         '<td class="' + baixoClass + '">' + numeroMaterial(saldo) + '</td>' +
         '<td>' + numeroMaterial(minimo) + '</td>' +
+        '<td>' + moedaMaterial(custoMedioMaterial(m.id)) + '</td>' +
+        '<td>' + moedaMaterial(ultimoValorMaterial(m.id)) + '</td>' +
         '<td>' + escMelhoria(m.localizacao || '—') + '</td>' +
         '<td class="' + (m.ativo === false ? 'material-inactive' : '') + '">' + (m.ativo === false ? 'Inativo' : (minimo > 0 && saldo <= minimo ? 'Comprar' : 'OK')) + '</td>' +
         '<td class="actions">' + (m.ativo === false
           ? '<button class="btn-secondary btn-sm" onclick="reativarMaterial(' + Number(m.id) + ')" title="Volta para o estoque e para os campos de seleção">Reativar</button>'
-          : '<button class="btn-primary btn-sm" onclick="preencherFormMaterial(materialPorId(' + Number(m.id) + '))">Editar</button> <button class="btn-danger btn-sm" onclick="excluirMaterial(' + Number(m.id) + ')" title="Apaga (sem movimentações) ou inativa (com movimentações)">✕</button>') + '</td>' +
+          : '<button class="btn-secondary btn-sm" onclick="abrirHistoricoMaterial(' + Number(m.id) + ')">Histórico</button> <button class="btn-primary btn-sm" onclick="preencherFormMaterial(materialPorId(' + Number(m.id) + '))">Editar</button> <button class="btn-danger btn-sm" onclick="excluirMaterial(' + Number(m.id) + ')" title="Apaga (sem movimentações) ou inativa (com movimentações)">✕</button>') + '</td>' +
       '</tr>';
     }).join('');
   }
   renderMovimentacoesMateriais();
 }
-function renderMovimentacoesMateriais() {
-  const tbody = document.getElementById('tbody-movimentos-materiais');
-  if (!tbody) return;
-  const search = (document.getElementById('search-material').value || '').toLowerCase();
-  const lista = movimentosMateriais
-    .filter(m => !search || movimentoMaterialVisivel(m).includes(search))
-    .sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || Number(b.id) - Number(a.id))
-    .slice(0, 50);
-  if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">Nenhuma movimentação registrada.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = lista.map(m => {
-    const material = materialPorId(m.materialId);
-    const sinal = fatorMovimentoMaterial(m.tipo) < 0 ? '−' : '+';
-    return '<tr>' +
-      '<td>' + escMelhoria(fmtDate(m.data) || '—') + '</td>' +
-      '<td>' + escMelhoria(m.tipo || '—') + '</td>' +
-      '<td><strong>' + escMelhoria(material ? material.codigo : 'Material removido') + '</strong><br><small>' + escMelhoria(material ? material.descricao : '') + '</small></td>' +
-      '<td class="' + (sinal === '−' ? 'material-low' : 'material-ok') + '">' + sinal + numeroMaterial(m.quantidade) + ' ' + escMelhoria(material ? material.unidade : '') + '</td>' +
-      '<td>' + escMelhoria(m.os || '—') + '</td>' +
-      '<td>' + escMelhoria(m.lote || '—') + '</td>' +
-      '<td>' + escMelhoria(m.dimensao || '—') + '</td>' +
-      '<td>' + escMelhoria(m.responsavel || '—') + '</td>' +
-      '<td title="' + escMelhoria(m.observacao || '') + '">' + escMelhoria(m.observacao || '—') + '</td>' +
-    '</tr>';
-  }).join('');
-}
-function registrarMovimentoMaterial() {
-  const materialId = document.getElementById('mov-material').value;
-  const tipo = document.getElementById('mov-tipo').value;
-  const quantidade = Number(document.getElementById('mov-quantidade').value);
-  const data = document.getElementById('mov-data').value || hojeLocal();
-  const os = document.getElementById('mov-os').value.trim();
-  if (!materialId || !tipo || !Number.isFinite(quantidade) || quantidade <= 0) {
-    alert('Selecione o material e informe uma quantidade maior que zero.');
-    return;
-  }
-  if ((tipo === 'Consumo na OS' || tipo === 'Sobra') && !os) {
-    alert('Informe a OS relacionada para registrar consumo ou sobra.');
-    return;
-  }
-  const saldoAtual = saldoMaterial(materialId);
-  if (fatorMovimentoMaterial(tipo) < 0 && quantidade > saldoAtual) {
-    const material = materialPorId(materialId);
-    alert('Saldo insuficiente para este consumo. Disponível: ' + numeroMaterial(saldoAtual) + ' ' + (material ? material.unidade : '') + '.');
-    return;
-  }
-  movimentosMateriais.push({
-    id: nextMovimentoMaterialId++,
-    data,
-    tipo,
-    materialId: Number(materialId),
-    quantidade,
-    custoUnitario: Number(document.getElementById('mov-custo').value) || 0,
-    os,
-    fornecedor: document.getElementById('mov-fornecedor').value.trim(),
-    documento: document.getElementById('mov-documento').value.trim(),
-    lote: document.getElementById('mov-lote').value.trim(),
-    dimensao: document.getElementById('mov-dimensao').value.trim(),
-    responsavel: document.getElementById('mov-responsavel').value.trim(),
-    observacao: document.getElementById('mov-observacao').value.trim()
-  });
-  saveMateriais();
-  ['mov-quantidade','mov-custo','mov-os','mov-fornecedor','mov-documento','mov-lote','mov-dimensao','mov-responsavel','mov-observacao'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('mov-data').value = hojeLocal();
-  renderMateriais();
-
-  // Sincroniza com Google Sheets
-  const movSalvo = movimentosMateriais[movimentosMateriais.length - 1];
-  const materialDoMov = materialPorId(movSalvo.materialId);
-  if (movSalvo && materialDoMov && getSyncUrl()) {
-    enviarMovimentoSheets(movSalvo, materialDoMov).then(resp => {
-      if (resp.ok) console.log('✓ Movimentação sincronizada com Sheets');
-      else alert('Movimentação salva localmente. Falha no Sheets: ' + (resp.erro || 'erro'));
-    });
-  }
-  alert('Movimentação registrada.');
-}
+/* Histórico de movimentações, retirada sem NF e notas fiscais: js/nf.js */
 function csvMaterial(value) {
   return '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"';
 }
@@ -414,16 +343,6 @@ function exportarEstoqueMateriais() {
       return [m.codigo, m.descricao, m.especificacao, m.unidade, saldo, minimo, m.localizacao, m.ativo === false ? 'Inativo' : (minimo > 0 && saldo <= minimo ? 'Comprar' : 'OK')];
     }));
 }
-function exportarMovimentosMateriais() {
-  if (!movimentosMateriais.length) { alert('Ainda não há movimentações para exportar.'); return; }
-  baixarCsvMateriais('movimentacoes-materiais',
-    ['data','tipo','codigo','descricao','unidade','quantidade','efeito_no_saldo','custo_unitario','os','fornecedor','documento','lote','dimensao','responsavel','observacao'],
-    movimentosMateriais.map(m => {
-      const material = materialPorId(m.materialId);
-      return [m.data, m.tipo, material && material.codigo, material && material.descricao, material && material.unidade, m.quantidade, fatorMovimentoMaterial(m.tipo) * Number(m.quantidade || 0), m.custoUnitario, m.os, m.fornecedor, m.documento, m.lote, m.dimensao, m.responsavel, m.observacao];
-    }));
-}
-
 /** Separa OS e item: "CO 26.002/75" → { os: "CO 26.002", item: "75" }. Aceita registros antigos e novos. */
 function separarOsItem(r) {
   const o = Object.assign({}, r);
@@ -470,15 +389,9 @@ function switchTab(tab) {
     const data = document.getElementById('mov-data');
     if (data && !data.value) data.value = hojeLocal();
     renderMateriais();
-    // Sincroniza materiais do Sheets antes de renderizar
-    if (getSyncUrl() && !materiaisSyncing) {
-      materiaisSyncing = true;
-      fetchMateriaisFromSheets().finally(() => {
-        materiaisSyncing = false;
-        atualizarSelectMateriais();
-        renderMateriais();
-      });
-    }
+    renderNfs();
+    // Sincroniza materiais, movimentações e NFs da planilha
+    atualizarMateriaisENfs();
   }
   if (tab === 'qualidade') {
     checklistsRemoto = null;
@@ -1341,6 +1254,7 @@ function openEditPanel() {
   renderImagemMelhoria(s);
   updateEditTitle();
   renderQr();
+  if (typeof renderMateriaisDaOS === 'function') renderMateriaisDaOS(s);
 }
 
 /* =============== QR COMPACTO =============== */
@@ -1391,6 +1305,8 @@ async function conferirRecursosBackend() {
   try {
     const r = await fetch(getSyncUrl() + '?action=recursos', { method: 'GET', redirect: 'follow' }).then(x => x.json());
     if (r && r.ok && r.etiqueta) localStorage.setItem(BACKEND_ETIQUETA_KEY, '1'); else localStorage.removeItem(BACKEND_ETIQUETA_KEY);
+    if (r && r.ok && r.nfs) localStorage.setItem(chave('backend_nfs'), '1'); else if (r && r.ok) localStorage.removeItem(chave('backend_nfs'));
+    if (typeof atualizarAvisoBackendNf === 'function') atualizarAvisoBackendNf();
   } catch (e) { /* sem internet: mantém o que sabia */ }
 }
 function tokenQr(s) {
@@ -1711,19 +1627,28 @@ async function fetchMateriaisFromSheets() {
       const cod = String(mv.codigo || '').trim().toUpperCase();
       const materialId = codigoParaId[cod] || 0;
       const ts = (mv.timestamp || '').split(' ')[0]; // só a data
+      const doc = String(mv.observacao || '').match(/NF\/Doc:\s*([^|]+)/);
       return {
         id: ++maxMovId,
+        uid: mv.id || '',
+        timestamp: mv.timestamp || '',
         data: ts,
         tipo: normalizarTipoDoSheets(mv.tipo),
         materialId: materialId,
+        codigo: mv.codigo || '',
         quantidade: Number(mv.quantidade) || 0,
-        custoUnitario: 0,
+        custoUnitario: Number(String(mv.valorUnitario || '').replace(',', '.')) || 0,
+        valorTotal: Number(String(mv.valorTotal || '').replace(',', '.')) || 0,
         os: mv.os || '',
-        fornecedor: '',
-        documento: '',
+        cliente: mv.cliente || '',
+        fornecedor: mv.fornecedor || '',
+        nf: mv.nf || '',
+        nfId: mv.nfId || '',
+        itemNfId: mv.itemNfId || '',
+        origem: mv.origem || '',
+        documento: doc ? doc[1].trim() : '',
         lote: (mv.loteDimensao || '').split('|')[0].trim(),
-        dimensao: (mv.loteDimensao || '').split('|')[1] ? (mv.loteDimensao || '').split('|')[1].trim() : (mv.loteDimensao || ''),
-        responsavel: mv.operador || '',
+        dimensao: (mv.loteDimensao || '').split('|')[1] ? (mv.loteDimensao || '').split('|')[1].trim() : '',
         observacao: mv.observacao || ''
       };
     });
@@ -1801,14 +1726,19 @@ async function enviarMovimentoSheets(mov, material) {
   const loteDim = [mov.lote, mov.dimensao].filter(Boolean).join(' | ');
   const payload = {
     kind: 'movimentacao',
+    id: mov.uid || '',
     timestamp: ts,
     codigo: material ? material.codigo : '',
     tipo: normalizarTipoParaSheets(mov.tipo),
     quantidade: mov.quantidade,
     os: mov.os || '',
+    cliente: mov.cliente || '',
     loteDimensao: loteDim,
-    observacao: mov.observacao || (mov.fornecedor ? 'Fornecedor: ' + mov.fornecedor : '') + (mov.documento ? ' | NF/Doc: ' + mov.documento : ''),
-    operador: mov.responsavel || ''
+    observacao: mov.observacao || '',
+    operador: '',
+    valorUnitario: mov.custoUnitario || 0,
+    valorTotal: mov.valorTotal || 0,
+    origem: mov.origem || ''
   };
   try {
     const resp = await fetch(url, {
@@ -2292,15 +2222,13 @@ function atualizarTodosSelectsResponsaveis() {
   document.querySelectorAll('#a-operador').forEach(s => popularSelectResponsaveis(s, ['operador']));
   // Inspetor no checklist (Inspetor ou Operador/Inspetor)
   document.querySelectorAll('#ql-inspetor').forEach(s => popularSelectResponsaveis(s, ['inspetor']));
-  // Responsável em movimentação (todos)
-  document.querySelectorAll('#mov-responsavel').forEach(s => popularSelectResponsaveis(s, []));
   // Etapas do serviço — se existirem
   document.querySelectorAll('select.etapa-responsavel, select[id^="etapa-resp-"]').forEach(s => popularSelectResponsaveis(s, []));
 }
 
 function atualizarTodosSelectsFornecedores() {
-  // Fornecedor de compra
-  document.querySelectorAll('#mov-fornecedor').forEach(s => popularSelectFornecedores(s, ['material']));
+  // Fornecedores na NF (lista de sugestões)
+  if (typeof atualizarListasNf === 'function') atualizarListasNf();
   // Fornecedor externo no serviço
   document.querySelectorAll('#f-externo-fornecedor').forEach(s => popularSelectFornecedores(s, ['serviço externo', 'material e serviço']));
 }
@@ -2475,13 +2403,6 @@ function atualizarCamposExternoServico() {
     const el = document.getElementById(id);
     if (el) el.style.display = isExterno ? '' : 'none';
   });
-}
-
-/* ---------- Movimento material: campos condicionais ---------- */
-function atualizarCamposMovimentoMat() {
-  const tipo = document.getElementById('mov-tipo').value;
-  const forn = document.getElementById('mov-fornecedor-wrap');
-  if (forn) forn.style.opacity = (tipo === 'Compra') ? '1' : '.4';
 }
 
 /* =============== OS NA PLANILHA + TEMPO REAL =============== */
@@ -2717,11 +2638,8 @@ async function atualizarTempoReal() {
       await fetchChecklistsRemoto();
       renderQualidade();
     }
-  } else if (tab === 'materiais' && !materiaisSyncing) {
-    materiaisSyncing = true;
-    try { await fetchMateriaisFromSheets(); } finally { materiaisSyncing = false; }
-    atualizarSelectMateriais();
-    renderMateriais();
+  } else if (tab === 'materiais' && !materiaisSyncing && !nfEditorAberto()) {
+    await atualizarMateriaisENfs();
   }
 }
 
