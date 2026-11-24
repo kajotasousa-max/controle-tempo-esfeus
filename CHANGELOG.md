@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.4] — 2026-11-24
+
+### Alterado
+- Busca na aba Serviços que só encontra OS finalizadas mostra o atalho "N OS finalizadas com … — ver na aba Finalizadas" (antes parecia que os dados tinham sumido).
+- Tipo de item da NF "Despesa / frete" passa a se chamar **Serviço / outros**.
+
+### Apps Script 1.5.3 — gravações mais rápidas
+- Cada gravação refaz só as abas de consulta que dependem dela: OS → Finalizadas, Acompanhamento, Cliente e Análise; apontamento → Análise; material, movimentação e NF → Saldos; cadastros → nenhuma. Antes, toda gravação refazia todas as abas.
+
 ## [1.5.3] — 2026-11-24
 
 ### Correções (Cadastros › Tipos de material)

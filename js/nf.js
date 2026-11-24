@@ -13,7 +13,7 @@
 const NF_TIPOS = [
   { valor: 'Compra para estoque', curto: 'Estoque', rotulo: 'Estoque', estoque: true },
   { valor: 'Consumo direto na OS', curto: 'Direto OS', rotulo: 'Direto na OS', estoque: false, exigeOS: true },
-  { valor: 'Outros (sem efeito no estoque)', curto: 'Outros', rotulo: 'Despesa / frete', estoque: false },
+  { valor: 'Outros (sem efeito no estoque)', curto: 'Outros', rotulo: 'Serviço / outros', estoque: false },
   { valor: 'Entrada em estoque', curto: 'Estoque', rotulo: 'Entrada em estoque', estoque: true, oculto: true }
 ];
 const NFS_KEY = chave('nfs_v1');
@@ -824,7 +824,7 @@ function renderMateriaisDaOS(s) {
     .sort((a, b) => String(a.timestamp || a.data).localeCompare(String(b.timestamp || b.data)));
   const custoUso = m => fatorMovimentoMaterial(m.tipo) < 0 || TIPOS_NEUTROS_MAT.includes(m.tipo) ? valorMovimento(m) : (m.tipo === 'Sobra' ? -valorMovimento(m) : 0);
   const total = movs.reduce((t, m) => t + custoUso(m), 0);
-  const como = m => m.tipo === 'Compra direta para OS' ? 'Comprado' : m.tipo === 'Outros (sem efeito no estoque)' ? 'Despesa' : m.tipo === 'Sobra' ? 'Sobra devolvida' : fatorMovimentoMaterial(m.tipo) < 0 ? 'Do estoque' : m.tipo;
+  const como = m => m.tipo === 'Compra direta para OS' ? 'Comprado' : m.tipo === 'Outros (sem efeito no estoque)' ? 'Serviço / outros' : m.tipo === 'Sobra' ? 'Sobra devolvida' : fatorMovimentoMaterial(m.tipo) < 0 ? 'Do estoque' : m.tipo;
   box.innerHTML =
     '<div class="os-materiais-head"><h4>Materiais da OS</h4><div class="spacer"></div>' +
       '<button type="button" class="btn-warning btn-sm" onclick="retirarParaOS()">📤 Retirar do estoque</button>' +
