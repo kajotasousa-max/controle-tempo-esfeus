@@ -1153,8 +1153,14 @@ function renderServicos() {
   const list = filterServicos();
   const tbody = document.getElementById('tbody-servicos');
   document.getElementById('servico-count').textContent = list.length + ' serviço' + (list.length === 1 ? '' : 's');
+  // OS finalizadas não aparecem aqui: se a busca achar alguma, mostra o atalho para a aba Finalizadas
+  const busca = (document.getElementById('search-servico').value || '').trim();
+  const status = document.getElementById('filter-status').value;
+  const finAchadas = busca && !status ? servicosSemFiltroStatus().filter(s => statusInteligente(s) === 'Finalizado').length : 0;
+  const atalhoFin = finAchadas ? '<tr><td colspan="12" class="fin-atalho">🏁 ' + finAchadas + ' OS finalizada' + (finAchadas === 1 ? '' : 's') +
+    ' com "' + escMelhoria(busca) + '" — <a href="#" onclick="verBuscaNasFinalizadas(); return false;">ver na aba Finalizadas</a></td></tr>' : '';
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="12" class="empty">Nenhum serviço encontrado. Clique em "+ Novo serviço".</td></tr>';
+    tbody.innerHTML = (finAchadas ? '' : '<tr><td colspan="12" class="empty">Nenhum serviço encontrado. Clique em "+ Novo serviço".</td></tr>') + atalhoFin;
     return;
   }
   tbody.innerHTML = list.map(s => {
@@ -1178,7 +1184,13 @@ function renderServicos() {
         '<button class="btn-danger btn-sm" onclick="deleteServico(' + Number(s.id) + ', event)">✕</button>' +
       '</td>' +
     '</tr>';
-  }).join('');
+  }).join('') + atalhoFin;
+}
+function verBuscaNasFinalizadas() {
+  const busca = document.getElementById('search-servico').value;
+  switchTab('finalizadas');
+  const campo = document.getElementById('search-fin');
+  if (campo) { campo.value = busca; renderFinalizadas(); }
 }
 
 function openEditPanel() {

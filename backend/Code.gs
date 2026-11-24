@@ -65,7 +65,7 @@ const TIPOS_SAIDA = ['Consumo na OS', 'Retirada do estoque para OS', 'Perda / de
 /** Registram a compra/uso mas não mexem no saldo (material comprado direto para a OS, despesas). */
 const TIPOS_NEUTROS = ['Compra direta para OS', 'Outros (sem efeito no estoque)'];
 function fator_(tipo) { return TIPOS_NEUTROS.indexOf(tipo) >= 0 ? 0 : (TIPOS_SAIDA.indexOf(tipo) >= 0 ? -1 : 1); }
-const VERSAO = '1.5.2';
+const VERSAO = '1.5.3';
 
 /* ======================= ACESSO ======================= */
 
@@ -173,10 +173,8 @@ function doPost(e) {
       }
     }
     SpreadsheetApp.flush();
-    // Cadastros simples não mexem nos painéis: responder logo deixa a tela rápida
-    const semPaineis = !Array.isArray(body) && ['tipo-material', 'responsavel', 'fornecedor'].indexOf(body.kind) >= 0;
-    if (!semPaineis) atualizarPaineis_();
-    else if (resposta.renomeado) { try { atualizarSaldos_(); } catch (err) { console.warn('Saldos: ' + err); } }
+    // Refaz só os painéis que dependem do que foi gravado (refazer todos a cada gravação deixava tudo lento)
+    atualizarPaineis_(paineisDe_(Array.isArray(body) ? 'apontamentos' : body.kind, resposta));
     return json(resposta);
   } catch (err) {
     return json({ ok: false, erro: String(err && err.message || err) });
@@ -341,11 +339,23 @@ function salvarFoto(dataUrl, os, timestamp, i) {
 /* ======================= ABAS DE CONSULTA ======================= */
 
 /** Reescreve "Saldos" e "Análise por OS". Falha aqui nunca derruba a gravação. */
-function atualizarPaineis_() {
-  try { atualizarSaldos_(); } catch (err) { console.warn('Saldos: ' + err); }
-  try { atualizarAnalise_(); } catch (err) { console.warn('Análise: ' + err); }
-  try { atualizarFinalizadas_(); } catch (err) { console.warn('Finalizadas: ' + err); }
-  try { atualizarPaineisClientes_(); } catch (err) { console.warn('Painel cliente: ' + err); }
+/** Quais abas de consulta cada gravação afeta. */
+function paineisDe_(kind, resposta) {
+  switch (kind) {
+    case 'servicos':      return ['finalizadas', 'clientes', 'analise'];
+    case 'apontamentos':  return ['analise'];
+    case 'material': case 'excluir-material': case 'movimentacao': case 'nf': case 'excluir-nf': return ['saldos'];
+    case 'tipo-material': return resposta && resposta.renomeado ? ['saldos'] : [];
+    default:              return [];   // responsáveis, fornecedores, checklists
+  }
+}
+/** Sem lista = todas (é o que o "configurar" usa). */
+function atualizarPaineis_(quais) {
+  const faz = n => !quais || quais.indexOf(n) >= 0;
+  if (faz('saldos')) try { atualizarSaldos_(); } catch (err) { console.warn('Saldos: ' + err); }
+  if (faz('analise')) try { atualizarAnalise_(); } catch (err) { console.warn('Análise: ' + err); }
+  if (faz('finalizadas')) try { atualizarFinalizadas_(); } catch (err) { console.warn('Finalizadas: ' + err); }
+  if (faz('clientes')) try { atualizarPaineisClientes_(); } catch (err) { console.warn('Painel cliente: ' + err); }
 }
 
 /* ---------- Status da OS (mesma regra do app) ---------- */
