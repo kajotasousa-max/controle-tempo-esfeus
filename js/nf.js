@@ -702,11 +702,19 @@ function renderMateriaisDaOS(s) {
   const sel = document.getElementById('f-material');
   const info = document.getElementById('f-material-saldo');
   if (info) {
-    const m = sel && sel.value ? materialPorTexto(sel.value) || materialPorCodigo(String(sel.value).split(' — ')[0]) : null;
+    const tipoSel = sel && sel.value && tiposMaterialAtivos().includes(sel.value) ? saldoPorTipo(sel.value) : null;
+    const m = tipoSel ? null : (sel && sel.value ? materialPorTexto(sel.value) || materialPorCodigo(String(sel.value).split(' — ')[0]) : null);
+    if (tipoSel) {
+      info.innerHTML = tipoSel.comSaldo.length
+        ? '✓ Em estoque (' + escMelhoria(sel.value) + '): ' + tipoSel.comSaldo.map(x => escMelhoria(x.codigo) + ' ' + numeroMaterial(saldoMaterial(x.id)) + ' ' + escMelhoria(x.unidade || '')).join(' · ')
+        : '⚠ Nenhum material ' + escMelhoria(sel.value) + ' com saldo no estoque — compre por NF (consumo direto)';
+      info.style.color = tipoSel.comSaldo.length ? '#15803d' : '#b45309';
+    } else {
     info.innerHTML = !sel || !sel.value ? 'Puxa da aba 📦 Materiais e NF.'
       : m ? (saldoMaterial(m.id) > 0 ? '✓ Em estoque: <strong>' + numeroMaterial(saldoMaterial(m.id)) + ' ' + escMelhoria(m.unidade || '') + '</strong>' : '⚠ Sem saldo em estoque — compre por NF (consumo direto)')
       : 'Material não cadastrado no estoque.';
     info.style.color = m && saldoMaterial(m.id) > 0 ? '#15803d' : (sel && sel.value ? '#b45309' : '#888');
+    }
   }
   const movs = movimentosMateriais.filter(m => movimentoDaOS(m, s))
     .sort((a, b) => String(a.timestamp || a.data).localeCompare(String(b.timestamp || b.data)));
@@ -754,9 +762,122 @@ function retirarParaOS() {
   document.getElementById('mov-material').focus();
 }
 
+
+/* ======================= TIPOS DE MATERIAL (Cadastros) ======================= */
+/* Ex.: A-36, SAE 1045, SAE 1010 / 1016. Usados no campo Material da OS e no cadastro do estoque. */
+let tiposMaterialRemoto = null;
+let backendSemTipos = false;
+function tiposMaterialAtivos() {
+  return (tiposMaterialRemoto || []).filter(t => t.ativo !== false && t.nome)
+    .map(t => String(t.nome).trim()).sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
+}
+async function fetchTiposMaterial() {
+  const url = getSyncUrl();
+  if (!url) return null;
+  try {
+    const r = await fetch(url + '?action=list-tipos-material', { method: 'GET', redirect: 'follow' }).then(x => x.json());
+    if (r.ok) { backendSemTipos = false; tiposMaterialRemoto = r.tipos || []; localStorage.setItem(chave('tipos_material'), JSON.stringify(tiposMaterialRemoto)); return tiposMaterialRemoto; }
+    if (/Ação desconhecida/i.test(r.erro || '')) backendSemTipos = true;
+  } catch (e) {}
+  return null;
+}
+function atualizarSelectTipoMaterialForm(valor) {
+  const sel = document.getElementById('m-tipo');
+  if (!sel) return;
+  const v = valor !== undefined ? String(valor || '') : sel.value;
+  const tipos = tiposMaterialAtivos();
+  sel.innerHTML = '<option value="">— sem tipo —</option>' +
+    (v && !tipos.includes(v) ? '<option value="' + escMelhoria(v) + '">' + escMelhoria(v) + ' (inativo)</option>' : '') +
+    tipos.map(t => '<option value="' + escMelhoria(t) + '">' + escMelhoria(t) + '</option>').join('');
+  sel.value = v;
+}
+function atualizarSelectsTipoMaterial() {
+  atualizarSelectTipoMaterialForm();
+  const f = document.getElementById('filter-material-tipo');
+  if (f) {
+    const v = f.value;
+    f.innerHTML = '<option value="">Todos os tipos</option>' + tiposMaterialAtivos().map(t => '<option value="' + escMelhoria(t) + '">' + escMelhoria(t) + '</option>').join('') + '<option value="__sem">Sem tipo</option>';
+    f.value = v;
+  }
+  const s = servicos.find(x => x.id === currentId);
+  if (s && document.getElementById('edit-panel').style.display !== 'none') atualizarSelectMaterialServico(s.material || '');
+}
+function limparFormTipoMaterial() {
+  document.getElementById('ftm-nome').value = '';
+  document.getElementById('ftm-observacao').value = '';
+  document.getElementById('ftm-ativo').value = 'true';
+  document.getElementById('ftm-feedback').textContent = '';
+}
+async function salvarTipoMaterial() {
+  const nome = document.getElementById('ftm-nome').value.trim().replace(/\s+/g, ' ');
+  if (!nome) { alert('Informe o tipo de material (ex.: SAE 1045).'); return; }
+  const igual = (tiposMaterialRemoto || []).find(t => chaveTexto(t.nome) === chaveTexto(nome) && t.nome !== nome);
+  if (igual && !confirm('Já existe "' + igual.nome + '". Cadastrar "' + nome + '" mesmo assim?')) return;
+  const fb = document.getElementById('ftm-feedback');
+  fb.textContent = '⏳ salvando...'; fb.style.color = '#666';
+  const r = await postarPlanilha({ kind: 'tipo-material', nome, observacao: document.getElementById('ftm-observacao').value.trim(),
+    ativo: document.getElementById('ftm-ativo').value !== 'false' });
+  if (!r.ok) {
+    if (/kind desconhecido/i.test(r.erro || '')) backendSemTipos = true;
+    fb.textContent = '✗ ' + (backendSemTipos ? 'atualize o Apps Script para a versão 1.5.1' : (r.erro || 'erro')); fb.style.color = '#dc2626'; return;
+  }
+  fb.textContent = '✓ salvo'; fb.style.color = '#16a34a';
+  await fetchTiposMaterial();
+  renderTiposMaterial();
+  atualizarSelectsTipoMaterial();
+  limparFormTipoMaterial();
+  document.getElementById('ftm-nome').focus();
+}
+function editarTipoMaterial(i) {
+  const t = (tiposMaterialRemoto || [])[i];
+  if (!t) return;
+  document.getElementById('ftm-nome').value = t.nome || '';
+  document.getElementById('ftm-observacao').value = t.observacao || '';
+  document.getElementById('ftm-ativo').value = t.ativo === false ? 'false' : 'true';
+  document.getElementById('ftm-nome').focus();
+}
+async function alternarTipoMaterial(i) {
+  const t = (tiposMaterialRemoto || [])[i];
+  if (!t) return;
+  const ativar = t.ativo === false;
+  if (!ativar && !confirm('Inativar "' + t.nome + '"? Ele sai das listas, mas as OS e materiais que já usam continuam com ele.')) return;
+  const r = await postarPlanilha({ kind: 'tipo-material', nome: t.nome, observacao: t.observacao || '', ativo: ativar });
+  if (!r.ok) { alert('Não foi possível alterar: ' + (r.erro || 'erro')); return; }
+  await fetchTiposMaterial();
+  renderTiposMaterial();
+  atualizarSelectsTipoMaterial();
+}
+function renderTiposMaterial() {
+  const tbody = document.getElementById('tbody-tipos-material');
+  if (!tbody) return;
+  const aviso = document.getElementById('ftm-aviso');
+  if (aviso) aviso.style.display = backendSemTipos ? '' : 'none';
+  const lista = (tiposMaterialRemoto || []).map((t, i) => Object.assign({ i }, t))
+    .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR', { numeric: true }));
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="5" class="mat-empty">Nenhum tipo cadastrado. Ex.: A-36, SAE 1045, SAE 1010 / 1016.</td></tr>'; return; }
+  const usoOS = nome => servicos.filter(s => !s.excluido && String(s.material || '').trim() === nome).length;
+  const usoMat = nome => materiaisCadastro.filter(m => m.tipo === nome).length;
+  tbody.innerHTML = lista.map(t =>
+    '<tr>' +
+      '<td><strong>' + escMelhoria(t.nome) + '</strong></td>' +
+      '<td>' + escMelhoria(t.observacao || '—') + '</td>' +
+      '<td>' + usoOS(t.nome) + ' OS · ' + usoMat(t.nome) + ' no estoque</td>' +
+      '<td>' + (t.ativo === false ? '<span class="mat-badge inativo">Inativo</span>' : '<span class="mat-badge ok">Ativo</span>') + '</td>' +
+      '<td class="actions"><button class="btn-primary btn-sm" onclick="editarTipoMaterial(' + t.i + ')">✎ Editar</button> ' +
+        '<button class="' + (t.ativo === false ? 'btn-success' : 'btn-danger') + ' btn-sm" onclick="alternarTipoMaterial(' + t.i + ')">' + (t.ativo === false ? 'Reativar' : 'Inativar') + '</button></td>' +
+    '</tr>').join('');
+}
+/** Saldo em estoque de todos os materiais de um tipo. */
+function saldoPorTipo(nome) {
+  const mats = materiaisCadastro.filter(m => m.ativo !== false && m.tipo === nome);
+  return { mats, saldo: mats.reduce((t, m) => t + Math.max(0, saldoMaterial(m.id)), 0), comSaldo: mats.filter(m => saldoMaterial(m.id) > 0) };
+}
+
 /* ======================= INÍCIO ======================= */
 (function initNf() {
   carregarNfsLocal();
+  try { const t = JSON.parse(localStorage.getItem(chave('tipos_material')) || 'null'); if (Array.isArray(t)) tiposMaterialRemoto = t; } catch (e) {}
+  atualizarSelectsTipoMaterial();
   if (!document.getElementById('dl-unidades')) {
     const dl = document.createElement('datalist');
     dl.id = 'dl-unidades';

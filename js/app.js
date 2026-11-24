@@ -124,6 +124,7 @@ function limparFormMaterial() {
     if (el) el.value = '';
   });
   document.getElementById('m-unidade').value = '';
+  if (typeof atualizarSelectTipoMaterialForm === 'function') atualizarSelectTipoMaterialForm('');
   document.getElementById('m-ativo').value = 'true';
   document.getElementById('material-form-title').textContent = 'Cadastro do material';
 }
@@ -140,6 +141,7 @@ function preencherFormMaterial(material) {
   document.getElementById('m-unidade').value = material.unidade || '';
   document.getElementById('m-minimo').value = material.minimo || '';
   document.getElementById('m-localizacao').value = material.localizacao || '';
+  if (typeof atualizarSelectTipoMaterialForm === 'function') atualizarSelectTipoMaterialForm(material.tipo || '');
   document.getElementById('m-ativo').value = String(material.ativo !== false);
   document.getElementById('material-form-title').textContent = 'Editando: ' + (material.codigo || material.descricao || 'material');
   mostrarFormMaterial();
@@ -170,6 +172,7 @@ function salvarMaterial() {
     unidade,
     minimo: Math.max(0, Number(document.getElementById('m-minimo').value) || 0),
     localizacao: document.getElementById('m-localizacao').value.trim(),
+    tipo: (document.getElementById('m-tipo') || {}).value || '',
     ativo: document.getElementById('m-ativo').value !== 'false'
   };
   let codigoAnterior = '';
@@ -238,25 +241,27 @@ function reativarMaterial(id) {
     });
   }
 }
-function atualizarSelectMaterialServico() {
+/**
+ * Campo Material da OS: tipos de material (Cadastros) e itens do estoque.
+ * valorDesejado = material gravado na OS; se não estiver nas listas, entra como opção própria
+ * (sem isso o campo aparecia vazio e a próxima edição da OS apagava o material).
+ */
+function atualizarSelectMaterialServico(valorDesejado) {
   const sel = document.getElementById('f-material');
   if (!sel) return;
-  const valAtual = sel.value;
+  const valAtual = valorDesejado !== undefined ? String(valorDesejado || '') : sel.value;
+  const opt = v => '<option value="' + escMelhoria(v) + '">' + escMelhoria(v) + '</option>';
+  const tipos = (typeof tiposMaterialAtivos === 'function' ? tiposMaterialAtivos() : []);
   const ativos = materiaisCadastro.filter(m => m.ativo !== false)
     .sort((a, b) => (a.codigo || '').localeCompare(b.codigo || ''));
-  const options = ['<option value="">— selecione um material —</option>'];
-  const rotulos = new Set();
-  ativos.forEach(m => {
-    const rotulo = (m.codigo || '') + (m.descricao ? ' — ' + m.descricao : '');
-    rotulos.add(rotulo);
-    options.push('<option value="' + rotulo.replace(/"/g, '&quot;') + '">' + rotulo + '</option>');
-  });
-  // Se o valor atual do serviço não bate com nenhum cadastrado, preserva como opção "custom"
-  // (evita apagar dados antigos de OSs criadas antes deste dropdown)
-  if (valAtual && !rotulos.has(valAtual)) {
-    options.splice(1, 0, '<option value="' + valAtual.replace(/"/g, '&quot;') + '">' + valAtual + ' (não cadastrado)</option>');
-  }
-  sel.innerHTML = options.join('');
+  const valores = new Set(tipos);
+  const rotulosEstoque = ativos.map(m => (m.codigo || '') + (m.descricao ? ' — ' + m.descricao : ''));
+  rotulosEstoque.forEach(r => valores.add(r));
+  let html = '<option value="">— selecione um material —</option>';
+  if (valAtual && !valores.has(valAtual)) html += '<option value="' + escMelhoria(valAtual) + '">' + escMelhoria(valAtual) + ' (não cadastrado)</option>';
+  if (tipos.length) html += '<optgroup label="Tipos de material">' + tipos.map(opt).join('') + '</optgroup>';
+  if (rotulosEstoque.length) html += '<optgroup label="Itens do estoque">' + rotulosEstoque.map(opt).join('') + '</optgroup>';
+  sel.innerHTML = html;
   sel.value = valAtual;
 }
 
@@ -289,8 +294,10 @@ function renderMateriais() {
     if (filtro === 'sem' && saldo > 0) return false;
     if (filtro === 'inativo' && m.ativo !== false) return false;
     if (filtro !== 'inativo' && filtro !== 'todos' && m.ativo === false) return false;
+    const filtroTipo = (document.getElementById('filter-material-tipo') || {}).value || '';
+    if (filtroTipo && (filtroTipo === '__sem' ? m.tipo : m.tipo !== filtroTipo)) return false;
     if (search) {
-      const hay = [m.codigo, m.descricao, m.especificacao, m.unidade, m.localizacao].join(' ').toLowerCase();
+      const hay = [m.codigo, m.descricao, m.especificacao, m.unidade, m.localizacao, m.tipo].join(' ').toLowerCase();
       if (!hay.includes(search)) return false;
     }
     return true;
@@ -306,7 +313,7 @@ function renderMateriais() {
       const baixoClass = m.ativo !== false && minimo > 0 && saldo <= minimo ? 'material-low' : 'material-ok';
       return '<tr>' +
         '<td><strong>' + escMelhoria(m.codigo || '—') + '</strong></td>' +
-        '<td>' + escMelhoria(m.descricao || '—') + '</td>' +
+        '<td>' + escMelhoria(m.descricao || '—') + (m.tipo ? '<br><span class="tipo-mat-tag">' + escMelhoria(m.tipo) + '</span>' : '') + '</td>' +
         '<td>' + escMelhoria(m.especificacao || '—') + '</td>' +
         '<td>' + escMelhoria(m.unidade || '—') + '</td>' +
         '<td class="' + baixoClass + '">' + numeroMaterial(saldo) + '</td>' +
@@ -398,7 +405,7 @@ function switchTab(tab) {
     renderQualidade();
   }
   if (tab === 'cadastros') {
-    responsaveisRemoto = null; fornecedoresRemoto = null;
+    responsaveisRemoto = null; fornecedoresRemoto = null; if (typeof tiposMaterialRemoto !== 'undefined') tiposMaterialRemoto = null;
     renderCadastros();
   }
   if (tab === 'apontamentos' || tab === 'analise') {
@@ -1242,7 +1249,7 @@ function renderServicos() {
 function openEditPanel() {
   const s = servicos.find(x => x.id === currentId);
   if (!s) return;
-  atualizarSelectMaterialServico();
+  atualizarSelectMaterialServico(s.material || '');
   atualizarCamposExternoServico();
   popularSelectFornecedores(document.getElementById('f-externo-fornecedor'), ['serviço externo', 'material e serviço']);
   document.getElementById('edit-panel').style.display = 'block';
@@ -1601,7 +1608,7 @@ async function fetchMateriaisFromSheets() {
       const ativo = m.ativo !== false;
       if (porCodigo[cod]) {
         // Linha repetida na planilha: mostra uma só (ativa se alguma estiver ativa)
-        if (ativo && porCodigo[cod].ativo === false) Object.assign(porCodigo[cod], { descricao: m.descricao || '', especificacao: m.especificacao || '', unidade: m.unidade || '', minimo: Number(m.estoqueMinimo) || 0, localizacao: m.localizacao || '', ativo: true });
+        if (ativo && porCodigo[cod].ativo === false) Object.assign(porCodigo[cod], { descricao: m.descricao || '', especificacao: m.especificacao || '', unidade: m.unidade || '', minimo: Number(m.estoqueMinimo) || 0, localizacao: m.localizacao || '', tipo: m.tipo || '', ativo: true });
         return;
       }
       let id = codigoParaId[cod];
@@ -1614,6 +1621,7 @@ async function fetchMateriaisFromSheets() {
         unidade: m.unidade || '',
         minimo: Number(m.estoqueMinimo) || 0,
         localizacao: m.localizacao || '',
+        tipo: m.tipo || '',
         ativo: ativo
       });
     });
@@ -1683,6 +1691,7 @@ async function enviarMaterialSheets(material, codigoAnterior) {
     especificacao: material.especificacao,
     unidade: material.unidade,
     estoqueMinimo: material.minimo,
+    tipo: material.tipo || '',
     localizacao: material.localizacao,
     ativo: material.ativo !== false
   };
@@ -2190,6 +2199,7 @@ async function ensureCadastros() {
   const jobs = [];
   if (responsaveisRemoto === null && getSyncUrl()) jobs.push(fetchResponsaveis());
   if (fornecedoresRemoto === null && getSyncUrl()) jobs.push(fetchFornecedores());
+  if (typeof fetchTiposMaterial === 'function' && tiposMaterialRemoto === null && getSyncUrl()) jobs.push(fetchTiposMaterial());
   if (jobs.length) await Promise.all(jobs);
 }
 
@@ -2390,6 +2400,7 @@ async function renderCadastros() {
   await ensureCadastros();
   renderResponsaveis();
   renderFornecedores();
+  if (typeof renderTiposMaterial === 'function') renderTiposMaterial();
   atualizarTodosSelectsResponsaveis();
   atualizarTodosSelectsFornecedores();
 }
@@ -2741,6 +2752,7 @@ async function conferirSenhaNaAbertura() {
       ensureCadastros().then(() => {
         atualizarTodosSelectsResponsaveis();
         atualizarTodosSelectsFornecedores();
+        if (typeof atualizarSelectsTipoMaterial === 'function') atualizarSelectsTipoMaterial();
       });
     }
   }, 500);

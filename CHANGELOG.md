@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.1] — 2026-11-24
+
+### Novo
+- **Cadastros › Tipos de material** (ex.: A-36, SAE 1045, SAE 1010 / 1016): cadastrar, editar, inativar e reativar, com contagem de OS e materiais que usam cada tipo.
+- Campo **Material** da OS lista os tipos de material e os itens do estoque. Escolhendo um tipo, a OS mostra quais materiais daquele tipo têm saldo.
+- Cadastro do material no estoque ganha **Tipo de material**, com filtro na lista e coluna na aba Saldos.
+
+### Correções
+- OS com material digitado que não estava na lista (OS migradas da planilha antiga) apareciam com o campo vazio, e a próxima edição da OS apagava o material. Agora o valor aparece como "(não cadastrado)" e é mantido.
+
+### Apps Script 1.5.1
+- Aba `TiposMaterial`, ações `list-tipos-material` e `tipo-material`; coluna `tipo` acrescentada no fim da aba `Materiais`.
+
 ## [1.5.0] — 2026-11-24
 
 ### Novo — Nota fiscal como registro principal

@@ -6,7 +6,7 @@
  * Instalação: veja docs/INSTALACAO.md.
  *
  * Abas de dados (criadas automaticamente na planilha vinculada):
- *   Servicos · Apontamentos · Materiais · Movimentacoes · NotasFiscais · ItensNF · Checklists · Responsaveis · Fornecedores
+ *   Servicos · Apontamentos · Materiais · Movimentacoes · NotasFiscais · ItensNF · Checklists · Responsaveis · Fornecedores · TiposMaterial
  * Abas de consulta (reescritas a cada gravação, não edite):
  *   Saldos · Análise por OS · Finalizadas · Acompanhamento (todas as OS, com avanço e progresso)
  *   · Cliente <NOME> (uma por cliente em PAINEL_CLIENTES)
@@ -19,7 +19,8 @@
 const ABAS = {
   servicos:     { nome: 'Servicos',      colunas: ['id', 'os', 'it', 'cliente', 'oc', 'des', 'desc', 'qty', 'material', 'tratamento', 'emb', 'prazo', 'status', 'nf', 'dt', 'etapas', 'imagem', 'extras', 'atualizadoEm', 'excluido'] },
   apontamentos: { nome: 'Apontamentos',  colunas: ['timestamp', 'os', 'item', 'etapa', 'cliente', 'oc', 'descricao', 'operacao', 'maquina', 'operador', 'status', 'qtd'] },
-  materiais:    { nome: 'Materiais',     colunas: ['codigo', 'descricao', 'especificacao', 'unidade', 'estoqueMinimo', 'localizacao', 'ativo', 'atualizadoEm'] },
+  materiais:    { nome: 'Materiais',     colunas: ['codigo', 'descricao', 'especificacao', 'unidade', 'estoqueMinimo', 'localizacao', 'ativo', 'atualizadoEm', 'tipo'] },
+  tiposMaterial:{ nome: 'TiposMaterial', colunas: ['nome', 'observacao', 'ativo', 'atualizadoEm'] },
   // As 8 primeiras colunas são as originais; as demais (1.5) são acrescentadas no fim das abas existentes.
   movimentacoes:{ nome: 'Movimentacoes', colunas: ['timestamp', 'codigo', 'tipo', 'quantidade', 'os', 'loteDimensao', 'observacao', 'operador',
                   'id', 'cliente', 'valorUnitario', 'valorTotal', 'nf', 'nfId', 'itemNfId', 'origem', 'fornecedor', 'excluido', 'atualizadoEm'] },
@@ -64,7 +65,7 @@ const TIPOS_SAIDA = ['Consumo na OS', 'Retirada do estoque para OS', 'Perda / de
 /** Registram a compra/uso mas não mexem no saldo (material comprado direto para a OS, despesas). */
 const TIPOS_NEUTROS = ['Compra direta para OS', 'Outros (sem efeito no estoque)'];
 function fator_(tipo) { return TIPOS_NEUTROS.indexOf(tipo) >= 0 ? 0 : (TIPOS_SAIDA.indexOf(tipo) >= 0 ? -1 : 1); }
-const VERSAO = '1.5.0';
+const VERSAO = '1.5.1';
 
 /* ======================= ACESSO ======================= */
 
@@ -130,8 +131,9 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
+      case 'list-tipos-material': return json({ ok: true, tipos: listarAtivos('tiposMaterial') });
       case 'versao':             return json({ ok: true, versao: VERSAO, servicos: true, item: true, etiqueta: true, nfs: true, nivel: nivelDe_(e.parameter.k) });
-      case 'recursos':           return json({ ok: true, versao: VERSAO, etiqueta: true, nfs: true });
+      case 'recursos':           return json({ ok: true, versao: VERSAO, etiqueta: true, nfs: true, tiposMaterial: true });
       case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
@@ -166,6 +168,7 @@ function doPost(e) {
         case 'checklist':    gravarChecklist(body); break;
         case 'responsavel':  upsert('responsaveis', 'nome', body, { atualizadoEm: agora() }); break;
         case 'fornecedor':   upsert('fornecedores', 'nome', body, { atualizadoEm: agora() }); break;
+        case 'tipo-material': upsert('tiposMaterial', 'nome', body, { atualizadoEm: agora() }); break;
         default:             return json({ ok: false, erro: 'kind desconhecido: ' + body.kind });
       }
     }
@@ -620,10 +623,10 @@ function atualizarSaldos_() {
   const linhas = listarMateriais().map(m => {
     const k = chaveCodigo_(m.codigo), s = saldo[k] || 0, c = custo[k];
     const alerta = s <= 0 ? 'Zerado' : (s < m.estoqueMinimo ? 'Abaixo do mínimo' : '');
-    return [m.codigo, m.descricao, m.unidade, s, m.estoqueMinimo, alerta,
+    return [m.codigo, m.descricao, m.tipo || '', m.unidade, s, m.estoqueMinimo, alerta,
       c ? Math.round(c.v / c.q * 100) / 100 : '', c ? c.ultimo : '', m.localizacao, m.ativo ? 'Sim' : 'Não'];
   });
-  escreverPainel_('Saldos', ['Código', 'Descrição', 'Unidade', 'Saldo', 'Estoque mínimo', 'Alerta', 'Valor médio (R$)', 'Último valor (R$)', 'Localização', 'Ativo'], linhas);
+  escreverPainel_('Saldos', ['Código', 'Descrição', 'Tipo de material', 'Unidade', 'Saldo', 'Estoque mínimo', 'Alerta', 'Valor médio (R$)', 'Último valor (R$)', 'Localização', 'Ativo'], linhas);
 }
 
 /** Mesma regra da aba "Análise por OS" do app. */
