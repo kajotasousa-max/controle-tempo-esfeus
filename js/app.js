@@ -210,10 +210,10 @@ function excluirMaterial(id) {
     // Com movimentações não dá para apagar (o saldo e o histórico dependem dele): só inativar.
     if (!confirm('O material ' + nome + ' tem movimentações registradas e não pode ser apagado.\n\n' +
       'Deseja INATIVAR? Ele sai da lista de estoque e dos campos de seleção, mas o histórico fica guardado ' +
-      '(para ver depois, use o filtro "Inativos").')) return;
+      '(para ver depois: botão ⋯ › Mostrar inativos).')) return false;
     material.ativo = false;
   } else {
-    if (!confirm('Apagar o material ' + nome + '? Esta ação não pode ser desfeita.')) return;
+    if (!confirm('Apagar o material ' + nome + '? Esta ação não pode ser desfeita.')) return false;
     materiaisCadastro = materiaisCadastro.filter(m => m.id !== id);
   }
   if (currentMaterialId === id) limparFormMaterial();

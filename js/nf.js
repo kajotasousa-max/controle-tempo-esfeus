@@ -670,6 +670,11 @@ function abrirMaterial(id) {
   if (novo) { limparFormMaterial(); currentMaterialId = null; } else preencherCamposMaterial(m);
   document.getElementById('mat-excluir').style.display = novo ? 'none' : '';
   document.getElementById('mat-excluir').textContent = m && m.ativo === false ? 'Reativar material' : 'Excluir / inativar';
+  const btnEx = document.getElementById('mat-btn-excluir');
+  if (btnEx && m) {
+    btnEx.textContent = m.ativo === false ? '↺ Reativar' : '🗑 Excluir';
+    btnEx.className = (m.ativo === false ? 'btn-success' : 'btn-danger') + ' btn-sm';
+  }
   renderHistoricoMaterial();
   document.getElementById('hist-modal').style.display = 'flex';
   if (novo) setTimeout(() => document.getElementById('m-descricao').focus(), 50);
@@ -726,7 +731,8 @@ function salvarMaterialAberto() {
 function excluirMaterialAberto() {
   const m = materialPorId(materialAbertoId);
   if (!m) return;
-  if (m.ativo === false) reativarMaterial(m.id); else excluirMaterial(m.id);
+  if (m.ativo === false) reativarMaterial(m.id);
+  else if (excluirMaterial(m.id) === false) return;   // cancelou
   fecharMaterial();
   renderMateriais();
 }
