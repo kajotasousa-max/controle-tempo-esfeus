@@ -58,4 +58,5 @@ Tempo estimado: 30–40 minutos. Precisa de uma conta Google (do cliente, de pre
 | Badge "pendente" não zera | URL do Apps Script errada ou implantação não está como "Qualquer pessoa" |
 | Lista de operadores vazia no celular | Nenhum responsável com função contendo "Operador" em Cadastros |
 | QR abre página em branco | `urlVisualizadorPadrao` não aponta para onde o site está publicado |
+| Aba Materiais e NF avisa que o Apps Script é antigo | Cole o `Code.gs` 1.5.0, rode `configurar` e publique uma nova versão. As abas `NotasFiscais` e `ItensNF` são criadas e a `Movimentacoes` ganha colunas no fim, sem perder dados |
 | OS de outro computador não aparecem | Backend antigo (sem a aba Servicos): cole o `Code.gs` atual, rode `configurar` e publique uma nova versão |

@@ -9,7 +9,7 @@ Roda em qualquer navegador, sem instalação e sem servidor próprio: o front-en
 | Aba | O que faz |
 |---|---|
 | 📋 **Serviços** | Cadastro de OS (cliente, OC, desenho, material, prazo, NF), etapas do processo, status automático por prazo (Em processo › Alerta ≤ 7 dias › Atrasado), impressão de etiquetas |
-| 📦 **Materiais** | Cadastro de materiais, movimentações (compra, consumo na OS, sobra, perda, ajustes), saldo calculado, alerta de estoque mínimo, exportação CSV |
+| 📦 **Materiais e NF** | Notas fiscais com vários itens (cada item com OS, cliente e tipo próprios), entrada automática no estoque, compra direta para OS, retirada do estoque sem NF, saldo e custo médio por material, histórico rastreável, materiais e custo dentro de cada OS, exportação CSV |
 | ⏱️ **Apontamentos** | Histórico de eventos de produção (iniciar, pausar, concluir etapa) vindos dos celulares |
 | 📊 **Análise por OS** | Tempo efetivo por OS/etapa/operador e situação frente ao prazo |
 | ✅ **Qualidade** | Checklist de inspeção final configurável, até 6 fotos por OS, aprovação libera a OS |
@@ -61,7 +61,7 @@ python3 -m http.server 8000
 
 ## Onde ficam os dados
 
-Tudo fica na planilha Google, que é a fonte da verdade: **OS (aba Servicos)**, apontamentos, materiais, movimentações, checklists, responsáveis e fornecedores. As abas **Saldos** e **Análise por OS** são refeitas pela planilha a cada gravação.
+Tudo fica na planilha Google, que é a fonte da verdade: **OS (aba Servicos)**, apontamentos, materiais, movimentações, notas fiscais (abas NotasFiscais e ItensNF), checklists, responsáveis e fornecedores. As abas **Saldos** e **Análise por OS** são refeitas pela planilha a cada gravação.
 
 Qualquer computador ou celular com o link vê os mesmos dados. O app busca as novidades a cada 20 segundos enquanto a página está aberta. O navegador guarda uma cópia para funcionar sem internet: o que for feito offline fica pendente (badge no canto) e sobe quando a conexão volta.
 
