@@ -21,6 +21,7 @@ Os POSTs usam `Content-Type: text/plain;charset=utf-8` para evitar o preflight C
 | `list-checklists` | `{ ok, checklists: Checklist[] }` |
 | `list-responsaveis` | `{ ok, responsaveis: Responsavel[] }` |
 | `list-fornecedores` | `{ ok, fornecedores: Fornecedor[] }` |
+| `list-tipos-material` | `{ ok, tipos: TipoMaterial[] }` |
 
 ## Gravações (POST)
 
@@ -35,6 +36,7 @@ Os POSTs usam `Content-Type: text/plain;charset=utf-8` para evitar o preflight C
 | `{ kind: "checklist", ... }` | Acrescenta; fotos em data URL vão para o Drive e viram links |
 | `{ kind: "responsavel", ... }` | Cria ou atualiza pelo `nome` |
 | `{ kind: "fornecedor", ... }` | Cria ou atualiza pelo `nome` |
+| `{ kind: "tipo-material", nome, observacao, ativo }` | Cria ou atualiza pelo `nome` |
 
 ## Tipos
 
@@ -47,7 +49,8 @@ Servico      { id: number, os, it, cliente, oc, des, desc, qty, material, tratam
 Etapa        { id, nome, operacao, maquina, operador, status }
 Apontamento  { timestamp, os, item, etapa, cliente, oc, descricao, operacao, maquina, operador,
                status: 'Iniciando'|'Parado'|'Etapa concluída'|'Concluído Parcial'|'Finalizado', qtd }
-Material     { codigo, descricao, especificacao, unidade, estoqueMinimo: number, localizacao, ativo: boolean }
+Material     { codigo, descricao, especificacao, unidade, estoqueMinimo: number, localizacao, ativo: boolean, tipo /* tipo de material */ }
+TipoMaterial { nome /* ex.: SAE 1045 */, observacao, ativo: boolean }
 Movimentacao { timestamp, codigo, tipo, quantidade: number, os, loteDimensao /* "lote | dimensão" */, observacao, operador,
                id, cliente, valorUnitario, valorTotal, nf /* número */, nfId, itemNfId, origem, fornecedor }
                // entradas: Compra | Compra para estoque | Entrada em estoque | Sobra | Devolução | Ajuste de entrada
