@@ -72,7 +72,7 @@ const TIPOS_SAIDA = ['Consumo na OS', 'Retirada do estoque para OS', 'Perda / de
 /** Registram a compra/uso mas não mexem no saldo (material comprado direto para a OS, despesas). */
 const TIPOS_NEUTROS = ['Compra direta para OS', 'Outros (sem efeito no estoque)'];
 function fator_(tipo) { return TIPOS_NEUTROS.indexOf(tipo) >= 0 ? 0 : (TIPOS_SAIDA.indexOf(tipo) >= 0 ? -1 : 1); }
-const VERSAO = '1.5.4';
+const VERSAO = '1.5.5';
 
 /* ======================= ACESSO ======================= */
 
@@ -1327,8 +1327,11 @@ function migrarPlanilhaAntiga() {
     if (!velha || velha.getLastRow() < 1) return;
     const cab = velha.getRange(1, 1, 1, velha.getLastColumn()).getDisplayValues()[0];
     const novoCab = ABAS[mg.tipo].colunas;
-    // Já está no formato novo (mesmo nome de aba e mesmas colunas)
-    if (mg.antiga === ABAS[mg.tipo].nome && novoCab.every((c, i) => norm_(cab[i]) === norm_(c))) return;
+    // Já está no formato novo: mesmo nome de aba e as colunas são o começo da lista atual.
+    // (Coluna nova no fim não é "formato antigo": acrescentarColunasNovas_ só completa o cabeçalho.
+    //  Antes, isso renomeava a aba Materiais para "antigo - Materiais" a cada coluna acrescentada.)
+    const cabUsado = cab.slice(0, cab.reduce((u, c, i) => (String(c).trim() ? i + 1 : u), 0));
+    if (mg.antiga === ABAS[mg.tipo].nome && cabUsado.length <= novoCab.length && cabUsado.every((c, i) => norm_(c) === norm_(novoCab[i]))) return;
     const chaves = cab.map(norm_);
     const n = velha.getLastRow() - 1;
     const linhas = n > 0 ? velha.getRange(2, 1, n, cab.length).getDisplayValues() : [];

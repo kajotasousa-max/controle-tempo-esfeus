@@ -1,5 +1,10 @@
 # Changelog
 
+## [Apps Script 1.5.5] — 2026-11-24
+
+### Correção
+- **"configurar" renomeava a aba Materiais para "antigo - Materiais"** quando o sistema ganhava uma coluna nova (aconteceu na 1.5.1, com a coluna "tipo"). Uma aba com o nome atual cujas colunas são o começo da lista atual não é mais tratada como formato antigo: só recebe as colunas novas no fim. Abas realmente antigas (cabeçalho em português) continuam sendo convertidas.
+
 ## [1.5.5] — 2026-11-24
 
 ### Correções
