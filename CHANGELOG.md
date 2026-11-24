@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.5] — 2026-11-24
+
+### Correções
+- **OS aprovada na Qualidade que não finalizava** (ex.: GSA 26.001): a OS tinha um espaço sobrando no número ("GSA 26.001 ") e o item "01", enquanto a inspeção estava gravada com o item "1". OS, inspeções, apontamentos e materiais agora são casados ignorando espaços sobrando, maiúsculas/minúsculas e zero à esquerda no item.
+- Apps Script 1.5.4: OS e item são gravados sem espaços sobrando; apontamentos e Análise usam a mesma comparação tolerante.
+
 ## [1.5.4] — 2026-11-24
 
 ### Alterado

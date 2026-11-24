@@ -296,6 +296,18 @@ function separarOsItem(r) {
 }
 /** Chave única OS + item ("CO 26.002/75"). */
 function osItem(r) { return (r.os || '') + (r.item ? '/' + r.item : ''); }
+/**
+ * Chave para casar OS com inspeções, apontamentos e materiais: ignora espaços sobrando,
+ * maiúsculas/minúsculas e zero à esquerda no item ("GSA 26.001 " + "01" = "GSA 26.001" + "1").
+ */
+function chaveOS(os, item) {
+  const o = String(os || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  let i = String(item || '').trim().toUpperCase();
+  if (/^\d+$/.test(i)) i = String(Number(i));
+  return o + (i ? '/' + i : '');
+}
+function chaveRegistro(r) { const x = separarOsItem(r); return chaveOS(x.os, x.item); }
+function chaveServico(s) { return chaveOS(s.os, s.it); }
 function osItemServico(s) { return (s.os || '') + (s.it ? '/' + s.it : ''); }
 
 function loadApontamentos() {
@@ -1364,7 +1376,7 @@ function computeAnalise() {
       }
     });
     if (rodando) tempoMs += hoje - rodando;
-    const servico = servicos.find(s => osItemServico(s) === osItem(g));
+    const servico = servicos.find(s => chaveServico(s) === chaveRegistro(g));
     const prazo = servico ? servico.prazo : '';
     let situacao = 'Não iniciada', sitClass = 'sit-nao-iniciada';
     if (conclusao) {
@@ -1780,7 +1792,7 @@ async function fetchChecklistsRemoto() {
 }
 
 function situacaoOS(s) {
-  const todas = (checklistsRemoto || []).filter(c => osItem(c) === osItemServico(s));
+  const todas = (checklistsRemoto || []).filter(c => chaveRegistro(c) === chaveServico(s));
   const cls = todas.filter(c => inspecaoValida(s, c));
   if (!cls.length) return todas.length && s.reabertaEm
     ? { badge: 'pendente', texto: 'Reaberta', ultimo: null }
@@ -2082,7 +2094,7 @@ function conciliarInspecoes() {
   const ultima = {};
   (checklistsRemoto || []).forEach(c => {
     if (c.situacao !== 'Aprovado' && c.situacao !== 'Reprovado') return;
-    const k = osItem(c);
+    const k = chaveRegistro(c);
     if (!ultima[k] || (c.timestamp || '') > (ultima[k].timestamp || '')) ultima[k] = c;
   });
   let mudou = false;
@@ -2090,7 +2102,7 @@ function conciliarInspecoes() {
     // Aprovada com etapa pendente (ex.: alguém voltou uma etapa): reabre
     const fin = etapaInspecaoFinal(s);
     if (fin && fin.status === 'OK' && !liberadaParaQualidade(s)) { reabrirOS(s); mudou = true; return; }
-    const c = ultima[osItemServico(s)];
+    const c = ultima[chaveServico(s)];
     if (c && inspecaoValida(s, c) && ajustarOSAoResultado(s, c.situacao)) mudou = true;
   });
   if (mudou) {

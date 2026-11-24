@@ -54,16 +54,16 @@ function opcoesOS() {
     .sort((a, b) => b.valor.localeCompare(a.valor, 'pt-BR', { numeric: true }));
 }
 function servicoPorOS(valor) {
-  const v = String(valor || '').trim().toUpperCase();
-  if (!v) return null;
-  return servicos.find(s => !s.excluido && osItemServico(s).toUpperCase() === v) || null;
+  if (!String(valor || '').trim()) return null;
+  const v = chaveRegistro({ os: valor });
+  return servicos.find(s => !s.excluido && chaveServico(s) === v) || null;
 }
 /** A movimentação é desta OS? (aceita lançamentos antigos só com o número da OS) */
 function movimentoDaOS(m, s) {
-  const mo = String(m.os || '').trim().toUpperCase();
-  if (!mo) return false;
-  if (mo === osItemServico(s).toUpperCase()) return true;
-  return mo.indexOf('/') < 0 && mo === String(s.os || '').trim().toUpperCase();
+  if (!String(m.os || '').trim()) return false;
+  const k = chaveRegistro({ os: m.os });
+  if (k === chaveServico(s)) return true;
+  return String(m.os).indexOf('/') < 0 && k === chaveOS(s.os, '');
 }
 function materialPorTexto(txt) {
   const k = chaveTexto(txt);
