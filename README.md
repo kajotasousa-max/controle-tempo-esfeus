@@ -9,7 +9,7 @@ Roda em qualquer navegador, sem instalação e sem servidor próprio: o front-en
 | Aba | O que faz |
 |---|---|
 | 📋 **Serviços** | Cadastro de OS (cliente, OC, desenho, material, prazo, NF), etapas do processo, status automático por prazo (Em processo › Alerta ≤ 7 dias › Atrasado), impressão de etiquetas |
-| 📦 **Materiais e NF** | Notas fiscais com vários itens (cada item com OS, cliente e tipo próprios), entrada automática no estoque, compra direta para OS, retirada do estoque sem NF, saldo e custo médio por material, histórico rastreável, materiais e custo dentro de cada OS, exportação CSV |
+| 📦 **Materiais e NF** | Tela única com estoque e notas fiscais. NF com vários itens (cada item com OS e destino próprios), entrada automática no estoque, compra direta para OS, saldo e custo médio por material, histórico e ajuste em cada material. Retirada e sobra feitas dentro da OS |
 | ⏱️ **Apontamentos** | Histórico de eventos de produção (iniciar, pausar, concluir etapa) vindos dos celulares |
 | 📊 **Análise por OS** | Tempo efetivo por OS/etapa/operador e situação frente ao prazo |
 | ✅ **Qualidade** | Checklist de inspeção final configurável, até 6 fotos por OS, aprovação libera a OS |

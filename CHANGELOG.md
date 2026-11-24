@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.5.2] — 2026-11-24
+
+### Alterado — aba Materiais e NF enxuta
+- Uma tela só, sem sub-abas: busca, botão **+ Lançar NF**, lista do **Estoque** (material, tipo, saldo; "comprar" quando zera ou fica abaixo do mínimo) e **Notas fiscais** (5 mais recentes, com "ver todas").
+- Saíram da tela: quadros de números, filtros, textos de ajuda, formulários fixos de cadastro e de movimentação. Atualizar, cadastrar material, mostrar inativos e exportações ficam no menu **⋯**.
+- **Ver** de cada material abre uma janela com saldo, valor médio e movimentações, e os botões **Ajustar saldo** (perda, ajuste) e **Editar**.
+- **Retirar do estoque** e **Devolver sobra** só pela OS, numa janelinha por cima da própria OS (sem trocar de aba). Materiais do mesmo tipo da OS aparecem primeiro.
+- **Lançar NF** pela OS também abre por cima da OS, com todos os itens já vinculados a ela.
+- Janela da NF com o mínimo à vista: produto, quantidade, valor, para onde vai (Estoque, Direto na OS, Despesa / frete) e OS. Unidade, frete, cliente e data ficam no botão **⋯** de cada item; OS, clientes e observação da NF num link.
+
 ## [1.5.1] — 2026-11-24
 
 ### Novo

@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=1.5.1">
+<link rel="stylesheet" href="css/styles.css?v=1.5.2">
 <script src="vendor/qrcodejs/qrcode.min.js"></script>
 </head>
 
@@ -209,177 +209,29 @@
   </div>
 
   <div class="tab-content" id="tab-materiais">
-    <div class="mat-subnav">
-      <button class="mat-subtab active" data-sub="nf" onclick="switchMatSub('nf')">🧾 Notas fiscais</button>
-      <button class="mat-subtab" data-sub="estoque" onclick="switchMatSub('estoque')">📦 Estoque e saldos</button>
-      <button class="mat-subtab" data-sub="mov" onclick="switchMatSub('mov')">↔️ Retiradas e movimentações</button>
-      <div class="spacer"></div>
-      <button class="btn-secondary btn-sm" onclick="atualizarMateriaisENfs()" title="Buscar novamente da planilha">🔄 Atualizar</button>
-    </div>
     <div id="nf-aviso-backend" class="nf-aviso" style="display:none;"></div>
-
-    <!-- ---------- NOTAS FISCAIS ---------- -->
-    <div class="mat-sub active" id="mat-sub-nf">
-      <div class="toolbar">
-        <button class="btn-success" id="btn-nova-nf" onclick="novaNf()">+ Nova NF</button>
-        <input type="text" class="search" id="search-nf" placeholder="🔍 nº da NF, fornecedor, OS, cliente, material..." oninput="renderNfs()">
-        <select id="filter-nf-tipo" onchange="renderNfs()">
-          <option value="">Todos os tipos</option>
-          <option value="estoque">Com entrada em estoque</option>
-          <option value="direto">Com consumo direto na OS</option>
-          <option value="outros">Só outros (sem estoque)</option>
-        </select>
-        <input type="month" id="filter-nf-mes" onchange="renderNfs()" title="Filtrar pelo mês da NF">
-        <div class="spacer"></div>
-        <span class="count" id="nf-count">0 NFs</span>
-        <button class="btn-primary btn-sm" onclick="exportarNfs()">Exportar itens das NFs</button>
-      </div>
-      <div class="materials-kpis">
-        <div class="materials-kpi"><div class="label">NFs no filtro</div><div class="value" id="nf-kpi-qtd">0</div></div>
-        <div class="materials-kpi"><div class="label">Valor total</div><div class="value" id="nf-kpi-valor">R$ 0,00</div></div>
-        <div class="materials-kpi"><div class="label">Para estoque</div><div class="value" id="nf-kpi-estoque">R$ 0,00</div></div>
-        <div class="materials-kpi"><div class="label">Direto nas OS</div><div class="value" id="nf-kpi-direto">R$ 0,00</div></div>
-      </div>
-      <div class="materials-table-wrap" style="max-height:520px;">
-        <table class="data clicavel">
-          <thead><tr><th>Nº NF</th><th>Data</th><th>Fornecedor</th><th>OS vinculadas</th><th>Clientes</th><th style="text-align:center;">Itens</th><th style="text-align:right;">Valor total</th><th>Movimentação</th></tr></thead>
-          <tbody id="tbody-nfs"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ---------- ESTOQUE ---------- -->
-    <div class="mat-sub" id="mat-sub-estoque">
-      <div class="toolbar">
-        <input type="text" class="search" id="search-material" placeholder="🔍 buscar por código, descrição, local..." oninput="renderMateriais()">
-        <select id="filter-material-status" onchange="renderMateriais()">
-          <option value="">Materiais ativos</option>
-          <option value="estoque">Com estoque</option>
-          <option value="baixo">Abaixo do mínimo</option>
-          <option value="sem">Sem estoque</option>
-          <option value="inativo">Inativos (arquivados)</option>
-          <option value="todos">Todos, inclusive inativos</option>
-        </select>
-        <select id="filter-material-tipo" onchange="renderMateriais()"><option value="">Todos os tipos</option></select>
-        <div class="spacer"></div>
-        <span class="count" id="material-count">0 materiais</span>
-        <button class="btn-secondary btn-sm" onclick="exportarEstoqueMateriais()">Exportar estoque</button>
-        <button class="btn-success btn-sm" onclick="novoMaterial()">+ Cadastrar material</button>
-      </div>
-
-      <div class="materials-kpis">
-        <div class="materials-kpi"><div class="label">Materiais cadastrados</div><div class="value" id="mat-kpi-total">0</div></div>
-        <div class="materials-kpi"><div class="label">Com saldo</div><div class="value" id="mat-kpi-com-saldo">0</div></div>
-        <div class="materials-kpi"><div class="label">Abaixo do mínimo</div><div class="value" id="mat-kpi-baixo">0</div></div>
-        <div class="materials-kpi"><div class="label">Valor em estoque</div><div class="value" id="mat-kpi-valor">R$ 0,00</div></div>
-      </div>
-
-      <div class="materials-card">
-        <h3>Estoque atual</h3>
-        <div class="help">Saldo = entradas − saídas, calculado pelas movimentações. Material que chega por NF entra aqui sozinho; clique em <strong>Histórico</strong> para ver de onde veio e para quais OS saiu.</div>
-        <div class="materials-table-wrap" style="max-height:460px;">
-          <table class="data">
-            <thead><tr><th>Código</th><th>Material</th><th>Especificação</th><th>Un.</th><th>Saldo</th><th>Mínimo</th><th>Valor médio</th><th>Último valor</th><th>Local</th><th>Status</th><th>Ações</th></tr></thead>
-            <tbody id="tbody-materiais"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="materials-card" id="material-form-card" style="margin-top:14px; display:none;">
-        <h3 id="material-form-title">Cadastro do material</h3>
-        <div class="help">Opcional: a NF cadastra o material sozinha. Use aqui para corrigir descrição, unidade, estoque mínimo e localização.</div>
-        <div class="field-grid cols-3">
-          <div class="field"><label>Código</label><input id="m-codigo" placeholder="Ex.: ACO-050"></div>
-          <div class="field wide"><label>Descrição</label><input id="m-descricao" placeholder="Ex.: Aço 1045 redondo"></div>
-          <div class="field"><label>Unidade</label>
-            <select id="m-unidade">
-              <option value="">— selecione —</option>
-              <option>kg</option><option>barra</option><option>peça</option><option>metro</option><option>chapa</option><option>litro</option><option>unidade</option>
-            </select>
-          </div>
-          <div class="field"><label>Tipo de material</label><select id="m-tipo"><option value="">— sem tipo —</option></select></div>
-          <div class="field"><label>Estoque mínimo</label><input type="number" id="m-minimo" min="0" step="0.001" placeholder="0"></div>
-          <div class="field"><label>Localização</label><input id="m-localizacao" placeholder="Ex.: Prateleira A3"></div>
-          <div class="field wide"><label>Especificação / dimensão padrão</label><input id="m-especificacao" placeholder="Ex.: Ø50 mm, barra de 3 m"></div>
-          <div class="field"><label>Status</label>
-            <select id="m-ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select>
-          </div>
-        </div>
-        <div class="materials-actions">
-          <button class="btn-secondary btn-sm" onclick="limparFormMaterial(); document.getElementById('material-form-card').style.display='none';">Fechar</button>
-          <button class="btn-primary" onclick="salvarMaterial()">Salvar material</button>
+    <div class="mx-barra">
+      <input type="text" class="mx-busca" id="search-material" placeholder="🔍 Buscar material, NF ou OS" oninput="renderMateriais()">
+      <button class="btn-success" id="btn-nova-nf" onclick="novaNf()">+ Lançar NF</button>
+      <div class="mx-menu-wrap">
+        <button class="btn-secondary mx-menu-btn" onclick="alternarMenuMateriais(event)" title="Mais opções" aria-label="Mais opções">⋯</button>
+        <div class="mx-menu" id="mx-menu" style="display:none;">
+          <button onclick="atualizarMateriaisENfs()">🔄 Atualizar</button>
+          <button onclick="abrirMaterial(null)">➕ Cadastrar material</button>
+          <button onclick="alternarInativos()" id="mx-inativos">👁 Mostrar inativos</button>
+          <hr>
+          <button onclick="exportarEstoqueMateriais()">⬇ Exportar estoque</button>
+          <button onclick="exportarNfs()">⬇ Exportar notas fiscais</button>
+          <button onclick="exportarMovimentosMateriais()">⬇ Exportar movimentações</button>
         </div>
       </div>
     </div>
 
-    <!-- ---------- RETIRADAS E MOVIMENTAÇÕES ---------- -->
-    <div class="mat-sub" id="mat-sub-mov">
-      <div class="materials-layout">
-        <div class="materials-card">
-          <h3>Retirar do estoque / ajustar (sem NF)</h3>
-          <div class="help">Material que já está no estoque não precisa de NF: a movimentação fica com origem <strong>SEM NF – MATERIAL DO ESTOQUE</strong>. Para compras, use <a href="#" onclick="switchMatSub('nf'); novaNf(); return false;">Nova NF</a>.</div>
-          <div class="field-grid cols-2">
-            <div class="field"><label>Tipo</label>
-              <select id="mov-tipo" onchange="atualizarCamposMovimentoMat()">
-                <option>Retirada do estoque para OS</option>
-                <option value="Sobra">Sobra (volta ao estoque)</option>
-                <option>Devolução</option>
-                <option>Perda / descarte</option>
-                <option>Ajuste de entrada</option>
-                <option>Ajuste de saída</option>
-              </select>
-            </div>
-            <div class="field"><label>Data da movimentação</label><input type="date" id="mov-data"></div>
-            <div class="field wide"><label>Material (do saldo de estoque)</label><select id="mov-material" onchange="atualizarCamposMovimentoMat()"></select></div>
-            <div class="field"><label>Quantidade</label><input type="number" id="mov-quantidade" min="0.001" step="0.001" placeholder="0" oninput="atualizarCamposMovimentoMat()"></div>
-            <div class="field"><label>Valor (custo médio)</label><input id="mov-valor" readonly tabindex="-1" placeholder="calculado"></div>
-            <div class="field" id="mov-os-wrap"><label>OS</label><input id="mov-os" list="dl-os" placeholder="Digite ou escolha a OS" onchange="preencherClienteDaOS('mov-os','mov-cliente')"></div>
-            <div class="field"><label>Cliente</label><input id="mov-cliente" list="dl-clientes" placeholder="Preenchido pela OS"></div>
-            <div class="field"><label>Lote / origem</label><input id="mov-lote" placeholder="Ex.: barra 2 da NF 4567"></div>
-            <div class="field"><label>Dimensão / peso restante</label><input id="mov-dimensao" placeholder="Ex.: Ø50 x 320 mm"></div>
-            <div class="field wide"><label>Observação</label><textarea id="mov-observacao" placeholder="Opcional"></textarea></div>
-          </div>
-          <div id="mov-saldo-info" class="mov-saldo-info"></div>
-          <div class="materials-actions">
-            <button class="btn-warning" id="btn-registrar-mov" onclick="registrarMovimentoMaterial()">Registrar movimentação</button>
-          </div>
-        </div>
-        <div class="materials-card">
-          <h3>Como cada situação é lançada</h3>
-          <table class="data nf-guia">
-            <tbody>
-              <tr><td><strong>Comprei material só para uma OS</strong></td><td>Nova NF → item com tipo <em>Consumo direto na OS</em> e a OS do item. Não entra no estoque geral.</td></tr>
-              <tr><td><strong>Comprei material para o estoque</strong></td><td>Nova NF → item com tipo <em>Compra para estoque</em>. O saldo sobe sozinho e o material é cadastrado se ainda não existir.</td></tr>
-              <tr><td><strong>Usei material que já estava no estoque</strong></td><td>Aqui ao lado → <em>Retirada do estoque para OS</em>. Sem NF; o saldo desce e a OS fica registrada.</td></tr>
-              <tr><td><strong>Sobrou material da OS</strong></td><td>Aqui ao lado → <em>Sobra</em>, informando a OS e a dimensão que sobrou.</td></tr>
-              <tr><td><strong>Frete, serviço, despesa</strong></td><td>Na NF → item com tipo <em>Outros (sem efeito no estoque)</em>.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <h3 class="mx-titulo">Estoque <span class="mx-cont" id="material-count"></span></h3>
+    <div class="mx-lista" id="lista-estoque"></div>
 
-      <div class="materials-card">
-        <div class="toolbar" style="margin-bottom:8px;">
-          <h3 style="margin:0;">Histórico de movimentações</h3>
-          <input type="text" class="search" id="search-mov" placeholder="🔍 material, OS, cliente, NF..." oninput="renderMovimentacoesMateriais()">
-          <select id="filter-mov-tipo" onchange="renderMovimentacoesMateriais()">
-            <option value="">Todos os tipos</option>
-            <option value="entrada">Entradas</option>
-            <option value="saida">Saídas</option>
-            <option value="direto">Compras diretas p/ OS</option>
-          </select>
-          <div class="spacer"></div>
-          <span class="count" id="mov-count"></span>
-          <button class="btn-primary btn-sm" onclick="exportarMovimentosMateriais()">Exportar movimentações</button>
-        </div>
-        <div class="materials-table-wrap" style="max-height:460px;">
-          <table class="data">
-            <thead><tr><th>Data</th><th>Tipo</th><th>Material</th><th>Qtd.</th><th style="text-align:right;">Valor</th><th>Origem</th><th>OS</th><th>Cliente</th><th>Saldo após</th><th>Observação</th></tr></thead>
-            <tbody id="tbody-movimentos-materiais"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <h3 class="mx-titulo">Notas fiscais <a href="#" class="mx-link" id="nf-ver-todas" onclick="alternarTodasNfs(); return false;"></a></h3>
+    <div class="mx-lista" id="lista-nfs"></div>
 
     <datalist id="dl-os"></datalist>
     <datalist id="dl-clientes"></datalist>
@@ -387,59 +239,123 @@
     <datalist id="dl-fornecedores"></datalist>
   </div>
 
-  <!-- ==================== NF: EDITOR (janela) ==================== -->
+  <!-- ==================== NF (janela) ==================== -->
   <div class="nf-modal" id="nf-modal" style="display:none;" onclick="if (event.target === this) fecharNf()">
     <div class="nf-modal-box">
       <div class="nf-modal-head">
-        <h3 id="nf-modal-title">Nova nota fiscal</h3>
-        <button class="btn-secondary btn-sm" onclick="fecharNf()">Fechar</button>
+        <h3 id="nf-modal-title">Lançar nota fiscal</h3>
+        <button class="btn-secondary btn-sm" onclick="fecharNf()">✕</button>
       </div>
-      <div class="field-grid nf-cab">
-        <div class="field"><label>Número da NF *</label><input id="nf-numero" oninput="nfCampo('numero', this.value)" placeholder="Ex.: 004567"></div>
-        <div class="field"><label>Data da NF *</label><input type="date" id="nf-data" onchange="nfCampo('data', this.value)"></div>
-        <div class="field nf-span2"><label>Fornecedor</label><input id="nf-fornecedor" list="dl-fornecedores" oninput="nfCampo('fornecedor', this.value)" placeholder="Digite ou escolha"></div>
-        <div class="field nf-span2"><label>OS relacionadas</label>
+      <div class="nf-cab">
+        <div class="field"><label>Nº da NF *</label><input id="nf-numero" oninput="nfCampo('numero', this.value)" placeholder="004567"></div>
+        <div class="field"><label>Data *</label><input type="date" id="nf-data" onchange="nfCampo('data', this.value)"></div>
+        <div class="field nf-forn"><label>Fornecedor</label><input id="nf-fornecedor" list="dl-fornecedores" oninput="nfCampo('fornecedor', this.value)" placeholder="Digite ou escolha"></div>
+      </div>
+      <a href="#" class="mx-link nf-mais-link" id="nf-mais-link" onclick="alternarMaisNf(); return false;">+ OS, clientes e observação da NF</a>
+      <div class="nf-mais" id="nf-mais" style="display:none;">
+        <div class="field"><label>OS da NF</label>
           <div class="chips" id="nf-os-chips"></div>
           <div class="chip-add"><input id="nf-os-add" list="dl-os" placeholder="Adicionar OS" onkeydown="if(event.key==='Enter'){event.preventDefault();nfAddChip('os');}"><button type="button" class="btn-secondary btn-sm" onclick="nfAddChip('os')">+</button></div>
         </div>
-        <div class="field nf-span2"><label>Clientes</label>
+        <div class="field"><label>Clientes</label>
           <div class="chips" id="nf-cli-chips"></div>
           <div class="chip-add"><input id="nf-cli-add" list="dl-clientes" placeholder="Adicionar cliente" onkeydown="if(event.key==='Enter'){event.preventDefault();nfAddChip('clientes');}"><button type="button" class="btn-secondary btn-sm" onclick="nfAddChip('clientes')">+</button></div>
         </div>
-        <div class="field wide"><label>Observação</label><input id="nf-observacao" oninput="nfCampo('observacao', this.value)" placeholder="Opcional"></div>
+        <div class="field"><label>Observação</label><input id="nf-observacao" oninput="nfCampo('observacao', this.value)" placeholder="Opcional"></div>
       </div>
 
-      <div class="nf-itens-head">
-        <h4>Itens da NF</h4>
-        <span class="help">OS e cliente de cada item ficam vinculados à NF ao salvar. A data da movimentação acompanha a data da NF, mas pode ser trocada por item.</span>
-        <div class="spacer"></div>
-        <button class="btn-primary btn-sm" onclick="nfAddItem()">+ Adicionar item</button>
-      </div>
       <div class="nf-itens-wrap">
         <table class="nf-itens">
-          <thead><tr><th>#</th><th style="min-width:200px;">Descrição do produto / material</th><th>Un.</th><th>Qtd.</th><th>Valor unit.</th><th>Frete</th><th>Total</th><th style="min-width:170px;">Tipo de movimentação</th><th style="min-width:130px;">OS</th><th style="min-width:120px;">Cliente</th><th>Data mov.</th><th></th></tr></thead>
+          <thead><tr><th>#</th><th style="min-width:200px;">Produto / material</th><th>Qtd.</th><th>Valor unit.</th><th style="min-width:130px;">Vai para</th><th style="min-width:140px;">OS</th><th>Total</th><th></th><th></th></tr></thead>
           <tbody id="nf-itens-body"></tbody>
         </table>
       </div>
+      <button class="btn-secondary btn-sm nf-add-item" onclick="nfAddItem()">+ Item</button>
       <div class="nf-rodape">
-        <div class="nf-totais" id="nf-totais"></div>
+        <a href="#" class="nf-excluir" id="btn-excluir-nf" onclick="excluirNf(); return false;">Excluir NF</a>
         <div class="spacer"></div>
-        <button class="btn-danger" id="btn-excluir-nf" onclick="excluirNf()">Excluir NF</button>
-        <button class="btn-secondary" onclick="fecharNf()">Cancelar</button>
-        <button class="btn-success" id="btn-salvar-nf" onclick="salvarNf()">💾 Salvar NF</button>
+        <div class="nf-totais" id="nf-totais"></div>
+        <button class="btn-success" id="btn-salvar-nf" onclick="salvarNf()">Salvar NF</button>
       </div>
     </div>
   </div>
 
-  <!-- ==================== HISTÓRICO DO MATERIAL (janela) ==================== -->
-  <div class="nf-modal" id="hist-modal" style="display:none;" onclick="if (event.target === this) this.style.display='none'">
-    <div class="nf-modal-box">
+  <!-- ==================== MATERIAL (janela): histórico, editar, ajustar ==================== -->
+  <div class="nf-modal" id="hist-modal" style="display:none;" onclick="if (event.target === this) fecharMaterial()">
+    <div class="nf-modal-box mx-box-medio">
       <div class="nf-modal-head">
-        <h3 id="hist-title">Histórico do material</h3>
-        <button class="btn-secondary btn-sm" onclick="exportarHistoricoMaterial()">Exportar</button>
-        <button class="btn-secondary btn-sm" onclick="document.getElementById('hist-modal').style.display='none'">Fechar</button>
+        <h3 id="hist-title">Material</h3>
+        <button class="btn-secondary btn-sm" onclick="fecharMaterial()">✕</button>
       </div>
+      <div id="mat-resumo"></div>
+      <div class="mx-acoes" id="mat-acoes">
+        <button class="btn-secondary btn-sm" onclick="mostrarParteMaterial('ajuste')">± Ajustar saldo</button>
+        <button class="btn-secondary btn-sm" onclick="mostrarParteMaterial('editar')">✎ Editar</button>
+        <button class="btn-secondary btn-sm" onclick="exportarHistoricoMaterial()">⬇ Exportar</button>
+      </div>
+
+      <div class="mx-parte" id="mat-parte-ajuste" style="display:none;">
+        <div class="field-grid cols-3">
+          <div class="field"><label>Motivo</label>
+            <select id="aj-tipo" onchange="atualizarInfoAjuste()">
+              <option>Perda / descarte</option>
+              <option>Ajuste de saída</option>
+              <option>Ajuste de entrada</option>
+            </select>
+          </div>
+          <div class="field"><label>Quantidade</label><input type="number" id="aj-qtd" min="0.001" step="0.001" oninput="atualizarInfoAjuste()"></div>
+          <div class="field"><label>Observação</label><input id="aj-obs" placeholder="Opcional"></div>
+        </div>
+        <div class="mov-saldo-info" id="aj-info"></div>
+        <div class="materials-actions"><button class="btn-warning btn-sm" id="btn-ajuste" onclick="salvarAjusteMaterial()">Salvar ajuste</button></div>
+      </div>
+
+      <div class="mx-parte" id="mat-parte-editar" style="display:none;">
+        <div class="field-grid cols-3">
+          <div class="field"><label>Código</label><input id="m-codigo" placeholder="Ex.: ACO-050"></div>
+          <div class="field wide"><label>Descrição</label><input id="m-descricao" placeholder="Ex.: Aço 1045 redondo"></div>
+          <div class="field"><label>Tipo de material</label><select id="m-tipo"><option value="">— sem tipo —</option></select></div>
+          <div class="field"><label>Unidade</label>
+            <select id="m-unidade">
+              <option value="">— selecione —</option>
+              <option>kg</option><option>barra</option><option>peça</option><option>metro</option><option>chapa</option><option>litro</option><option>unidade</option>
+            </select>
+          </div>
+          <div class="field"><label>Estoque mínimo</label><input type="number" id="m-minimo" min="0" step="0.001" placeholder="0"></div>
+          <div class="field"><label>Localização</label><input id="m-localizacao" placeholder="Ex.: Prateleira A3"></div>
+          <div class="field wide"><label>Especificação / dimensão</label><input id="m-especificacao" placeholder="Ex.: Ø50 mm, barra de 3 m"></div>
+          <input type="hidden" id="m-ativo" value="true">
+          <span id="material-form-title" style="display:none;"></span>
+        </div>
+        <div class="materials-actions">
+          <a href="#" class="nf-excluir" id="mat-excluir" onclick="excluirMaterialAberto(); return false;">Excluir / inativar</a>
+          <div class="spacer"></div>
+          <button class="btn-primary btn-sm" onclick="salvarMaterialAberto()">Salvar material</button>
+        </div>
+      </div>
+
       <div id="hist-body"></div>
+    </div>
+  </div>
+
+  <!-- ==================== RETIRAR / DEVOLVER PELA OS (janela) ==================== -->
+  <div class="nf-modal" id="ret-modal" style="display:none;" onclick="if (event.target === this) fecharRetirada()">
+    <div class="nf-modal-box mx-box-pequeno">
+      <div class="nf-modal-head">
+        <h3 id="ret-title">Material para a OS</h3>
+        <button class="btn-secondary btn-sm" onclick="fecharRetirada()">✕</button>
+      </div>
+      <div class="mx-seg">
+        <label><input type="radio" name="ret-tipo" value="Retirada do estoque para OS" checked onchange="atualizarInfoRetirada()"> Retirar do estoque</label>
+        <label><input type="radio" name="ret-tipo" value="Sobra" onchange="atualizarInfoRetirada()"> Devolver sobra</label>
+      </div>
+      <div class="field"><label>Material</label><select id="mov-material" onchange="atualizarInfoRetirada()"></select></div>
+      <div class="field-grid">
+        <div class="field"><label>Quantidade</label><input type="number" id="mov-quantidade" min="0.001" step="0.001" oninput="atualizarInfoRetirada()"></div>
+        <div class="field"><label>Observação</label><input id="mov-observacao" placeholder="Opcional (ex.: Ø50 x 320 mm)"></div>
+      </div>
+      <div class="mov-saldo-info" id="mov-saldo-info"></div>
+      <div class="materials-actions"><button class="btn-warning" id="btn-registrar-mov" onclick="registrarRetirada()">Confirmar</button></div>
     </div>
   </div>
 
@@ -787,7 +703,7 @@
 <!-- Área de impressão -->
 <div id="print-area"></div>
 <script src="config.js?v=1.3.6"></script>
-<script src="js/app.js?v=1.5.1"></script>
-<script src="js/nf.js?v=1.5.1"></script>
+<script src="js/app.js?v=1.5.2"></script>
+<script src="js/nf.js?v=1.5.2"></script>
 </body>
 </html>
