@@ -681,3 +681,7 @@ tr.nf-detalhe td { border-top: 0; padding-top: 0; }
   .nf-cab .nf-forn { grid-column: span 2; }
   .nf-detalhe-grid { grid-template-columns: 1fr 1fr; }
 }
+
+.mx-botoes { display: flex; gap: 4px; }
+.mx-botoes .btn-danger, .mx-botoes .btn-success { padding: 4px 7px; }
+@media (max-width: 700px) { .mx-botoes .btn-secondary { display: none; } .mx-linha .mx-botoes .btn-sm { display: inline-block; } }
