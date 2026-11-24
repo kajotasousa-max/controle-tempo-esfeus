@@ -48,6 +48,13 @@ function separarOsItem_(r) {
   return o;
 }
 function osItem_(r) { const o = separarOsItem_(r); return o.os + (o.item ? '/' + o.item : ''); }
+/** Chave tolerante: sem espaços sobrando, sem diferença de caixa e sem zero à esquerda no item. */
+function chaveOS_(os, item) {
+  const o = String(os || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  let i = String(item || '').trim().toUpperCase();
+  if (/^\d+$/.test(i)) i = String(Number(i));
+  return o + (i ? '/' + i : '');
+}
 
 /** Campos da OS que viram colunas próprias na aba Servicos. O resto vai na coluna "extras". */
 const CAMPOS_SERVICO = ['os', 'it', 'cliente', 'oc', 'des', 'desc', 'qty', 'material', 'tratamento', 'emb', 'prazo', 'status', 'nf', 'dt'];
@@ -65,7 +72,7 @@ const TIPOS_SAIDA = ['Consumo na OS', 'Retirada do estoque para OS', 'Perda / de
 /** Registram a compra/uso mas não mexem no saldo (material comprado direto para a OS, despesas). */
 const TIPOS_NEUTROS = ['Compra direta para OS', 'Outros (sem efeito no estoque)'];
 function fator_(tipo) { return TIPOS_NEUTROS.indexOf(tipo) >= 0 ? 0 : (TIPOS_SAIDA.indexOf(tipo) >= 0 ? -1 : 1); }
-const VERSAO = '1.5.3';
+const VERSAO = '1.5.4';
 
 /* ======================= ACESSO ======================= */
 
@@ -224,6 +231,9 @@ function gravarServicos(itens) {
     } else {
       dados = { id: id, excluido: 'FALSE' };
       CAMPOS_SERVICO.forEach(c => { dados[c] = s[c]; });
+      // OS e item sem espaços sobrando (um espaço no fim impedia casar a OS com a inspeção)
+      dados.os = String(dados.os || '').replace(/\s+/g, ' ').trim();
+      dados.it = String(dados.it || '').trim();
       dados.etapas = JSON.stringify(Array.isArray(s.etapas) ? s.etapas : []);
       let imagem = s.imagem || '';
       if (String(imagem).indexOf('data:') === 0) imagem = salvarFoto(imagem, (s.os || 'sem OS') + ' peça', agora(), 0);
@@ -277,9 +287,9 @@ function etiquetaPorCodigo_(codigo) {
 function completarApontamentos_(lista) {
   if (!lista.some(a => !a.cliente || !a.descricao)) return lista;
   const porOS = {};
-  listarServicos().forEach(s => { if (!s.excluido) porOS[(s.os || '') + '/' + (s.it || '')] = s; });
+  listarServicos().forEach(s => { if (!s.excluido) porOS[chaveOS_(s.os, s.it)] = s; });
   return lista.map(a => {
-    const s = porOS[(a.os || '') + '/' + (a.item || '')];
+    const s = porOS[chaveOS_(a.os, a.item)];
     if (!s) return a;
     return Object.assign({}, a, { cliente: a.cliente || s.cliente, oc: a.oc || s.oc, descricao: a.descricao || s.desc });
   });
@@ -645,7 +655,7 @@ function atualizarSaldos_() {
 /** Mesma regra da aba "Análise por OS" do app. */
 function atualizarAnalise_() {
   const prazos = {};
-  listarServicos().forEach(s => { if (!s.excluido) prazos[(s.os || '') + (s.it ? '/' + s.it : '')] = s.prazo || ''; });
+  listarServicos().forEach(s => { if (!s.excluido) prazos[chaveOS_(s.os, s.it)] = s.prazo || ''; });
   const grupos = {};
   lerTudo('apontamentos').forEach(a => {
     a = separarOsItem_(a);
@@ -672,7 +682,7 @@ function atualizarAnalise_() {
       }
     });
     if (rodando) tempo += agoraMs - rodando;
-    const prazo = prazos[g.os + (g.item ? '/' + g.item : '')] || '';
+    const prazo = prazos[chaveOS_(g.os, g.item)] || '';
     const fimPrazo = prazo ? dataDe_(prazo + ' 23:59:59') : null;
     let situacao = 'Não iniciada';
     if (conclusao) situacao = fimPrazo && dataDe_(conclusao) > fimPrazo ? 'Entregue com atraso' : 'Concluída no prazo';
