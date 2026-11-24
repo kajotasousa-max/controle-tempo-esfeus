@@ -30,7 +30,7 @@ Os POSTs usam `Content-Type: text/plain;charset=utf-8` para evitar o preflight C
 | `Apontamento[]` (array) | Acrescenta os apontamentos da fila. Duplicados (`timestamp+os+operador+status`) são ignorados. |
 | `{ kind: "material", ... }` | Cria ou atualiza pelo `codigo` |
 | `{ kind: "movimentacao", ... }` | Acrescenta (sem NF). Saída sem saldo é recusada. Reenviar com o mesmo `id` não duplica. Retirada para OS ganha origem `SEM NF - MATERIAL DO ESTOQUE` |
-| `{ kind: "nf", nf: NotaFiscal, itens: ItemNF[] }` | Cria/atualiza a NF inteira pelo `id` e regrava uma movimentação por item (pelo id do item). Itens que saíram da NF e suas movimentações ficam marcados como excluídos. Cria o material que ainda não existe (`MAT-0001`…). Recusa se algum saldo ficar negativo, sem gravar nada. Responde `{ ok, nf, materiaisCriados }` |
+| `{ kind: "nf", nf: NotaFiscal, itens: ItemNF[] }` | Cria/atualiza a NF inteira pelo `id` e regrava uma movimentação por item (pelo id do item). Itens que saíram da NF e suas movimentações ficam marcados como excluídos. Cria o material que ainda não existe (`MAT-0001`…). `nf.os`/`nf.clientes` guardam só os vínculos diretos da NF; os de cada item ficam no item (o app mostra a soma). Item "Outros" só gera movimentação se tiver OS. Recusa se algum saldo ficar negativo, sem gravar nada. Responde `{ ok, nf, materiaisCriados }` |
 | `{ kind: "excluir-nf", id }` | Marca NF, itens e movimentações como excluídos, se o saldo permitir |
 | `{ kind: "checklist", ... }` | Acrescenta; fotos em data URL vão para o Drive e viram links |
 | `{ kind: "responsavel", ... }` | Cria ou atualiza pelo `nome` |

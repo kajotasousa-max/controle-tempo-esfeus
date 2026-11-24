@@ -136,8 +136,14 @@ async function fetchNfsFromSheets() {
     return true;
   } catch (e) { return false; }
 }
+let nfsAtualizarDeNovo = null;
+/** Busca materiais, movimentações e NFs. Se já houver uma busca em andamento, espera ela e busca de novo
+ *  (senão uma gravação feita no meio da busca só apareceria no próximo ciclo). */
 async function atualizarMateriaisENfs() {
-  if (nfsSincronizando) return;
+  if (nfsSincronizando) {
+    if (!nfsAtualizarDeNovo) nfsAtualizarDeNovo = new Promise(res => { const t = setInterval(() => { if (!nfsSincronizando) { clearInterval(t); nfsAtualizarDeNovo = null; res(atualizarMateriaisENfs()); } }, 150); });
+    return nfsAtualizarDeNovo;
+  }
   nfsSincronizando = true;
   materiaisSyncing = true;
   try { await Promise.all([fetchMateriaisFromSheets(), fetchNfsFromSheets()]); }
@@ -312,6 +318,7 @@ function nfAlterada() {
   return limpa(nfOriginal) !== limpa(nfEditando);
 }
 function fecharNf(forcar) {
+  if (nfSalvando && !forcar) { alert('Aguarde: a NF está sendo gravada na planilha.'); return; }
   if (!forcar && nfAlterada() && !confirm('Fechar sem salvar? As alterações desta NF serão perdidas.')) return;
   document.getElementById('nf-modal').style.display = 'none';
   document.body.classList.remove('modal-aberto');
@@ -483,6 +490,7 @@ function validarNf(nf) {
 }
 async function salvarNf() {
   if (nfSalvando || !nfEditando) return;
+  document.activeElement && document.activeElement.blur && document.activeElement.blur(); // aplica o campo que estava sendo digitado
   const nf = nfEditando;
   const erro = validarNf(nf);
   if (erro) { alert(erro); return; }
@@ -514,13 +522,16 @@ async function salvarNf() {
   alert('NF ' + r.nf.numero + ' salva.' + (r.materiaisCriados && r.materiaisCriados.length ? '\nMateriais cadastrados no estoque: ' + r.materiaisCriados.join(', ') + '.' : ''));
 }
 async function excluirNf() {
-  if (!nfOriginal) return;
+  if (!nfOriginal || nfSalvando) return;
   const comEstoque = nfOriginal.itens.some(i => tipoNf(i.tipo).estoque);
   if (!confirm('Excluir a NF ' + nfOriginal.numero + '?\n\n' + (comEstoque ? 'As entradas dela no estoque serão desfeitas. ' : '') +
     'Os itens e movimentações ficam guardados na planilha como excluídos (para auditoria), mas saem do saldo e do histórico.')) return;
-  const r = await postarPlanilha({ kind: 'excluir-nf', id: nfOriginal.id });
+  const id = nfOriginal.id;
+  nfSalvando = true;
+  const r = await postarPlanilha({ kind: 'excluir-nf', id });
+  nfSalvando = false;
   if (!r.ok) { alert('A NF não foi excluída.\n\n' + (r.erro || 'Erro desconhecido.')); return; }
-  notasFiscais = notasFiscais.filter(n => n.id !== nfOriginal.id);
+  notasFiscais = notasFiscais.filter(n => n.id !== id);
   salvarNfsLocal();
   fecharNf(true);
   await atualizarMateriaisENfs();
@@ -699,7 +710,7 @@ function renderMateriaisDaOS(s) {
   }
   const movs = movimentosMateriais.filter(m => movimentoDaOS(m, s))
     .sort((a, b) => String(a.timestamp || a.data).localeCompare(String(b.timestamp || b.data)));
-  const custoUso = m => fatorMovimentoMaterial(m.tipo) < 0 || m.tipo === 'Compra direta para OS' ? valorMovimento(m) : (m.tipo === 'Sobra' ? -valorMovimento(m) : 0);
+  const custoUso = m => fatorMovimentoMaterial(m.tipo) < 0 || TIPOS_NEUTROS_MAT.includes(m.tipo) ? valorMovimento(m) : (m.tipo === 'Sobra' ? -valorMovimento(m) : 0);
   const total = movs.reduce((t, m) => t + custoUso(m), 0);
   box.innerHTML =
     '<div class="os-materiais-head"><h4>Materiais da OS</h4><div class="spacer"></div>' +
@@ -709,7 +720,7 @@ function renderMateriaisDaOS(s) {
       ? '<table class="data os-mat-tab"><thead><tr><th>Data</th><th>Como</th><th>Material</th><th>Qtd.</th><th>Origem</th><th style="text-align:right;">Custo</th></tr></thead><tbody>' +
         movs.map(m => {
           const mat = materialPorId(m.materialId);
-          return '<tr><td>' + escMelhoria(fmtDate(m.data)) + '</td><td>' + escMelhoria(m.tipo === 'Compra direta para OS' ? 'Comprado p/ a OS' : m.tipo) + '</td>' +
+          return '<tr><td>' + escMelhoria(fmtDate(m.data)) + '</td><td>' + escMelhoria(m.tipo === 'Compra direta para OS' ? 'Comprado p/ a OS' : m.tipo === 'Outros (sem efeito no estoque)' ? 'Despesa / serviço' : m.tipo) + '</td>' +
             '<td>' + escMelhoria(mat ? mat.codigo + ' — ' + mat.descricao : (m.observacao || '').split('|')[0]) + '</td>' +
             '<td>' + numeroMaterial(m.quantidade) + ' ' + escMelhoria(mat ? mat.unidade : '') + '</td><td>' + escMelhoria(origemMovimento(m)) + '</td>' +
             '<td style="text-align:right;">' + (valorMovimento(m) ? moedaNf(custoUso(m)) : '—') + '</td></tr>';

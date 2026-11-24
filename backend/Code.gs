@@ -816,11 +816,13 @@ function gravarMaterial_(body) {
 }
 
 function renomearCodigoMovimentos_(de, para) {
-  const linhas = linhasPorChave_('movimentacoes', 'codigo', [de]);
-  if (!linhas.length) return;
-  const sh = aba_('movimentacoes');
-  const col = ABAS.movimentacoes.colunas.indexOf('codigo') + 1;
-  linhas.forEach(r => sh.getRange(r, col).setValue(para));
+  ['movimentacoes', 'itensNf'].forEach(tipo => {
+    const linhas = linhasPorChave_(tipo, 'codigo', [de]);
+    if (!linhas.length) return;
+    const sh = aba_(tipo);
+    const col = ABAS[tipo].colunas.indexOf('codigo') + 1;
+    linhas.forEach(r => sh.getRange(r, col).setValue(para));
+  });
 }
 
 /**
@@ -833,7 +835,8 @@ function excluirMaterial_(body) {
   if (!codigo) throw new Error('Campo "codigo" é obrigatório.');
   const linhas = linhasPorChave_('materiais', 'codigo', [codigo]);
   if (!linhas.length) return { removido: true };
-  if (!linhasPorChave_('movimentacoes', 'codigo', [codigo]).length) {
+  const k = chaveCodigo_(codigo);
+  if (!listarMovimentacoes_().some(m => chaveCodigo_(m.codigo) === k)) {
     apagarLinhas_('materiais', linhas);
     return { removido: true };
   }
@@ -944,7 +947,7 @@ function proximoCodigoMaterial_(usados) {
  * Acha o material do item (pelo código ou pela descrição). Itens que entram no estoque e não
  * têm material cadastrado criam o cadastro sozinhos: o usuário não precisa cadastrar antes.
  */
-function resolverMateriais_(itens) {
+function resolverMateriais_(itens, movsDoItem) {
   const sh = aba_('materiais');
   const cols = ABAS.materiais.colunas;
   const lista = lerComLinhas_('materiais');
@@ -954,9 +957,11 @@ function resolverMateriais_(itens) {
   itens.forEach(it => {
     const regra = TIPOS_ITEM_NF[it.tipo];
     let m = it.codigo ? porCodigo[chaveCodigo_(it.codigo)] : null;
+    // Código que não existe mais (material renomeado com a NF aberta): fica com o material já gravado para o item
+    if (!m && movsDoItem && movsDoItem[it.id]) m = porCodigo[chaveCodigo_(movsDoItem[it.id])] || null;
     if (!m) m = porDescricao[chaveTexto_(it.descricao)] || null;
     if (!m && regra.estoque) {
-      m = { codigo: it.codigo && !porCodigo[chaveCodigo_(it.codigo)] ? String(it.codigo).trim() : proximoCodigoMaterial_(porCodigo),
+      m = { codigo: proximoCodigoMaterial_(porCodigo),
             descricao: it.descricao, especificacao: '', unidade: it.unidade || 'unidade', estoqueMinimo: '0', localizacao: '', ativo: 'TRUE', atualizadoEm: agora() };
       porCodigo[chaveCodigo_(m.codigo)] = m; porDescricao[chaveTexto_(m.descricao)] = m;
       criados.push(m);
@@ -1030,8 +1035,9 @@ function gravarNf_(body) {
   // Movimentações: confere o saldo ANTES de gravar qualquer coisa
   const todas = lerComLinhas_('movimentacoes').filter(m => !excluido_(m));
   const daNf = todas.filter(m => m.nfId === id);
-  const materiais = resolverMateriais_(itens);
-  const novas = itens.filter(it => TIPOS_ITEM_NF[it.tipo].mov).map(it => {
+  const materiais = resolverMateriais_(itens, daNf.reduce((o, m) => (o[m.itemNfId] = m.codigo, o), {}));
+  // "Outros" (frete, serviço, despesa) só vira movimentação quando é custo de uma OS
+  const novas = itens.filter(it => TIPOS_ITEM_NF[it.tipo].mov && (TIPOS_ITEM_NF[it.tipo].estoque || it.os || TIPOS_ITEM_NF[it.tipo].exigeOS)).map(it => {
     const atual = daNf.find(m => m.itemNfId === it.id);
     const hora = atual && /^\d{4}-\d{2}-\d{2} /.test(atual.timestamp) ? atual.timestamp.slice(11) : agora().slice(11);
     return { _linha: atual ? atual._linha : 0, id: atual && atual.id ? atual.id : 'MV-' + it.id,
@@ -1043,13 +1049,14 @@ function gravarNf_(body) {
   conferirSaldos_(todas, daNf, novas);
   materiais.gravar();
 
-  // Cabeçalho (OS e clientes = os informados + os dos itens)
-  const unir = (lista, extra) => lista.concat(extra).map(x => String(x || '').trim()).filter((x, i, a) => x && a.indexOf(x) === i);
+  // Cabeçalho: guarda só as OS/clientes vinculados diretamente à NF. Os dos itens ficam nos itens
+  // (o app mostra a soma dos dois); assim, remover um item não deixa a OS dele presa na NF.
+  const unir = lista => lista.map(x => String(x || '').trim()).filter((x, i, a) => x && a.indexOf(x) === i);
   const linhasNf = lerComLinhas_('notas');
   const atualNf = linhasNf.find(n => n.id === id);
   const cab = { _linha: atualNf ? atualNf._linha : 0, id: id, numero: numeroNf, data: dataNf, fornecedor: fornecedor,
-    os: JSON.stringify(unir(Array.isArray(nf.os) ? nf.os : [], itens.map(i => i.os))),
-    clientes: JSON.stringify(unir(Array.isArray(nf.clientes) ? nf.clientes : [], itens.map(i => i.cliente))),
+    os: JSON.stringify(unir(Array.isArray(nf.os) ? nf.os : [])),
+    clientes: JSON.stringify(unir(Array.isArray(nf.clientes) ? nf.clientes : [])),
     observacao: String(nf.observacao || '').trim(), criadoEm: atualNf && atualNf.criadoEm ? atualNf.criadoEm : agora(),
     atualizadoEm: agora(), excluido: 'FALSE' };
   gravarObjetos_('notas', [cab]);
