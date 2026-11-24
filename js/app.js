@@ -161,11 +161,12 @@ function salvarMaterial() {
     localizacao: document.getElementById('m-localizacao').value.trim(),
     ativo: document.getElementById('m-ativo').value !== 'false'
   };
+  let codigoAnterior = '';
   if (currentMaterialId === null) {
     materiaisCadastro.push(Object.assign({ id: nextMaterialId++ }, dados));
   } else {
     const material = materialPorId(currentMaterialId);
-    if (material) Object.assign(material, dados);
+    if (material) { codigoAnterior = material.codigo || ''; Object.assign(material, dados); }
   }
   saveMateriais();
   atualizarSelectMateriais();
@@ -179,7 +180,7 @@ function salvarMaterial() {
     ? materiaisCadastro[materiaisCadastro.length - 1]
     : materialPorId(currentMaterialId);
   if (materialSalvo && getSyncUrl()) {
-    enviarMaterialSheets(materialSalvo).then(resp => {
+    enviarMaterialSheets(materialSalvo, codigoAnterior).then(resp => {
       if (resp.ok) console.log('✓ Material sincronizado com Sheets');
       else alert('Material salvo localmente. Falha no Sheets: ' + (resp.erro || 'erro'));
     });
@@ -189,23 +190,40 @@ function salvarMaterial() {
 function excluirMaterial(id) {
   const material = materialPorId(id);
   if (!material) return;
-  if (movimentosMateriais.some(m => String(m.materialId) === String(id))) {
-    alert('Este material já tem movimentações. Marque-o como Inativo para preservar o histórico.');
-    preencherFormMaterial(material);
-    return;
+  const nome = material.codigo || material.descricao;
+  const temMovimento = movimentosMateriais.some(m => String(m.materialId) === String(id));
+  if (temMovimento) {
+    // Com movimentações não dá para apagar (o saldo e o histórico dependem dele): só inativar.
+    if (!confirm('O material ' + nome + ' tem movimentações registradas e não pode ser apagado.\n\n' +
+      'Deseja INATIVAR? Ele sai da lista de estoque e dos campos de seleção, mas o histórico fica guardado ' +
+      '(para ver depois, use o filtro "Inativos").')) return;
+    material.ativo = false;
+  } else {
+    if (!confirm('Apagar o material ' + nome + '? Esta ação não pode ser desfeita.')) return;
+    materiaisCadastro = materiaisCadastro.filter(m => m.id !== id);
   }
-  if (!confirm('Excluir o material ' + (material.codigo || material.descricao) + '?')) return;
-  materiaisCadastro = materiaisCadastro.filter(m => m.id !== id);
   if (currentMaterialId === id) limparFormMaterial();
   saveMateriais();
   atualizarSelectMateriais();
+  atualizarSelectMaterialServico();
   renderMateriais();
-
-  // No Sheets, marca como inativo (não deleta pra preservar histórico)
   if (getSyncUrl()) {
-    const materialInativo = Object.assign({}, material, { ativo: false });
-    enviarMaterialSheets(materialInativo).then(resp => {
-      if (!resp.ok) console.warn('Falha ao inativar no Sheets:', resp.erro);
+    excluirMaterialSheets(material).then(resp => {
+      if (!resp.ok) alert('Alterado aqui, mas falhou na planilha: ' + (resp.erro || 'erro') + '. Tente de novo em instantes.');
+    });
+  }
+}
+function reativarMaterial(id) {
+  const material = materialPorId(id);
+  if (!material) return;
+  material.ativo = true;
+  saveMateriais();
+  atualizarSelectMateriais();
+  atualizarSelectMaterialServico();
+  renderMateriais();
+  if (getSyncUrl()) {
+    enviarMaterialSheets(material).then(resp => {
+      if (!resp.ok) alert('Reativado aqui, mas falhou na planilha: ' + (resp.erro || 'erro'));
     });
   }
 }
@@ -263,6 +281,7 @@ function renderMateriais() {
     if (filtro === 'baixo' && !(m.ativo !== false && minimo > 0 && saldo <= minimo)) return false;
     if (filtro === 'sem' && saldo > 0) return false;
     if (filtro === 'inativo' && m.ativo !== false) return false;
+    if (filtro !== 'inativo' && filtro !== 'todos' && m.ativo === false) return false;
     if (search) {
       const hay = [m.codigo, m.descricao, m.especificacao, m.unidade, m.localizacao].join(' ').toLowerCase();
       if (!hay.includes(search)) return false;
@@ -287,7 +306,9 @@ function renderMateriais() {
         '<td>' + numeroMaterial(minimo) + '</td>' +
         '<td>' + escMelhoria(m.localizacao || '—') + '</td>' +
         '<td class="' + (m.ativo === false ? 'material-inactive' : '') + '">' + (m.ativo === false ? 'Inativo' : (minimo > 0 && saldo <= minimo ? 'Comprar' : 'OK')) + '</td>' +
-        '<td class="actions"><button class="btn-primary btn-sm" onclick="preencherFormMaterial(materialPorId(' + Number(m.id) + '))">Editar</button> <button class="btn-danger btn-sm" onclick="excluirMaterial(' + Number(m.id) + ')">✕</button></td>' +
+        '<td class="actions">' + (m.ativo === false
+          ? '<button class="btn-secondary btn-sm" onclick="reativarMaterial(' + Number(m.id) + ')" title="Volta para o estoque e para os campos de seleção">Reativar</button>'
+          : '<button class="btn-primary btn-sm" onclick="preencherFormMaterial(materialPorId(' + Number(m.id) + '))">Editar</button> <button class="btn-danger btn-sm" onclick="excluirMaterial(' + Number(m.id) + ')" title="Apaga (sem movimentações) ou inativa (com movimentações)">✕</button>') + '</td>' +
       '</tr>';
     }).join('');
   }
@@ -1641,11 +1662,20 @@ async function fetchMateriaisFromSheets() {
       if (Number(m.id) > maxId) maxId = Number(m.id);
     });
 
-    materiaisCadastro = (dataMat.materiais || []).map(m => {
-      const cod = String(m.codigo || '').toUpperCase();
+    const porCodigo = {};
+    materiaisCadastro = [];
+    (dataMat.materiais || []).forEach(m => {
+      const cod = String(m.codigo || '').trim().toUpperCase();
+      if (!cod) return;
+      const ativo = m.ativo !== false;
+      if (porCodigo[cod]) {
+        // Linha repetida na planilha: mostra uma só (ativa se alguma estiver ativa)
+        if (ativo && porCodigo[cod].ativo === false) Object.assign(porCodigo[cod], { descricao: m.descricao || '', especificacao: m.especificacao || '', unidade: m.unidade || '', minimo: Number(m.estoqueMinimo) || 0, localizacao: m.localizacao || '', ativo: true });
+        return;
+      }
       let id = codigoParaId[cod];
       if (!id) { id = ++maxId; codigoParaId[cod] = id; }
-      return {
+      materiaisCadastro.push(porCodigo[cod] = {
         id: id,
         codigo: m.codigo || '',
         descricao: m.descricao || '',
@@ -1653,8 +1683,8 @@ async function fetchMateriaisFromSheets() {
         unidade: m.unidade || '',
         minimo: Number(m.estoqueMinimo) || 0,
         localizacao: m.localizacao || '',
-        ativo: m.ativo !== false
-      };
+        ativo: ativo
+      });
     });
     nextMaterialId = maxId + 1;
 
@@ -1663,7 +1693,7 @@ async function fetchMateriaisFromSheets() {
     movimentosMateriais.forEach(m => { if (Number(m.id) > maxMovId) maxMovId = Number(m.id); });
 
     movimentosMateriais = (dataMov.movimentacoes || []).map((mv, i) => {
-      const cod = String(mv.codigo || '').toUpperCase();
+      const cod = String(mv.codigo || '').trim().toUpperCase();
       const materialId = codigoParaId[cod] || 0;
       const ts = (mv.timestamp || '').split(' ')[0]; // só a data
       return {
@@ -1702,11 +1732,12 @@ async function fetchMateriaisFromSheets() {
 function normalizarTipoParaSheets(tipoLocal) { return tipoLocal; }
 function normalizarTipoDoSheets(tipoSheets) { return tipoSheets; }
 
-async function enviarMaterialSheets(material) {
+async function enviarMaterialSheets(material, codigoAnterior) {
   const url = getSyncUrl();
   if (!url) return { ok: false, erro: 'URL Apps Script não configurada' };
   const payload = {
     kind: 'material',
+    codigoAnterior: codigoAnterior || '',
     codigo: material.codigo,
     descricao: material.descricao,
     especificacao: material.especificacao,
@@ -1723,6 +1754,25 @@ async function enviarMaterialSheets(material) {
       redirect: 'follow'
     });
     return JSON.parse(await resp.text());
+  } catch (err) { return { ok: false, erro: err.message }; }
+}
+
+async function excluirMaterialSheets(material) {
+  const url = getSyncUrl();
+  if (!url) return { ok: false, erro: 'URL Apps Script não configurada' };
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ kind: 'excluir-material', codigo: material.codigo }),
+      redirect: 'follow'
+    });
+    const data = JSON.parse(await resp.text());
+    // Apps Script antigo (antes da 1.4.1) não conhece a exclusão: marca como inativo, como antes.
+    if (!data.ok && /kind desconhecido/i.test(data.erro || '')) {
+      return enviarMaterialSheets(Object.assign({}, material, { ativo: false }));
+    }
+    return data;
   } catch (err) { return { ok: false, erro: err.message }; }
 }
 

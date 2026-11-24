@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.1] — 2026-11-24
+
+### Correções (Materiais / Estoque)
+- **Material duplicado que não saía da lista**: quando a aba `Materiais` tinha duas linhas com o mesmo código, o app mostrava as duas e só conseguia alterar a primeira. Agora o app mostra uma só, e qualquer gravação ou exclusão desse código deixa uma única linha na planilha.
+- **Trocar o código de um material** atualiza a linha existente (antes criava outra linha e a antiga ficava) e leva as movimentações para o código novo.
+- **Botão ✕**: material sem movimentações é apagado de verdade, também da planilha (antes era marcado como inativo e voltava na próxima atualização). Material com movimentações pede confirmação para **inativar**, explicando o porquê.
+
+### Alterado
+- A lista do estoque mostra só materiais ativos. Os inativos ficam no filtro **Inativos (arquivados)**, com o botão **Reativar**; o filtro **Todos, inclusive inativos** mostra tudo.
+- Apps Script 1.4.1: nova ação `excluir-material`. O app continua funcionando com o Apps Script antigo, mas a exclusão real e a limpeza de duplicados só valem depois de atualizar o Apps Script.
+
 ## [1.4.0] — 2026-11-17
 
 ### Alterado

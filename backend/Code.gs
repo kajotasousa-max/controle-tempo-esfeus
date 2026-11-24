@@ -120,8 +120,8 @@ function doGet(e) {
       case 'list-checklists':    return json({ ok: true, checklists: listarChecklists() });
       case 'list-responsaveis':  return json({ ok: true, responsaveis: listarAtivos('responsaveis') });
       case 'list-fornecedores':  return json({ ok: true, fornecedores: listarAtivos('fornecedores') });
-      case 'versao':             return json({ ok: true, versao: '1.3.6', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
-      case 'recursos':           return json({ ok: true, versao: '1.3.6', etiqueta: true });
+      case 'versao':             return json({ ok: true, versao: '1.4.1', servicos: true, item: true, etiqueta: true, nivel: nivelDe_(e.parameter.k) });
+      case 'recursos':           return json({ ok: true, versao: '1.4.1', etiqueta: true });
       case 'etiqueta':           return json(etiquetaPorCodigo_(e.parameter.t));
       default:                   return json({ ok: false, erro: 'Ação desconhecida: ' + action });
     }
@@ -148,7 +148,8 @@ function doPost(e) {
       resposta = { ok: true };
       switch (body.kind) {
         case 'servicos':     resposta.servicos = gravarServicos(body.itens || []); break;
-        case 'material':     upsert('materiais', 'codigo', body, { atualizadoEm: agora() }); break;
+        case 'material':     resposta.material = gravarMaterial_(body); break;
+        case 'excluir-material': Object.assign(resposta, excluirMaterial_(body)); break;
         case 'movimentacao': anexar('movimentacoes', body); break;
         case 'checklist':    gravarChecklist(body); break;
         case 'responsavel':  upsert('responsaveis', 'nome', body, { atualizadoEm: agora() }); break;
@@ -733,6 +734,81 @@ function upsert(tipo, colChave, obj, extras) {
     }
   }
   sh.appendRow(linha);
+}
+
+/* ======================= MATERIAIS ======================= */
+
+/** Linhas (base 2) da aba cujo valor na coluna-chave bate com algum dos códigos (sem diferenciar maiúsculas). */
+function linhasPorChave_(tipo, colChave, codigos) {
+  const sh = aba_(tipo);
+  const idx = ABAS[tipo].colunas.indexOf(colChave);
+  const alvos = codigos.map(c => String(c || '').trim().toUpperCase()).filter(Boolean);
+  const n = sh.getLastRow() - 1;
+  if (n < 1 || !alvos.length) return [];
+  return sh.getRange(2, idx + 1, n, 1).getDisplayValues()
+    .map((l, i) => alvos.indexOf(String(l[0]).trim().toUpperCase()) >= 0 ? i + 2 : 0)
+    .filter(Boolean);
+}
+
+/** Apaga linhas de baixo para cima (para os índices não mudarem no meio). */
+function apagarLinhas_(tipo, linhas) {
+  const sh = aba_(tipo);
+  linhas.slice().sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
+}
+
+/**
+ * Grava o material numa única linha. Se o código mudou (codigoAnterior), atualiza a
+ * linha antiga em vez de criar outra e leva as movimentações para o código novo.
+ * Linhas repetidas do mesmo código são removidas, ficando só uma.
+ */
+function gravarMaterial_(body) {
+  const codigo = String(body.codigo || '').trim();
+  if (!codigo) throw new Error('Campo "codigo" é obrigatório.');
+  const anterior = String(body.codigoAnterior || '').trim();
+  const renomeou = anterior && anterior.toUpperCase() !== codigo.toUpperCase();
+  if (renomeou && linhasPorChave_('materiais', 'codigo', [codigo]).length && linhasPorChave_('materiais', 'codigo', [anterior]).length) {
+    throw new Error('Já existe outro material com o código ' + codigo + '.');
+  }
+  const cols = ABAS.materiais.colunas;
+  const dados = Object.assign({}, body, { codigo: codigo, atualizadoEm: agora() });
+  const linha = cols.map(c => texto(dados[c]));
+  const linhas = linhasPorChave_('materiais', 'codigo', renomeou ? [anterior, codigo] : [codigo]);
+  const sh = aba_('materiais');
+  if (!linhas.length) { sh.appendRow(linha); return { codigo: codigo }; }
+  sh.getRange(linhas[0], 1, 1, cols.length).setValues([linha]);
+  apagarLinhas_('materiais', linhas.slice(1));
+  if (renomeou) renomearCodigoMovimentos_(anterior, codigo);
+  return { codigo: codigo, duplicadasRemovidas: linhas.length - 1 };
+}
+
+function renomearCodigoMovimentos_(de, para) {
+  const linhas = linhasPorChave_('movimentacoes', 'codigo', [de]);
+  if (!linhas.length) return;
+  const sh = aba_('movimentacoes');
+  const col = ABAS.movimentacoes.colunas.indexOf('codigo') + 1;
+  linhas.forEach(r => sh.getRange(r, col).setValue(para));
+}
+
+/**
+ * Sem movimentações: apaga o material da planilha (todas as linhas do código).
+ * Com movimentações: não apaga (o saldo e o histórico dependem dele); deixa uma
+ * linha só, marcada como inativa.
+ */
+function excluirMaterial_(body) {
+  const codigo = String(body.codigo || '').trim();
+  if (!codigo) throw new Error('Campo "codigo" é obrigatório.');
+  const linhas = linhasPorChave_('materiais', 'codigo', [codigo]);
+  if (!linhas.length) return { removido: true };
+  if (!linhasPorChave_('movimentacoes', 'codigo', [codigo]).length) {
+    apagarLinhas_('materiais', linhas);
+    return { removido: true };
+  }
+  const sh = aba_('materiais');
+  const cols = ABAS.materiais.colunas;
+  sh.getRange(linhas[0], cols.indexOf('ativo') + 1).setValue('FALSE');
+  sh.getRange(linhas[0], cols.indexOf('atualizadoEm') + 1).setValue(agora());
+  apagarLinhas_('materiais', linhas.slice(1));
+  return { inativado: true };
 }
 
 function pastaFotos_() {
