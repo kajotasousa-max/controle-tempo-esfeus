@@ -240,8 +240,11 @@ function renderMateriais() {
       '<div class="mx-nome">' + escMelhoria(m.descricao || m.codigo) + '<small>' + escMelhoria(m.codigo) + (m.ativo === false ? ' · inativo' : '') + '</small></div>' +
       '<div>' + (m.tipo ? '<span class="tipo-mat-tag">' + escMelhoria(m.tipo) + '</span>' : '') + '</div>' +
       '<div class="mx-saldo ' + (comprar ? 'material-low' : 'material-ok') + '">' + numeroMaterial(saldo) + ' ' + escMelhoria(m.unidade || '') + (comprar ? ' · comprar' : '') + '</div>' +
-      '<button class="btn-secondary btn-sm" onclick="event.stopPropagation(); abrirMaterial(' + Number(m.id) + ')">Ver</button>' +
-    '</div>';
+      '<div class="mx-botoes"><button class="btn-secondary btn-sm" onclick="event.stopPropagation(); abrirMaterial(' + Number(m.id) + ')">Ver</button>' +
+      (m.ativo === false
+        ? '<button class="btn-success btn-sm" title="Reativar" onclick="event.stopPropagation(); excluirDaLista(' + Number(m.id) + ')">↺</button>'
+        : '<button class="btn-danger btn-sm" title="Excluir (ou inativar, se tiver movimentações)" onclick="event.stopPropagation(); excluirDaLista(' + Number(m.id) + ')">🗑</button>') +
+      '</div></div>';
   }).join('');
   renderNfs();
 }
@@ -726,6 +729,13 @@ async function salvarAjusteMaterial() {
 function salvarMaterialAberto() {
   if (!salvarMaterial()) return;   // valida, grava no navegador e envia para a planilha
   fecharMaterial();
+  renderMateriais();
+}
+/** Botão 🗑 / ↺ da própria lista do estoque. */
+function excluirDaLista(id) {
+  const m = materialPorId(id);
+  if (!m) return;
+  if (m.ativo === false) reativarMaterial(id); else excluirMaterial(id);
   renderMateriais();
 }
 function excluirMaterialAberto() {
