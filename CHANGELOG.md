@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.5.3] — 2026-11-24
+
+### Correções (Cadastros › Tipos de material)
+- **Editar** agora funciona na própria linha: troca nome e observação e salva com Enter. Renomear não cria mais um tipo novo: as OS e os materiais do estoque que usavam o nome antigo passam para o nome novo.
+- Cadastro, edição e inativação aparecem na hora; a planilha é gravada em segundo plano (se falhar, a tela volta e avisa).
+- Tipo repetido (mesmo nome com outra caixa ou acento) é recusado.
+
+### Apps Script 1.5.2
+- Renomear tipo de material atualiza a linha existente e os materiais do estoque.
+- Responsáveis, fornecedores e tipos de material respondem sem recalcular os painéis da planilha (bem mais rápido).
+
 ## [1.5.2] — 2026-11-24
 
 ### Alterado — aba Materiais e NF enxuta

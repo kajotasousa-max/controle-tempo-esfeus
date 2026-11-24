@@ -65,7 +65,7 @@ const TIPOS_SAIDA = ['Consumo na OS', 'Retirada do estoque para OS', 'Perda / de
 /** Registram a compra/uso mas não mexem no saldo (material comprado direto para a OS, despesas). */
 const TIPOS_NEUTROS = ['Compra direta para OS', 'Outros (sem efeito no estoque)'];
 function fator_(tipo) { return TIPOS_NEUTROS.indexOf(tipo) >= 0 ? 0 : (TIPOS_SAIDA.indexOf(tipo) >= 0 ? -1 : 1); }
-const VERSAO = '1.5.1';
+const VERSAO = '1.5.2';
 
 /* ======================= ACESSO ======================= */
 
@@ -168,12 +168,15 @@ function doPost(e) {
         case 'checklist':    gravarChecklist(body); break;
         case 'responsavel':  upsert('responsaveis', 'nome', body, { atualizadoEm: agora() }); break;
         case 'fornecedor':   upsert('fornecedores', 'nome', body, { atualizadoEm: agora() }); break;
-        case 'tipo-material': upsert('tiposMaterial', 'nome', body, { atualizadoEm: agora() }); break;
+        case 'tipo-material': Object.assign(resposta, gravarTipoMaterial_(body)); break;
         default:             return json({ ok: false, erro: 'kind desconhecido: ' + body.kind });
       }
     }
     SpreadsheetApp.flush();
-    atualizarPaineis_();
+    // Cadastros simples não mexem nos painéis: responder logo deixa a tela rápida
+    const semPaineis = !Array.isArray(body) && ['tipo-material', 'responsavel', 'fornecedor'].indexOf(body.kind) >= 0;
+    if (!semPaineis) atualizarPaineis_();
+    else if (resposta.renomeado) { try { atualizarSaldos_(); } catch (err) { console.warn('Saldos: ' + err); } }
     return json(resposta);
   } catch (err) {
     return json({ ok: false, erro: String(err && err.message || err) });
@@ -1118,6 +1121,31 @@ function gravarMovimentacao_(body) {
   m.atualizadoEm = agora();
   gravarObjetos_('movimentacoes', [m]);
   return { id: m.id };
+}
+
+/* ======================= TIPOS DE MATERIAL ======================= */
+/**
+ * Cria/atualiza o tipo pelo nome. Com nomeAnterior diferente, RENOMEIA a linha existente
+ * (em vez de criar outra) e troca o tipo nos materiais do estoque que usavam o nome antigo.
+ */
+function gravarTipoMaterial_(body) {
+  const nome = String(body.nome || '').trim().replace(/\s+/g, ' ');
+  if (!nome) throw new Error('Informe o tipo de material.');
+  const anterior = String(body.nomeAnterior || '').trim();
+  const dados = { nome: nome, observacao: body.observacao || '', ativo: body.ativo === false || String(body.ativo).toUpperCase() === 'FALSE' ? 'FALSE' : 'TRUE', atualizadoEm: agora() };
+  if (!anterior || chaveTexto_(anterior) === chaveTexto_(nome) && anterior === nome) {
+    upsert('tiposMaterial', 'nome', dados);
+    return { tipo: dados };
+  }
+  const linhas = lerComLinhas_('tiposMaterial');
+  const atual = linhas.find(t => String(t.nome).trim() === anterior) || linhas.find(t => chaveCodigo_(t.nome) === chaveCodigo_(anterior));
+  const outro = linhas.find(t => t !== atual && chaveCodigo_(t.nome) === chaveCodigo_(nome));
+  if (outro) throw new Error('Já existe o tipo "' + outro.nome + '".');
+  if (!atual) { upsert('tiposMaterial', 'nome', dados); return { tipo: dados }; }
+  gravarObjetos_('tiposMaterial', [Object.assign(atual, dados)]);
+  const mats = lerComLinhas_('materiais').filter(m => chaveCodigo_(m.tipo) === chaveCodigo_(anterior));
+  if (mats.length) gravarObjetos_('materiais', mats.map(m => Object.assign(m, { tipo: nome, atualizadoEm: agora() })));
+  return { tipo: dados, renomeado: true, materiaisAtualizados: mats.length };
 }
 
 /* ======================= UTILITÁRIOS ======================= */

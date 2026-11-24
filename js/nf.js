@@ -897,44 +897,84 @@ function limparFormTipoMaterial() {
   document.getElementById('ftm-ativo').value = 'true';
   document.getElementById('ftm-feedback').textContent = '';
 }
+function avisoTipo(txt, cor) { const fb = document.getElementById('ftm-feedback'); fb.textContent = txt; fb.style.color = cor; }
+function depoisDeMudarTipos() { localStorage.setItem(chave('tipos_material'), JSON.stringify(tiposMaterialRemoto || [])); renderTiposMaterial(); atualizarSelectsTipoMaterial(); }
+
+/** Cadastro novo: aparece na lista na hora; a planilha é gravada em segundo plano. */
 async function salvarTipoMaterial() {
   const nome = document.getElementById('ftm-nome').value.trim().replace(/\s+/g, ' ');
   if (!nome) { alert('Informe o tipo de material (ex.: SAE 1045).'); return; }
-  const igual = (tiposMaterialRemoto || []).find(t => chaveTexto(t.nome) === chaveTexto(nome) && t.nome !== nome);
-  if (igual && !confirm('Já existe "' + igual.nome + '". Cadastrar "' + nome + '" mesmo assim?')) return;
-  const fb = document.getElementById('ftm-feedback');
-  fb.textContent = '⏳ salvando...'; fb.style.color = '#666';
-  const r = await postarPlanilha({ kind: 'tipo-material', nome, observacao: document.getElementById('ftm-observacao').value.trim(),
-    ativo: document.getElementById('ftm-ativo').value !== 'false' });
+  const lista = tiposMaterialRemoto || (tiposMaterialRemoto = []);
+  const igual = lista.find(t => chaveTexto(t.nome) === chaveTexto(nome));
+  if (igual) { alert('"' + igual.nome + '" já está cadastrado. Para mudar, use Editar na lista.'); return; }
+  const novo = { nome, observacao: document.getElementById('ftm-observacao').value.trim(), ativo: document.getElementById('ftm-ativo').value !== 'false' };
+  lista.push(novo);
+  depoisDeMudarTipos();
+  limparFormTipoMaterial();
+  avisoTipo('✓ salvo', '#16a34a');
+  document.getElementById('ftm-nome').focus();
+  const r = await postarPlanilha(Object.assign({ kind: 'tipo-material' }, novo));
   if (!r.ok) {
     if (/kind desconhecido/i.test(r.erro || '')) backendSemTipos = true;
-    fb.textContent = '✗ ' + (backendSemTipos ? 'atualize o Apps Script para a versão 1.5.1' : (r.erro || 'erro')); fb.style.color = '#dc2626'; return;
+    tiposMaterialRemoto = lista.filter(t => t !== novo);
+    depoisDeMudarTipos();
+    avisoTipo('✗ "' + nome + '" não foi salvo: ' + (backendSemTipos ? 'atualize o Apps Script' : (r.erro || 'erro')), '#dc2626');
   }
-  fb.textContent = '✓ salvo'; fb.style.color = '#16a34a';
-  await fetchTiposMaterial();
-  renderTiposMaterial();
-  atualizarSelectsTipoMaterial();
-  limparFormTipoMaterial();
-  document.getElementById('ftm-nome').focus();
 }
+
+/* edição na própria linha da tabela */
+let tipoEditando = null;
 function editarTipoMaterial(i) {
+  tipoEditando = i;
+  renderTiposMaterial();
+  const inp = document.getElementById('ftm-ed-nome');
+  if (inp) { inp.focus(); inp.select(); }
+}
+function cancelarEdicaoTipo() { tipoEditando = null; renderTiposMaterial(); }
+async function salvarEdicaoTipo(i) {
   const t = (tiposMaterialRemoto || [])[i];
   if (!t) return;
-  document.getElementById('ftm-nome').value = t.nome || '';
-  document.getElementById('ftm-observacao').value = t.observacao || '';
-  document.getElementById('ftm-ativo').value = t.ativo === false ? 'false' : 'true';
-  document.getElementById('ftm-nome').focus();
+  const antigo = t.nome;
+  const nome = document.getElementById('ftm-ed-nome').value.trim().replace(/\s+/g, ' ');
+  const observacao = document.getElementById('ftm-ed-obs').value.trim();
+  if (!nome) { alert('O nome não pode ficar vazio.'); return; }
+  const outro = tiposMaterialRemoto.find((x, j) => j !== i && chaveTexto(x.nome) === chaveTexto(nome));
+  if (outro) { alert('Já existe o tipo "' + outro.nome + '".'); return; }
+  const renomeou = nome !== antigo;
+  const osAfetadas = renomeou ? servicos.filter(s => !s.excluido && String(s.material || '').trim() === antigo) : [];
+  const matsAfetados = renomeou ? materiaisCadastro.filter(m => m.tipo === antigo) : [];
+  if (renomeou && (osAfetadas.length || matsAfetados.length) &&
+      !confirm('Trocar "' + antigo + '" por "' + nome + '"?\n\n' +
+        (osAfetadas.length ? osAfetadas.length + ' OS ' : '') + (osAfetadas.length && matsAfetados.length ? 'e ' : '') +
+        (matsAfetados.length ? matsAfetados.length + ' material(is) do estoque ' : '') + 'passam a usar o nome novo.')) return;
+  // aplica na tela na hora
+  Object.assign(t, { nome, observacao });
+  tipoEditando = null;
+  osAfetadas.forEach(s => { s.material = nome; });
+  matsAfetados.forEach(m => { m.tipo = nome; });
+  if (osAfetadas.length) { saveServicos(); renderServicos(); }
+  if (matsAfetados.length) saveMateriais();
+  depoisDeMudarTipos();
+  avisoTipo('✓ alterado', '#16a34a');
+  // grava na planilha
+  const r = await postarPlanilha({ kind: 'tipo-material', nome, nomeAnterior: antigo, observacao, ativo: t.ativo !== false });
+  if (!r.ok) { avisoTipo('✗ não foi salvo na planilha: ' + (r.erro || 'erro'), '#dc2626'); await fetchTiposMaterial(); depoisDeMudarTipos(); return; }
+  if (renomeou && !r.renomeado) {
+    // Apps Script anterior à 1.5.2: criou o nome novo; inativa o antigo e acerta os materiais por aqui
+    await postarPlanilha({ kind: 'tipo-material', nome: antigo, observacao, ativo: false });
+    for (const m of matsAfetados) await enviarMaterialSheets(m);
+    await fetchTiposMaterial(); depoisDeMudarTipos();
+  }
 }
 async function alternarTipoMaterial(i) {
   const t = (tiposMaterialRemoto || [])[i];
   if (!t) return;
   const ativar = t.ativo === false;
   if (!ativar && !confirm('Inativar "' + t.nome + '"? Ele sai das listas, mas as OS e materiais que já usam continuam com ele.')) return;
+  t.ativo = ativar;
+  depoisDeMudarTipos();
   const r = await postarPlanilha({ kind: 'tipo-material', nome: t.nome, observacao: t.observacao || '', ativo: ativar });
-  if (!r.ok) { alert('Não foi possível alterar: ' + (r.erro || 'erro')); return; }
-  await fetchTiposMaterial();
-  renderTiposMaterial();
-  atualizarSelectsTipoMaterial();
+  if (!r.ok) { t.ativo = !ativar; depoisDeMudarTipos(); alert('Não foi possível alterar: ' + (r.erro || 'erro')); }
 }
 function renderTiposMaterial() {
   const tbody = document.getElementById('tbody-tipos-material');
@@ -946,15 +986,26 @@ function renderTiposMaterial() {
   if (!lista.length) { tbody.innerHTML = '<tr><td colspan="5" class="mat-empty">Nenhum tipo cadastrado. Ex.: A-36, SAE 1045, SAE 1010 / 1016.</td></tr>'; return; }
   const usoOS = nome => servicos.filter(s => !s.excluido && String(s.material || '').trim() === nome).length;
   const usoMat = nome => materiaisCadastro.filter(m => m.tipo === nome).length;
-  tbody.innerHTML = lista.map(t =>
-    '<tr>' +
+  tbody.innerHTML = lista.map(t => {
+    if (t.i === tipoEditando) {
+      const tecla = 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();salvarEdicaoTipo(' + t.i + ');} if(event.key===\'Escape\'){cancelarEdicaoTipo();}"';
+      return '<tr class="tipo-editando">' +
+        '<td><input id="ftm-ed-nome" value="' + escMelhoria(t.nome) + '" ' + tecla + '></td>' +
+        '<td><input id="ftm-ed-obs" value="' + escMelhoria(t.observacao || '') + '" placeholder="opcional" ' + tecla + '></td>' +
+        '<td>' + usoOS(t.nome) + ' OS · ' + usoMat(t.nome) + ' no estoque</td><td></td>' +
+        '<td class="actions"><button class="btn-success btn-sm" onclick="salvarEdicaoTipo(' + t.i + ')">💾 Salvar</button> ' +
+          '<button class="btn-secondary btn-sm" onclick="cancelarEdicaoTipo()">Cancelar</button></td>' +
+      '</tr>';
+    }
+    return '<tr>' +
       '<td><strong>' + escMelhoria(t.nome) + '</strong></td>' +
       '<td>' + escMelhoria(t.observacao || '—') + '</td>' +
       '<td>' + usoOS(t.nome) + ' OS · ' + usoMat(t.nome) + ' no estoque</td>' +
       '<td>' + (t.ativo === false ? '<span class="mat-badge inativo">Inativo</span>' : '<span class="mat-badge ok">Ativo</span>') + '</td>' +
       '<td class="actions"><button class="btn-primary btn-sm" onclick="editarTipoMaterial(' + t.i + ')">✎ Editar</button> ' +
         '<button class="' + (t.ativo === false ? 'btn-success' : 'btn-danger') + ' btn-sm" onclick="alternarTipoMaterial(' + t.i + ')">' + (t.ativo === false ? 'Reativar' : 'Inativar') + '</button></td>' +
-    '</tr>').join('');
+    '</tr>';
+  }).join('');
 }
 /** Saldo em estoque de todos os materiais de um tipo. */
 function saldoPorTipo(nome) {
