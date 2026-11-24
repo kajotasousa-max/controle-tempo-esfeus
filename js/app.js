@@ -508,7 +508,19 @@ function deleteServico(id, ev) {
   renderServicos();
 }
 
-function selectServico(id) { currentId = id; renderServicos(); openEditPanel(); }
+function selectServico(id) { currentId = id; renderServicos(); openEditPanel(); irParaPainelOS(); }
+
+/** Rola a página até o painel de edição da OS (com muitas OS ele fica bem abaixo da lista). */
+function irParaPainelOS() {
+  const painel = document.getElementById('edit-panel');
+  if (!painel || painel.style.display === 'none') return;
+  requestAnimationFrame(() => painel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+/** Ao fechar o painel, volta para a linha da OS na lista. */
+function voltarParaLinhaOS(id) {
+  const tr = document.querySelector('#tbody-servicos tr[data-id="' + Number(id) + '"]');
+  if (tr) requestAnimationFrame(() => tr.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+}
 
 
 
@@ -544,9 +556,11 @@ function getSelecionadas() {
 
 
 function closeEditPanel() {
+  const id = currentId;
   document.getElementById('edit-panel').style.display = 'none';
   currentId = null;
   renderServicos();
+  if (id !== null && servicos.some(s => s.id === id)) voltarParaLinhaOS(id);
 }
 
 function updateEditTitle() {
@@ -1116,7 +1130,8 @@ function addServico() {
   saveServicos();
   renderServicos();
   openEditPanel();
-  document.getElementById('f-cliente').focus();
+  irParaPainelOS();
+  document.getElementById('f-cliente').focus({ preventScroll: true });
 }
 
 function updateServico() {
@@ -1290,7 +1305,7 @@ function renderServicos() {
   tbody.innerHTML = list.map(s => {
     const smartStatus = statusInteligente(s);
     const resumo = resumoEtapasMelhoria(s);
-    return '<tr class="' + (s.id === currentId ? 'selected' : '') + '" onclick="selectServico(' + Number(s.id) + ')">' +
+    return '<tr data-id="' + Number(s.id) + '" class="' + (s.id === currentId ? 'selected' : '') + '" onclick="selectServico(' + Number(s.id) + ')">' +
       '<td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="chk-row" data-id="' + Number(s.id) + '" ' + (selecionadas.has(Number(s.id)) ? 'checked' : '') + ' onchange="toggleRow(' + Number(s.id) + ', this.checked)"></td>' +
       '<td><strong>' + escMelhoria(s.cliente || '—') + '</strong></td>' +
       '<td>' + escMelhoria(s.oc || '—') + '</td>' +
