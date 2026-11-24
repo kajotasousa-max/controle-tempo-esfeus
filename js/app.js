@@ -158,12 +158,12 @@ function salvarMaterial() {
   const unidade = document.getElementById('m-unidade').value.trim();
   if (!codigo || !descricao || !unidade) {
     alert('Preencha código, descrição e unidade do material.');
-    return;
+    return false;
   }
   const repetido = materiaisCadastro.find(m => String(m.codigo).toLowerCase() === codigo.toLowerCase() && m.id !== currentMaterialId);
   if (repetido) {
     alert('Já existe um material com este código.');
-    return;
+    return false;
   }
   const dados = {
     codigo,
@@ -199,7 +199,7 @@ function salvarMaterial() {
       else alert('Material salvo localmente. Falha no Sheets: ' + (resp.erro || 'erro'));
     });
   }
-  alert('Material salvo.');
+  return true;
 }
 function excluirMaterial(id) {
   const material = materialPorId(id);
@@ -265,71 +265,6 @@ function atualizarSelectMaterialServico(valorDesejado) {
   sel.value = valAtual;
 }
 
-function atualizarSelectMateriais() {
-  const select = document.getElementById('mov-material');
-  if (!select) return;
-  const atual = select.value;
-  const ativos = materiaisCadastro.filter(m => m.ativo !== false).sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), 'pt-BR'));
-  select.innerHTML = '<option value="">— selecione o material —</option>' + ativos.map(m =>
-    '<option value="' + Number(m.id) + '">' + escMelhoria(m.codigo) + ' · ' + escMelhoria(m.descricao) + ' — saldo ' + numeroMaterial(saldoMaterial(m.id)) + ' ' + escMelhoria(m.unidade || '') + '</option>'
-  ).join('');
-  if (ativos.some(m => String(m.id) === String(atual))) select.value = atual;
-}
-function renderMateriais() {
-  atualizarSelectMateriais();
-  const search = (document.getElementById('search-material').value || '').toLowerCase();
-  const filtro = document.getElementById('filter-material-status').value;
-  const ativos = materiaisCadastro.filter(m => m.ativo !== false);
-  const baixo = ativos.filter(m => saldoMaterial(m.id) <= Number(m.minimo || 0));
-  document.getElementById('mat-kpi-total').textContent = ativos.length;
-  document.getElementById('mat-kpi-com-saldo').textContent = ativos.filter(m => saldoMaterial(m.id) > 0).length;
-  document.getElementById('mat-kpi-baixo').textContent = baixo.filter(m => Number(m.minimo || 0) > 0).length;
-  const kv = document.getElementById('mat-kpi-valor');
-  if (kv) kv.textContent = moedaNf(ativos.reduce((t, m) => t + Math.max(0, saldoMaterial(m.id)) * (custoMedioMaterial(m.id) || 0), 0));
-  const lista = materiaisCadastro.filter(m => {
-    const saldo = saldoMaterial(m.id);
-    const minimo = Number(m.minimo || 0);
-    if (filtro === 'estoque' && saldo <= 0) return false;
-    if (filtro === 'baixo' && !(m.ativo !== false && minimo > 0 && saldo <= minimo)) return false;
-    if (filtro === 'sem' && saldo > 0) return false;
-    if (filtro === 'inativo' && m.ativo !== false) return false;
-    if (filtro !== 'inativo' && filtro !== 'todos' && m.ativo === false) return false;
-    const filtroTipo = (document.getElementById('filter-material-tipo') || {}).value || '';
-    if (filtroTipo && (filtroTipo === '__sem' ? m.tipo : m.tipo !== filtroTipo)) return false;
-    if (search) {
-      const hay = [m.codigo, m.descricao, m.especificacao, m.unidade, m.localizacao, m.tipo].join(' ').toLowerCase();
-      if (!hay.includes(search)) return false;
-    }
-    return true;
-  }).sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), 'pt-BR'));
-  document.getElementById('material-count').textContent = lista.length + ' material' + (lista.length === 1 ? '' : 'is');
-  const tbody = document.getElementById('tbody-materiais');
-  if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty">Nenhum material encontrado. Os materiais entram aqui pelas notas fiscais.</td></tr>';
-  } else {
-    tbody.innerHTML = lista.map(m => {
-      const saldo = saldoMaterial(m.id);
-      const minimo = Number(m.minimo || 0);
-      const baixoClass = m.ativo !== false && minimo > 0 && saldo <= minimo ? 'material-low' : 'material-ok';
-      return '<tr>' +
-        '<td><strong>' + escMelhoria(m.codigo || '—') + '</strong></td>' +
-        '<td>' + escMelhoria(m.descricao || '—') + (m.tipo ? '<br><span class="tipo-mat-tag">' + escMelhoria(m.tipo) + '</span>' : '') + '</td>' +
-        '<td>' + escMelhoria(m.especificacao || '—') + '</td>' +
-        '<td>' + escMelhoria(m.unidade || '—') + '</td>' +
-        '<td class="' + baixoClass + '">' + numeroMaterial(saldo) + '</td>' +
-        '<td>' + numeroMaterial(minimo) + '</td>' +
-        '<td>' + moedaMaterial(custoMedioMaterial(m.id)) + '</td>' +
-        '<td>' + moedaMaterial(ultimoValorMaterial(m.id)) + '</td>' +
-        '<td>' + escMelhoria(m.localizacao || '—') + '</td>' +
-        '<td class="' + (m.ativo === false ? 'material-inactive' : '') + '">' + (m.ativo === false ? 'Inativo' : (minimo > 0 && saldo <= minimo ? 'Comprar' : 'OK')) + '</td>' +
-        '<td class="actions">' + (m.ativo === false
-          ? '<button class="btn-secondary btn-sm" onclick="reativarMaterial(' + Number(m.id) + ')" title="Volta para o estoque e para os campos de seleção">Reativar</button>'
-          : '<button class="btn-secondary btn-sm" onclick="abrirHistoricoMaterial(' + Number(m.id) + ')">Histórico</button> <button class="btn-primary btn-sm" onclick="preencherFormMaterial(materialPorId(' + Number(m.id) + '))">Editar</button> <button class="btn-danger btn-sm" onclick="excluirMaterial(' + Number(m.id) + ')" title="Apaga (sem movimentações) ou inativa (com movimentações)">✕</button>') + '</td>' +
-      '</tr>';
-    }).join('');
-  }
-  renderMovimentacoesMateriais();
-}
 /* Histórico de movimentações, retirada sem NF e notas fiscais: js/nf.js */
 function csvMaterial(value) {
   return '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"';

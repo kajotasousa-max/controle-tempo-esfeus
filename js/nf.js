@@ -11,10 +11,10 @@
  * ===================================================================== */
 
 const NF_TIPOS = [
-  { valor: 'Compra para estoque', curto: 'Estoque', estoque: true },
-  { valor: 'Entrada em estoque', curto: 'Estoque', estoque: true },
-  { valor: 'Consumo direto na OS', curto: 'Direto OS', estoque: false, exigeOS: true },
-  { valor: 'Outros (sem efeito no estoque)', curto: 'Outros', estoque: false }
+  { valor: 'Compra para estoque', curto: 'Estoque', rotulo: 'Estoque', estoque: true },
+  { valor: 'Consumo direto na OS', curto: 'Direto OS', rotulo: 'Direto na OS', estoque: false, exigeOS: true },
+  { valor: 'Outros (sem efeito no estoque)', curto: 'Outros', rotulo: 'Despesa / frete', estoque: false },
+  { valor: 'Entrada em estoque', curto: 'Estoque', rotulo: 'Entrada em estoque', estoque: true, oculto: true }
 ];
 const NFS_KEY = chave('nfs_v1');
 let notasFiscais = [];
@@ -192,71 +192,87 @@ function preencherClienteDaOS(idOs, idCliente) {
 }
 
 /* ---------------- sub-abas ---------------- */
-function switchMatSub(sub) {
-  document.querySelectorAll('.mat-subtab').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
-  document.querySelectorAll('.mat-sub').forEach(d => d.classList.toggle('active', d.id === 'mat-sub-' + sub));
-  if (sub === 'nf') renderNfs();
-  if (sub === 'estoque') renderMateriais();
-  if (sub === 'mov') { atualizarSelectMateriais(); atualizarCamposMovimentoMat(); renderMovimentacoesMateriais(); }
+/* ======================= TELA ÚNICA: ESTOQUE + NOTAS ======================= */
+let mostrarInativos = false;
+let todasNfs = false;
+function switchMatSub() { /* compatibilidade: a aba não tem mais sub-abas */ }
+function alternarMenuMateriais(ev) {
+  ev.stopPropagation();
+  const m = document.getElementById('mx-menu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
 }
+document.addEventListener('click', () => { const m = document.getElementById('mx-menu'); if (m) m.style.display = 'none'; });
+function alternarInativos() {
+  mostrarInativos = !mostrarInativos;
+  document.getElementById('mx-inativos').textContent = mostrarInativos ? '👁 Esconder inativos' : '👁 Mostrar inativos';
+  renderMateriais();
+}
+function alternarTodasNfs() { todasNfs = !todasNfs; renderNfs(); }
+function buscaMateriais() { return semAcento((document.getElementById('search-material') || {}).value || ''); }
 
-/* ======================= LISTA DE NFs ======================= */
-function statusMovNf(nf) {
-  const tipos = unicos((nf.itens || []).map(i => tipoNf(i.tipo).curto));
-  const comMov = (nf.itens || []).filter(i => tipoNf(i.tipo).estoque || tipoNf(i.tipo).exigeOS);
-  const faltando = comMov.filter(i => !movimentosMateriais.some(m => m.itemNfId === i.id));
-  const badges = tipos.map(t => '<span class="nf-tag nf-tag-' + semAcento(t).replace(/\s+/g, '-') + '">' + t + '</span>').join(' ');
-  if (!comMov.length) return badges + ' <span class="nf-mov-ok">sem efeito no estoque</span>';
-  // A lista de movimentações pode ainda não ter chegado da planilha: só alerta quando já carregou
-  if (faltando.length && movimentosMateriais.length) return badges + ' <span class="nf-mov-pend" title="Clique em Atualizar">⚠ conferir</span>';
-  return badges + ' <span class="nf-mov-ok">✓ movimentado</span>';
+/** A lista de seleção de materiais agora só existe na janela de retirada. */
+function atualizarSelectMateriais() {
+  const modal = document.getElementById('ret-modal');
+  if (!modal || modal.style.display === 'none') return;
+  const sel = document.getElementById('mov-material'), v = sel.value;
+  preencherMateriaisRetirada();
+  if (v) sel.value = v;
 }
-function nfsFiltradas() {
-  const busca = semAcento(document.getElementById('search-nf').value || '');
-  const tipo = document.getElementById('filter-nf-tipo').value;
-  const mes = document.getElementById('filter-nf-mes').value;
-  return notasFiscais.filter(nf => {
-    if (mes && String(nf.data || '').slice(0, 7) !== mes) return false;
-    const t = totaisNf(nf);
-    if (tipo === 'estoque' && !(nf.itens || []).some(i => tipoNf(i.tipo).estoque)) return false;
-    if (tipo === 'direto' && !(nf.itens || []).some(i => tipoNf(i.tipo).exigeOS)) return false;
-    if (tipo === 'outros' && (t.estoque || t.direto)) return false;
-    if (busca) {
-      const hay = semAcento([nf.numero, nf.fornecedor, nf.observacao, osDaNf(nf).join(' '), clientesDaNf(nf).join(' '),
-        (nf.itens || []).map(i => i.descricao + ' ' + i.codigo).join(' ')].join(' '));
-      if (!hay.includes(busca)) return false;
-    }
-    return true;
-  }).sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.numero).localeCompare(String(a.numero), 'pt-BR', { numeric: true }));
-}
-function renderNfs() {
-  const tbody = document.getElementById('tbody-nfs');
-  if (!tbody) return;
-  atualizarAvisoBackendNf();
-  const lista = nfsFiltradas();
-  const soma = k => lista.reduce((t, nf) => t + totaisNf(nf)[k], 0);
-  document.getElementById('nf-kpi-qtd').textContent = lista.length;
-  document.getElementById('nf-kpi-valor').textContent = moedaNf(soma('total'));
-  document.getElementById('nf-kpi-estoque').textContent = moedaNf(soma('estoque'));
-  document.getElementById('nf-kpi-direto').textContent = moedaNf(soma('direto'));
-  document.getElementById('nf-count').textContent = lista.length + ' NF' + (lista.length === 1 ? '' : 's');
+/** Estoque: material, tipo e saldo. Clique em "Ver" para histórico, ajuste e edição. */
+function renderMateriais() {
+  const box = document.getElementById('lista-estoque');
+  if (!box) return;
+  const busca = buscaMateriais();
+  const lista = materiaisCadastro.filter(m => {
+    if (!mostrarInativos && m.ativo === false) return false;
+    return !busca || semAcento([m.codigo, m.descricao, m.especificacao, m.tipo, m.localizacao].join(' ')).includes(busca);
+  }).sort((a, b) => String(a.descricao).localeCompare(String(b.descricao), 'pt-BR', { numeric: true }));
+  document.getElementById('material-count').textContent = lista.length ? '(' + lista.length + ')' : '';
   if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">' + (notasFiscais.length ? 'Nenhuma NF neste filtro.' : 'Nenhuma NF lançada ainda. Clique em <strong>+ Nova NF</strong>.') + '</td></tr>';
+    box.innerHTML = '<div class="mx-vazio">' + (materiaisCadastro.length ? 'Nenhum material encontrado.' : 'O estoque começa a aparecer aqui quando você lança a primeira NF.') + '</div>';
+    renderNfs();
     return;
   }
-  const lim = (arr, n) => arr.length > n ? arr.slice(0, n).join(', ') + ' +' + (arr.length - n) : arr.join(', ');
-  tbody.innerHTML = lista.map(nf => {
-    const os = osDaNf(nf), cli = clientesDaNf(nf);
-    return '<tr onclick="abrirNf(\'' + escMelhoria(nf.id) + '\')" title="Abrir a NF">' +
-      '<td><strong>' + escMelhoria(nf.numero || '—') + '</strong></td>' +
-      '<td>' + escMelhoria(fmtDate(nf.data) || '—') + '</td>' +
-      '<td>' + escMelhoria(nf.fornecedor || '—') + '</td>' +
-      '<td title="' + escMelhoria(os.join(', ')) + '">' + escMelhoria(lim(os, 3) || '—') + '</td>' +
-      '<td title="' + escMelhoria(cli.join(', ')) + '">' + escMelhoria(lim(cli, 2) || '—') + '</td>' +
-      '<td style="text-align:center;">' + (nf.itens || []).length + '</td>' +
-      '<td style="text-align:right;"><strong>' + moedaNf(totaisNf(nf).total) + '</strong></td>' +
-      '<td>' + statusMovNf(nf) + '</td>' +
-    '</tr>';
+  box.innerHTML = lista.map(m => {
+    const saldo = saldoMaterial(m.id), minimo = Number(m.minimo || 0);
+    const comprar = m.ativo !== false && (saldo <= 0 || (minimo > 0 && saldo <= minimo));
+    return '<div class="mx-linha' + (m.ativo === false ? ' mx-inativo' : '') + '" onclick="abrirMaterial(' + Number(m.id) + ')">' +
+      '<div class="mx-nome">' + escMelhoria(m.descricao || m.codigo) + '<small>' + escMelhoria(m.codigo) + (m.ativo === false ? ' · inativo' : '') + '</small></div>' +
+      '<div>' + (m.tipo ? '<span class="tipo-mat-tag">' + escMelhoria(m.tipo) + '</span>' : '') + '</div>' +
+      '<div class="mx-saldo ' + (comprar ? 'material-low' : 'material-ok') + '">' + numeroMaterial(saldo) + ' ' + escMelhoria(m.unidade || '') + (comprar ? ' · comprar' : '') + '</div>' +
+      '<button class="btn-secondary btn-sm" onclick="event.stopPropagation(); abrirMaterial(' + Number(m.id) + ')">Ver</button>' +
+    '</div>';
+  }).join('');
+  renderNfs();
+}
+
+function statusMovNf(nf) {
+  return unicos((nf.itens || []).map(i => tipoNf(i.tipo).curto)).map(t => '<span class="nf-tag nf-tag-' + semAcento(t).replace(/\s+/g, '-') + '">' + t + '</span>').join(' ');
+}
+function nfsFiltradas() {
+  const busca = buscaMateriais();
+  return notasFiscais.filter(nf => !busca || semAcento([nf.numero, nf.fornecedor, nf.observacao, osDaNf(nf).join(' '), clientesDaNf(nf).join(' '),
+      (nf.itens || []).map(i => i.descricao + ' ' + i.codigo).join(' ')].join(' ')).includes(busca))
+    .sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.numero).localeCompare(String(a.numero), 'pt-BR', { numeric: true }));
+}
+/** Notas fiscais: as 5 mais recentes (ou todas / as que batem com a busca). */
+function renderNfs() {
+  const box = document.getElementById('lista-nfs');
+  if (!box) return;
+  atualizarAvisoBackendNf();
+  const todas = nfsFiltradas();
+  const mostrar = todasNfs || buscaMateriais() ? todas : todas.slice(0, 5);
+  const link = document.getElementById('nf-ver-todas');
+  if (link) link.textContent = buscaMateriais() || todas.length <= 5 ? '' : (todasNfs ? 'mostrar menos' : 'ver todas (' + todas.length + ')');
+  if (!mostrar.length) { box.innerHTML = '<div class="mx-vazio">' + (notasFiscais.length ? 'Nenhuma NF encontrada.' : 'Nenhuma NF lançada ainda.') + '</div>'; return; }
+  box.innerHTML = mostrar.map(nf => {
+    const os = osDaNf(nf);
+    return '<div class="mx-linha mx-linha-nf" onclick="abrirNf(\'' + escMelhoria(nf.id) + '\')">' +
+      '<div class="mx-nome">NF ' + escMelhoria(nf.numero || '—') + (nf.fornecedor ? ' · ' + escMelhoria(nf.fornecedor) : '') +
+        '<small>' + (nf.itens || []).length + ' ite' + ((nf.itens || []).length === 1 ? 'm' : 'ns') + (os.length ? ' · ' + escMelhoria(os.slice(0, 3).join(', ') + (os.length > 3 ? '…' : '')) : '') + '</small></div>' +
+      '<div>' + statusMovNf(nf) + '</div>' +
+      '<div class="mx-nf-valor">' + escMelhoria(fmtDate(nf.data) || '') + '<strong>' + moedaNf(totaisNf(nf).total) + '</strong></div>' +
+    '</div>';
   }).join('');
 }
 function exportarNfs() {
@@ -272,7 +288,7 @@ function exportarNfs() {
 function nfEditorAberto() { const m = document.getElementById('nf-modal'); return !!(m && m.style.display !== 'none'); }
 function novoItemNf(nf, pref) {
   const umaOS = (nf.os || []).length === 1 ? nf.os[0] : '';
-  const os = (pref && pref.os) || umaOS;
+  const os = (pref && pref.os) || nf._osPadrao || umaOS;
   const s = servicoPorOS(os);
   return { id: idLocal('IT'), descricao: '', codigo: '', unidade: '', quantidade: '', valorUnitario: '', frete: '',
     os: os, cliente: (s && s.cliente) || ((nf.clientes || []).length === 1 ? nf.clientes[0] : ''),
@@ -282,8 +298,8 @@ function novoItemNf(nf, pref) {
 function novaNf(pref) {
   if (getSyncUrl() && !backendTemNf()) { atualizarAvisoBackendNf(); alert('Atualize o Apps Script para a versão 1.5.0 antes de lançar NFs.'); return; }
   pref = pref || {};
-  const nf = { id: idLocal('NF'), numero: '', data: hojeLocal(), fornecedor: '', os: pref.os ? [pref.os] : [],
-    clientes: pref.cliente ? [pref.cliente] : [], observacao: '', itens: [], nova: true };
+  // Vindo da OS: a OS vai nos itens (não no cabeçalho), e todo item novo já nasce com ela
+  const nf = { id: idLocal('NF'), numero: '', data: hojeLocal(), fornecedor: '', os: [], clientes: [], observacao: '', itens: [], nova: true, _osPadrao: pref.os || '' };
   nf.itens.push(novoItemNf(nf, pref));
   nfOriginal = null;
   nfEditando = nf;
@@ -300,7 +316,11 @@ function abrirNf(id) {
 function mostrarEditorNf() {
   atualizarListasNf();
   const nf = nfEditando;
-  document.getElementById('nf-modal-title').textContent = nf.nova ? 'Nova nota fiscal' : 'NF ' + (nf.numero || '') + (nf.fornecedor ? ' · ' + nf.fornecedor : '');
+  document.getElementById('nf-modal-title').textContent = nf.nova ? 'Lançar nota fiscal' : 'NF ' + (nf.numero || '') + (nf.fornecedor ? ' · ' + nf.fornecedor : '');
+  nfItensAbertos = new Set(nf.itens.filter(it => numNf(it.frete) > 0 || tipoNf(it.tipo).oculto).map(it => it.id));
+  const temMais = (nf.os || []).length || (nf.clientes || []).length || nf.observacao;
+  document.getElementById('nf-mais').style.display = temMais ? '' : 'none';
+  document.getElementById('nf-mais-link').style.display = temMais ? 'none' : '';
   document.getElementById('nf-numero').value = nf.numero || '';
   document.getElementById('nf-data').value = nf.data || '';
   document.getElementById('nf-fornecedor').value = nf.fornecedor || '';
@@ -310,6 +330,16 @@ function mostrarEditorNf() {
   renderItensNf();
   document.getElementById('nf-modal').style.display = 'flex';
   document.body.classList.add('modal-aberto');
+}
+let nfItensAbertos = new Set();
+function alternarMaisNf() {
+  document.getElementById('nf-mais').style.display = '';
+  document.getElementById('nf-mais-link').style.display = 'none';
+}
+function alternarDetalheItem(i) {
+  const id = nfEditando.itens[i].id;
+  if (nfItensAbertos.has(id)) nfItensAbertos.delete(id); else nfItensAbertos.add(id);
+  renderItensNf();
 }
 function nfAlterada() {
   if (!nfEditando) return false;
@@ -415,11 +445,11 @@ function deltaEstoqueNf() {
 }
 function dicaItemNf(it) {
   const tp = tipoNf(it.tipo);
-  if (tp.exigeOS) return it.os ? 'Compra direcionada à OS ' + escMelhoria(it.os) + ' — não entra no estoque geral.' : '<span class="nf-erro">Escolha a OS deste item.</span>';
-  if (!tp.estoque) return 'Registrado na NF, sem efeito no estoque.';
+  if (tp.exigeOS) return it.os ? '' : '<span class="nf-erro">Escolha a OS deste item.</span>';
+  if (!tp.estoque) return '';
   const m = materialDoItem(it);
   if (!it.descricao) return '';
-  if (!m) return '🆕 Material novo: será cadastrado no estoque ao salvar.';
+  if (!m) return '🆕 Material novo no estoque';
   const saldo = saldoMaterial(m.id);
   const d = deltaEstoqueNf()[m.id] || 0;
   const depois = saldo + d;
@@ -431,25 +461,30 @@ function renderItensNf() {
   const body = document.getElementById('nf-itens-body');
   body.innerHTML = nfEditando.itens.map((it, i) => {
     const tp = tipoNf(it.tipo);
+    const aberto = nfItensAbertos.has(it.id);
     const inp = (campo, extra) => '<input ' + (extra || '') + ' value="' + escMelhoria(it[campo] === undefined ? '' : it[campo]) + '" oninput="nfItemCampo(' + i + ',\'' + campo + '\', this.value)">';
     const osOpts = '<option value="">' + (tp.exigeOS ? '— escolha —' : '—') + '</option>' +
       (it.os && !opOS.some(o => o.valor === it.os) ? '<option selected>' + escMelhoria(it.os) + '</option>' : '') +
       opOS.map(o => '<option value="' + escMelhoria(o.valor) + '"' + (o.valor === it.os ? ' selected' : '') + '>' + escMelhoria(o.valor + (o.cliente ? ' · ' + o.cliente : '')) + '</option>').join('');
+    const tipos = NF_TIPOS.filter(t => !t.oculto || t.valor === it.tipo);
     return '<tr class="nf-item nf-item-' + (tp.estoque ? 'estoque' : tp.exigeOS ? 'direto' : 'outros') + '">' +
       '<td class="nf-n">' + (i + 1) + '</td>' +
       '<td><input list="dl-materiais" value="' + escMelhoria(it.descricao) + '" placeholder="Digite o produto" oninput="nfEditando.itens[' + i + '].descricao=this.value" onchange="nfItemCampo(' + i + ',\'descricao\', this.value)"></td>' +
-      '<td>' + inp('unidade', 'class="nf-un" list="dl-unidades" placeholder="un"') + '</td>' +
       '<td>' + inp('quantidade', 'type="number" min="0" step="0.001" class="nf-num"') + '</td>' +
       '<td>' + inp('valorUnitario', 'type="number" min="0" step="0.01" class="nf-num"') + '</td>' +
-      '<td>' + inp('frete', 'type="number" min="0" step="0.01" class="nf-num" placeholder="opcional"') + '</td>' +
-      '<td class="nf-tot" id="nf-tot-' + i + '">' + moedaNf(totalItemNf(it)) + '</td>' +
-      '<td><select onchange="nfItemCampo(' + i + ',\'tipo\', this.value)">' + NF_TIPOS.map(t => '<option' + (t.valor === it.tipo ? ' selected' : '') + '>' + t.valor + '</option>').join('') + '</select></td>' +
+      '<td><select onchange="nfItemCampo(' + i + ',\'tipo\', this.value)">' + tipos.map(t => '<option value="' + t.valor + '"' + (t.valor === it.tipo ? ' selected' : '') + '>' + t.rotulo + '</option>').join('') + '</select></td>' +
       '<td><select onchange="nfItemCampo(' + i + ',\'os\', this.value)"' + (tp.exigeOS && !it.os ? ' class="nf-campo-erro"' : '') + '>' + osOpts + '</select></td>' +
-      '<td>' + inp('cliente', 'list="dl-clientes"') + '</td>' +
-      '<td><input type="date" value="' + escMelhoria(it.dataMovimentacao || '') + '" onchange="nfItemCampo(' + i + ',\'dataMovimentacao\', this.value)"></td>' +
-      '<td><button type="button" class="btn-danger btn-sm" onclick="nfRemoverItem(' + i + ')" title="Remover item">✕</button></td>' +
+      '<td class="nf-tot" id="nf-tot-' + i + '">' + moedaNf(totalItemNf(it)) + '</td>' +
+      '<td><button type="button" class="nf-mais-btn' + (aberto ? ' ativo' : '') + '" onclick="alternarDetalheItem(' + i + ')" title="Unidade, frete, cliente e data">⋯</button></td>' +
+      '<td><button type="button" class="nf-x" onclick="nfRemoverItem(' + i + ')" title="Remover item">✕</button></td>' +
     '</tr>' +
-    '<tr class="nf-dica"><td></td><td colspan="11" id="nf-dica-' + i + '">' + dicaItemNf(it) + '</td></tr>';
+    (aberto ? '<tr class="nf-detalhe"><td></td><td colspan="8"><div class="nf-detalhe-grid">' +
+      '<label>Unidade ' + inp('unidade', 'list="dl-unidades" placeholder="un"') + '</label>' +
+      '<label>Frete ' + inp('frete', 'type="number" min="0" step="0.01" placeholder="0,00"') + '</label>' +
+      '<label>Cliente ' + inp('cliente', 'list="dl-clientes"') + '</label>' +
+      '<label>Data da movimentação <input type="date" value="' + escMelhoria(it.dataMovimentacao || '') + '" onchange="nfItemCampo(' + i + ',\'dataMovimentacao\', this.value)"></label>' +
+    '</div></td></tr>' : '') +
+    '<tr class="nf-dica"><td></td><td colspan="8" id="nf-dica-' + i + '">' + dicaItemNf(it) + '</td></tr>';
   }).join('');
   renderTotaisNf();
 }
@@ -461,13 +496,9 @@ function atualizarLinhaNf(i) {
 }
 function renderTotaisNf() {
   const t = totaisNf(nfEditando);
-  document.getElementById('nf-totais').innerHTML =
-    '<span>' + nfEditando.itens.length + ' ite' + (nfEditando.itens.length === 1 ? 'm' : 'ns') + '</span>' +
-    '<span>Mercadoria <strong>' + moedaNf(t.mercadoria) + '</strong></span>' +
-    '<span>Frete <strong>' + moedaNf(t.frete) + '</strong></span>' +
-    '<span class="nf-total-geral">Total da NF <strong>' + moedaNf(t.total) + '</strong></span>';
+  document.getElementById('nf-totais').innerHTML = (t.frete ? '<span>frete ' + moedaNf(t.frete) + '</span>' : '') +
+    '<span class="nf-total-geral">Total <strong>' + moedaNf(t.total) + '</strong></span>';
 }
-
 /** Confere tudo antes de enviar. Devolve a mensagem de erro ou ''. */
 function validarNf(nf) {
   if (!String(nf.numero || '').trim()) return 'Informe o número da NF.';
@@ -538,145 +569,205 @@ async function excluirNf() {
   if (window.renderMateriaisDaOSAtual) renderMateriaisDaOSAtual();
 }
 
-/* ======================= RETIRADA / AJUSTE SEM NF ======================= */
-function atualizarCamposMovimentoMat() {
-  const tipo = document.getElementById('mov-tipo').value;
-  const materialId = document.getElementById('mov-material').value;
-  const qtd = numNf(document.getElementById('mov-quantidade').value);
-  const precisaOS = tipo === 'Retirada do estoque para OS' || tipo === 'Sobra';
-  const osLabel = document.querySelector('#mov-os-wrap label');
-  if (osLabel) osLabel.textContent = precisaOS ? 'OS *' : 'OS (opcional)';
-  const info = document.getElementById('mov-saldo-info');
-  const valor = document.getElementById('mov-valor');
-  const m = materialPorId(materialId);
-  if (!m) { info.innerHTML = ''; valor.value = ''; return; }
-  const saldo = saldoMaterial(m.id), custo = custoMedioMaterial(m.id), f = fatorMovimentoMaterial(tipo);
-  valor.value = custo && qtd ? moedaNf(custo * qtd) : (custo ? moedaNf(custo) + ' / ' + (m.unidade || 'un') : '');
-  const depois = saldo + f * qtd;
-  info.className = 'mov-saldo-info' + (depois < 0 ? ' erro' : '');
-  info.innerHTML = 'Saldo atual de <strong>' + escMelhoria(m.codigo) + '</strong>: ' + numeroMaterial(saldo) + ' ' + escMelhoria(m.unidade || '') +
-    (qtd ? ' → depois: <strong>' + numeroMaterial(depois) + '</strong>' + (depois < 0 ? ' — saldo insuficiente' : '') : '') +
-    (f < 0 ? '<br>Origem: ' + (tipo === 'Retirada do estoque para OS' ? ORIGEM_SEM_NF : 'ajuste interno, sem NF') : '');
-}
-async function registrarMovimentoMaterial() {
-  const materialId = document.getElementById('mov-material').value;
-  const tipo = document.getElementById('mov-tipo').value;
-  const quantidade = numNf(document.getElementById('mov-quantidade').value);
-  const data = document.getElementById('mov-data').value || hojeLocal();
-  const os = document.getElementById('mov-os').value.trim();
-  const material = materialPorId(materialId);
-  if (!material || !(quantidade > 0)) { alert('Selecione o material e informe uma quantidade maior que zero.'); return; }
-  if ((tipo === 'Retirada do estoque para OS' || tipo === 'Sobra') && !os) { alert('Informe a OS.'); return; }
-  if (os && !servicoPorOS(os) && !confirm('A OS "' + os + '" não está cadastrada no app. Registrar assim mesmo?')) return;
-  const saldoAtual = saldoMaterial(materialId);
-  if (fatorMovimentoMaterial(tipo) < 0 && quantidade > saldoAtual + 1e-9) {
-    alert('Saldo insuficiente. Disponível: ' + numeroMaterial(saldoAtual) + ' ' + (material.unidade || '') + '.\n\nSe o material chegou e ainda não foi lançado, lance a NF primeiro.');
-    return;
-  }
-  const custo = custoMedioMaterial(materialId);
-  const mov = {
+/* ======================= MOVIMENTAÇÃO AVULSA (sem NF) ======================= */
+/** Grava retirada, sobra ou ajuste na planilha e só então no navegador (o saldo é conferido lá). */
+async function gravarMovimentoAvulso(dados) {
+  const material = materialPorId(dados.materialId);
+  const custo = custoMedioMaterial(material.id);
+  const data = hojeLocal();
+  const mov = Object.assign({
     id: nextMovimentoMaterialId++, uid: idLocal('MV'), data, timestamp: data + ' ' + new Date().toTimeString().slice(0, 8),
-    tipo, materialId: Number(materialId), codigo: material.codigo, quantidade, custoUnitario: custo, valorTotal: arred2(custo * quantidade),
-    os, cliente: document.getElementById('mov-cliente').value.trim(),
-    origem: tipo === 'Retirada do estoque para OS' ? ORIGEM_SEM_NF : 'Ajuste interno (sem NF)',
-    lote: document.getElementById('mov-lote').value.trim(), dimensao: document.getElementById('mov-dimensao').value.trim(),
-    observacao: document.getElementById('mov-observacao').value.trim()
-  };
-  const btn = document.getElementById('btn-registrar-mov');
+    materialId: Number(material.id), codigo: material.codigo, custoUnitario: custo, valorTotal: arred2(custo * dados.quantidade),
+    os: '', cliente: '', lote: '', dimensao: '', observacao: '',
+    origem: dados.tipo === 'Retirada do estoque para OS' ? ORIGEM_SEM_NF : 'Ajuste interno (sem NF)'
+  }, dados);
   if (getSyncUrl()) {
-    btn.disabled = true;
     const r = await enviarMovimentoSheets(mov, material);
-    btn.disabled = false;
-    if (!r.ok) { alert('A movimentação não foi registrada.\n\n' + (r.erro || 'Erro desconhecido.')); return; }
+    if (!r.ok) return r;
   }
   movimentosMateriais.push(mov);
   saveMateriais();
-  ['mov-quantidade', 'mov-os', 'mov-cliente', 'mov-lote', 'mov-dimensao', 'mov-observacao'].forEach(id => { document.getElementById(id).value = ''; });
-  document.getElementById('mov-data').value = hojeLocal();
-  atualizarCamposMovimentoMat();
+  return { ok: true, mov };
+}
+function renderMovimentacoesMateriais() { /* a lista geral saiu da tela: histórico fica em cada material */ }
+
+/* ---------- Retirar / devolver sobra (pela OS) ---------- */
+let retiradaOS = null;
+function retirarParaOS() {
+  const s = servicos.find(x => x.id === currentId);
+  if (!s) return;
+  retiradaOS = { os: osItemServico(s), cliente: s.cliente || '', material: s.material || '' };
+  document.getElementById('ret-title').textContent = 'Material para a OS ' + retiradaOS.os;
+  document.querySelector('input[name=ret-tipo][value="Retirada do estoque para OS"]').checked = true;
+  document.getElementById('mov-quantidade').value = '';
+  document.getElementById('mov-observacao').value = '';
+  preencherMateriaisRetirada();
+  document.getElementById('ret-modal').style.display = 'flex';
+  atualizarInfoRetirada();
+  setTimeout(() => document.getElementById('mov-material').focus(), 50);
+}
+function fecharRetirada() { document.getElementById('ret-modal').style.display = 'none'; retiradaOS = null; }
+function tipoRetirada() { return (document.querySelector('input[name=ret-tipo]:checked') || {}).value || 'Retirada do estoque para OS'; }
+/** Materiais com saldo primeiro; os do mesmo tipo de material da OS no topo. */
+function preencherMateriaisRetirada() {
+  const sel = document.getElementById('mov-material');
+  const tipoOS = retiradaOS && retiradaOS.material;
+  const ativos = materiaisCadastro.filter(m => m.ativo !== false);
+  const rot = m => escMelhoria(m.descricao || m.codigo) + ' — saldo ' + numeroMaterial(saldoMaterial(m.id)) + ' ' + escMelhoria(m.unidade || '');
+  const ord = l => l.sort((a, b) => String(a.descricao).localeCompare(String(b.descricao), 'pt-BR'));
+  const doTipo = ord(ativos.filter(m => tipoOS && m.tipo === tipoOS && saldoMaterial(m.id) > 0));
+  const comSaldo = ord(ativos.filter(m => saldoMaterial(m.id) > 0 && !doTipo.includes(m)));
+  const sem = ord(ativos.filter(m => saldoMaterial(m.id) <= 0));
+  const grupo = (titulo, l) => l.length ? '<optgroup label="' + titulo + '">' + l.map(m => '<option value="' + Number(m.id) + '">' + rot(m) + '</option>').join('') + '</optgroup>' : '';
+  sel.innerHTML = '<option value="">— escolha o material —</option>' + grupo(escMelhoria(tipoOS || '') + ' (tipo da OS)', doTipo) +
+    grupo('Com saldo', comSaldo) + grupo('Sem saldo', sem);
+  if (doTipo.length === 1) sel.value = doTipo[0].id;
+}
+function atualizarInfoRetirada() {
+  const info = document.getElementById('mov-saldo-info');
+  const m = materialPorId(document.getElementById('mov-material').value);
+  const qtd = numNf(document.getElementById('mov-quantidade').value);
+  if (!m) { info.innerHTML = ''; return; }
+  const f = fatorMovimentoMaterial(tipoRetirada());
+  const saldo = saldoMaterial(m.id), depois = saldo + f * qtd;
+  info.className = 'mov-saldo-info' + (depois < 0 ? ' erro' : '');
+  info.innerHTML = 'Saldo: <strong>' + numeroMaterial(saldo) + ' ' + escMelhoria(m.unidade || '') + '</strong>' +
+    (qtd ? ' → depois: <strong>' + numeroMaterial(depois) + ' ' + escMelhoria(m.unidade || '') + '</strong>' + (depois < 0 ? ' — não há saldo suficiente' : '') : '');
+}
+async function registrarRetirada() {
+  if (!retiradaOS) return;
+  const materialId = document.getElementById('mov-material').value;
+  const quantidade = numNf(document.getElementById('mov-quantidade').value);
+  const tipo = tipoRetirada();
+  const m = materialPorId(materialId);
+  if (!m || !(quantidade > 0)) { alert('Escolha o material e a quantidade.'); return; }
+  if (fatorMovimentoMaterial(tipo) < 0 && quantidade > saldoMaterial(m.id) + 1e-9) {
+    alert('Não há saldo suficiente: ' + numeroMaterial(saldoMaterial(m.id)) + ' ' + (m.unidade || '') + '.\n\nSe o material foi comprado para esta OS, use "Lançar NF".');
+    return;
+  }
+  const btn = document.getElementById('btn-registrar-mov');
+  btn.disabled = true;
+  const r = await gravarMovimentoAvulso({ tipo, materialId: m.id, quantidade, os: retiradaOS.os, cliente: retiradaOS.cliente,
+    observacao: document.getElementById('mov-observacao').value.trim() });
+  btn.disabled = false;
+  if (!r.ok) { alert('Não foi registrado.\n\n' + (r.erro || 'Erro desconhecido.')); return; }
+  fecharRetirada();
   renderMateriais();
   if (window.renderMateriaisDaOSAtual) renderMateriaisDaOSAtual();
-  alert('Movimentação registrada.');
 }
 
-/* ======================= HISTÓRICO ======================= */
-function movimentoVisivel(m) {
-  const material = materialPorId(m.materialId);
-  return semAcento([m.data, m.tipo, material && material.codigo, material && material.descricao, m.os, m.cliente, origemMovimento(m),
-    m.fornecedor, m.lote, m.dimensao, m.observacao].join(' '));
+/* ======================= MATERIAL (janela Ver) ======================= */
+let materialAbertoId = null;
+function abrirMaterial(id) {
+  materialAbertoId = id;
+  const novo = id === null;
+  const m = novo ? null : materialPorId(id);
+  if (!novo && !m) return;
+  document.getElementById('hist-title').textContent = novo ? 'Cadastrar material' : (m.descricao || m.codigo);
+  document.getElementById('mat-acoes').style.display = novo ? 'none' : '';
+  document.getElementById('mat-parte-ajuste').style.display = 'none';
+  document.getElementById('mat-parte-editar').style.display = novo ? '' : 'none';
+  if (novo) { limparFormMaterial(); currentMaterialId = null; } else preencherCamposMaterial(m);
+  document.getElementById('mat-excluir').style.display = novo ? 'none' : '';
+  document.getElementById('mat-excluir').textContent = m && m.ativo === false ? 'Reativar material' : 'Excluir / inativar';
+  renderHistoricoMaterial();
+  document.getElementById('hist-modal').style.display = 'flex';
+  if (novo) setTimeout(() => document.getElementById('m-descricao').focus(), 50);
 }
-function linhaMovimento(m, apos, comMaterial) {
+function abrirHistoricoMaterial(id) { abrirMaterial(id); }
+function fecharMaterial() { document.getElementById('hist-modal').style.display = 'none'; materialAbertoId = null; }
+function preencherCamposMaterial(m) {
+  currentMaterialId = m.id;
+  document.getElementById('m-codigo').value = m.codigo || '';
+  document.getElementById('m-descricao').value = m.descricao || '';
+  document.getElementById('m-especificacao').value = m.especificacao || '';
+  document.getElementById('m-unidade').value = m.unidade || '';
+  document.getElementById('m-minimo').value = m.minimo || '';
+  document.getElementById('m-localizacao').value = m.localizacao || '';
+  document.getElementById('m-ativo').value = String(m.ativo !== false);
+  atualizarSelectTipoMaterialForm(m.tipo || '');
+}
+function mostrarParteMaterial(parte) {
+  ['ajuste', 'editar'].forEach(p => {
+    const el = document.getElementById('mat-parte-' + p);
+    el.style.display = p === parte && el.style.display === 'none' ? '' : 'none';
+  });
+  if (parte === 'ajuste') { document.getElementById('aj-qtd').value = ''; document.getElementById('aj-obs').value = ''; atualizarInfoAjuste(); document.getElementById('aj-qtd').focus(); }
+}
+function atualizarInfoAjuste() {
+  const m = materialPorId(materialAbertoId);
+  const info = document.getElementById('aj-info');
+  if (!m) { info.innerHTML = ''; return; }
+  const qtd = numNf(document.getElementById('aj-qtd').value);
+  const saldo = saldoMaterial(m.id), depois = saldo + fatorMovimentoMaterial(document.getElementById('aj-tipo').value) * qtd;
+  info.className = 'mov-saldo-info' + (depois < 0 ? ' erro' : '');
+  info.innerHTML = 'Saldo: <strong>' + numeroMaterial(saldo) + ' ' + escMelhoria(m.unidade || '') + '</strong>' + (qtd ? ' → depois: <strong>' + numeroMaterial(depois) + '</strong>' : '');
+}
+async function salvarAjusteMaterial() {
+  const m = materialPorId(materialAbertoId);
+  const tipo = document.getElementById('aj-tipo').value;
+  const quantidade = numNf(document.getElementById('aj-qtd').value);
+  if (!m || !(quantidade > 0)) { alert('Informe a quantidade.'); return; }
+  if (fatorMovimentoMaterial(tipo) < 0 && quantidade > saldoMaterial(m.id) + 1e-9) { alert('O saldo é só ' + numeroMaterial(saldoMaterial(m.id)) + ' ' + (m.unidade || '') + '.'); return; }
+  const btn = document.getElementById('btn-ajuste');
+  btn.disabled = true;
+  const r = await gravarMovimentoAvulso({ tipo, materialId: m.id, quantidade, observacao: document.getElementById('aj-obs').value.trim() });
+  btn.disabled = false;
+  if (!r.ok) { alert('Não foi registrado.\n\n' + (r.erro || 'Erro desconhecido.')); return; }
+  document.getElementById('mat-parte-ajuste').style.display = 'none';
+  renderMateriais();
+  renderHistoricoMaterial();
+}
+function salvarMaterialAberto() {
+  if (!salvarMaterial()) return;   // valida, grava no navegador e envia para a planilha
+  fecharMaterial();
+  renderMateriais();
+}
+function excluirMaterialAberto() {
+  const m = materialPorId(materialAbertoId);
+  if (!m) return;
+  if (m.ativo === false) reativarMaterial(m.id); else excluirMaterial(m.id);
+  fecharMaterial();
+  renderMateriais();
+}
+
+/* ---------- histórico (dentro da janela do material) ---------- */
+function linhaMovimento(m, apos) {
   const material = materialPorId(m.materialId);
   const f = fatorMovimentoMaterial(m.tipo);
   const sinal = f < 0 ? '−' : (f > 0 ? '+' : '');
   const classe = f < 0 ? 'material-low' : (f > 0 ? 'material-ok' : 'mov-neutro');
-  const mat = material ? '<strong>' + escMelhoria(material.codigo) + '</strong><br><small>' + escMelhoria(material.descricao) + '</small>'
-    : '<small>' + escMelhoria((m.observacao || '').split('|')[0] || 'Material removido') + '</small>';
   return '<tr>' +
     '<td>' + escMelhoria(fmtDate(m.data) || '—') + '</td>' +
-    '<td>' + escMelhoria(m.tipo || '—') + '</td>' +
-    (comMaterial ? '<td>' + mat + '</td>' : '') +
-    '<td class="' + classe + '">' + sinal + numeroMaterial(m.quantidade) + ' ' + escMelhoria(material ? material.unidade : '') + '</td>' +
-    '<td style="text-align:right;">' + (valorMovimento(m) ? moedaNf(valorMovimento(m)) : '—') + '</td>' +
+    '<td>' + escMelhoria(m.tipo || '—') + (m.os ? '<br><small>' + escMelhoria(m.os) + '</small>' : '') + '</td>' +
+    '<td class="' + classe + '">' + sinal + numeroMaterial(m.quantidade) + '</td>' +
     '<td>' + escMelhoria(origemMovimento(m)) + '</td>' +
-    '<td>' + escMelhoria(m.os || '—') + '</td>' +
-    '<td>' + escMelhoria(m.cliente || '—') + '</td>' +
     '<td>' + (material && f !== 0 ? numeroMaterial(apos[m.id]) : '—') + '</td>' +
-    '<td title="' + escMelhoria(m.observacao || '') + '">' + escMelhoria([m.lote, m.dimensao, m.observacao].filter(Boolean).join(' · ') || '—') + '</td>' +
   '</tr>';
 }
-function renderMovimentacoesMateriais() {
-  const tbody = document.getElementById('tbody-movimentos-materiais');
-  if (!tbody) return;
-  const busca = semAcento((document.getElementById('search-mov') || {}).value || '');
-  const filtro = (document.getElementById('filter-mov-tipo') || {}).value || '';
+function renderHistoricoMaterial() {
+  const id = materialAbertoId;
+  const body = document.getElementById('hist-body');
+  const resumo = document.getElementById('mat-resumo');
+  if (id === null) { body.innerHTML = ''; resumo.innerHTML = ''; return; }
+  const m = materialPorId(id);
   const apos = saldosAposMovimentos();
-  const lista = movimentosMateriais.filter(m => {
-    const f = fatorMovimentoMaterial(m.tipo);
-    if (filtro === 'entrada' && f <= 0) return false;
-    if (filtro === 'saida' && f >= 0) return false;
-    if (filtro === 'direto' && m.tipo !== 'Compra direta para OS') return false;
-    return !busca || movimentoVisivel(m).includes(busca);
-  }).sort((a, b) => String(b.timestamp || b.data).localeCompare(String(a.timestamp || a.data)) || b.id - a.id);
-  const cnt = document.getElementById('mov-count');
-  if (cnt) cnt.textContent = lista.length + ' movimentaç' + (lista.length === 1 ? 'ão' : 'ões');
-  tbody.innerHTML = lista.length ? lista.slice(0, 300).map(m => linhaMovimento(m, apos, true)).join('')
-    : '<tr><td colspan="10" class="empty">Nenhuma movimentação encontrada.</td></tr>';
-}
-let historicoMaterialId = null;
-function abrirHistoricoMaterial(id) {
-  const material = materialPorId(id);
-  if (!material) return;
-  historicoMaterialId = id;
-  const apos = saldosAposMovimentos();
-  const movs = movimentosMateriais.filter(m => String(m.materialId) === String(id))
-    .sort((a, b) => String(a.timestamp || a.data).localeCompare(String(b.timestamp || b.data)) || a.id - b.id);
-  const ent = movs.filter(m => fatorMovimentoMaterial(m.tipo) > 0).reduce((t, m) => t + numNf(m.quantidade), 0);
-  const sai = movs.filter(m => fatorMovimentoMaterial(m.tipo) < 0).reduce((t, m) => t + numNf(m.quantidade), 0);
-  const osUso = {};
-  movs.filter(m => m.os && fatorMovimentoMaterial(m.tipo) <= 0).forEach(m => { osUso[m.os] = (osUso[m.os] || 0) + numNf(m.quantidade); });
-  const nfs = unicos(movs.filter(m => m.nf || m.documento).map(m => m.nf || m.documento));
-  const un = escMelhoria(material.unidade || '');
-  document.getElementById('hist-title').textContent = 'Histórico · ' + material.codigo + ' — ' + material.descricao;
-  document.getElementById('hist-body').innerHTML =
-    '<div class="materials-kpis">' +
-      '<div class="materials-kpi"><div class="label">Saldo atual</div><div class="value">' + numeroMaterial(saldoMaterial(id)) + ' ' + un + '</div></div>' +
-      '<div class="materials-kpi"><div class="label">Entradas</div><div class="value">' + numeroMaterial(ent) + ' ' + un + '</div></div>' +
-      '<div class="materials-kpi"><div class="label">Saídas</div><div class="value">' + numeroMaterial(sai) + ' ' + un + '</div></div>' +
-      '<div class="materials-kpi"><div class="label">Valor médio / último</div><div class="value" style="font-size:16px;">' + moedaMaterial(custoMedioMaterial(id)) + ' / ' + moedaMaterial(ultimoValorMaterial(id)) + '</div></div>' +
-    '</div>' +
-    '<div class="hist-resumo"><div><strong>OS que usaram:</strong> ' + (Object.keys(osUso).map(o => escMelhoria(o) + ' (' + numeroMaterial(osUso[o]) + ' ' + un + ')').join(', ') || '—') + '</div>' +
-    '<div><strong>NFs de origem:</strong> ' + (nfs.map(escMelhoria).join(', ') || '—') + '</div></div>' +
-    '<div class="materials-table-wrap" style="max-height:55vh;"><table class="data"><thead><tr><th>Data</th><th>Tipo</th><th>Qtd.</th><th style="text-align:right;">Valor</th><th>Origem</th><th>OS</th><th>Cliente</th><th>Saldo após</th><th>Observação</th></tr></thead><tbody>' +
-    (movs.length ? movs.map(m => linhaMovimento(m, apos, false)).join('') : '<tr><td colspan="9" class="empty">Sem movimentações.</td></tr>') +
-    '</tbody></table></div>';
-  document.getElementById('hist-modal').style.display = 'flex';
+  const movs = movimentosMateriais.filter(x => String(x.materialId) === String(id))
+    .sort((a, b) => String(b.timestamp || b.data).localeCompare(String(a.timestamp || a.data)) || b.id - a.id);
+  const un = escMelhoria(m.unidade || '');
+  resumo.innerHTML = '<div class="mx-resumo">' +
+    '<div><span>Saldo</span><strong>' + numeroMaterial(saldoMaterial(id)) + ' ' + un + '</strong></div>' +
+    '<div><span>Valor médio</span><strong>' + moedaMaterial(custoMedioMaterial(id)) + '</strong></div>' +
+    '<div><span>Código</span><strong>' + escMelhoria(m.codigo) + '</strong></div>' +
+    (m.tipo ? '<div><span>Tipo</span><strong>' + escMelhoria(m.tipo) + '</strong></div>' : '') + '</div>';
+  body.innerHTML = '<h4 class="mx-subtitulo">Movimentações</h4><div class="materials-table-wrap" style="max-height:45vh;"><table class="data"><thead><tr><th>Data</th><th>O quê</th><th>Qtd.</th><th>Origem</th><th>Saldo após</th></tr></thead><tbody>' +
+    (movs.length ? movs.map(x => linhaMovimento(x, apos)).join('') : '<tr><td colspan="5" class="empty">Sem movimentações.</td></tr>') + '</tbody></table></div>';
 }
 function exportarHistoricoMaterial() {
-  const material = materialPorId(historicoMaterialId);
+  const material = materialPorId(materialAbertoId);
   if (!material) return;
   const apos = saldosAposMovimentos();
-  const movs = movimentosMateriais.filter(m => String(m.materialId) === String(historicoMaterialId))
+  const movs = movimentosMateriais.filter(m => String(m.materialId) === String(materialAbertoId))
     .sort((a, b) => String(a.timestamp || a.data).localeCompare(String(b.timestamp || b.data)) || a.id - b.id);
   baixarCsvMateriais('historico-' + material.codigo, ['data', 'tipo', 'quantidade', 'efeito_no_saldo', 'valor', 'origem', 'os', 'cliente', 'saldo_apos', 'observacao'],
     movs.map(m => [m.data, m.tipo, m.quantidade, fatorMovimentoMaterial(m.tipo) * numNf(m.quantidade), valorMovimento(m), origemMovimento(m), m.os, m.cliente, apos[m.id], m.observacao]));
@@ -698,7 +789,6 @@ function exportarMovimentosMateriais() {
 function renderMateriaisDaOS(s) {
   const box = document.getElementById('os-materiais');
   if (!box || !s) return;
-  // Material indicado na OS: mostra se já existe em estoque
   const sel = document.getElementById('f-material');
   const info = document.getElementById('f-material-saldo');
   if (info) {
@@ -706,35 +796,34 @@ function renderMateriaisDaOS(s) {
     const m = tipoSel ? null : (sel && sel.value ? materialPorTexto(sel.value) || materialPorCodigo(String(sel.value).split(' — ')[0]) : null);
     if (tipoSel) {
       info.innerHTML = tipoSel.comSaldo.length
-        ? '✓ Em estoque (' + escMelhoria(sel.value) + '): ' + tipoSel.comSaldo.map(x => escMelhoria(x.codigo) + ' ' + numeroMaterial(saldoMaterial(x.id)) + ' ' + escMelhoria(x.unidade || '')).join(' · ')
-        : '⚠ Nenhum material ' + escMelhoria(sel.value) + ' com saldo no estoque — compre por NF (consumo direto)';
+        ? '✓ Em estoque: ' + tipoSel.comSaldo.map(x => escMelhoria(x.descricao || x.codigo) + ' (' + numeroMaterial(saldoMaterial(x.id)) + ' ' + escMelhoria(x.unidade || '') + ')').join(' · ')
+        : '⚠ Sem ' + escMelhoria(sel.value) + ' no estoque';
       info.style.color = tipoSel.comSaldo.length ? '#15803d' : '#b45309';
     } else {
-    info.innerHTML = !sel || !sel.value ? 'Puxa da aba 📦 Materiais e NF.'
-      : m ? (saldoMaterial(m.id) > 0 ? '✓ Em estoque: <strong>' + numeroMaterial(saldoMaterial(m.id)) + ' ' + escMelhoria(m.unidade || '') + '</strong>' : '⚠ Sem saldo em estoque — compre por NF (consumo direto)')
-      : 'Material não cadastrado no estoque.';
-    info.style.color = m && saldoMaterial(m.id) > 0 ? '#15803d' : (sel && sel.value ? '#b45309' : '#888');
+      info.innerHTML = !sel || !sel.value ? '' : m ? (saldoMaterial(m.id) > 0 ? '✓ Em estoque: ' + numeroMaterial(saldoMaterial(m.id)) + ' ' + escMelhoria(m.unidade || '') : '⚠ Sem saldo no estoque') : '';
+      info.style.color = m && saldoMaterial(m.id) > 0 ? '#15803d' : '#b45309';
     }
   }
   const movs = movimentosMateriais.filter(m => movimentoDaOS(m, s))
     .sort((a, b) => String(a.timestamp || a.data).localeCompare(String(b.timestamp || b.data)));
   const custoUso = m => fatorMovimentoMaterial(m.tipo) < 0 || TIPOS_NEUTROS_MAT.includes(m.tipo) ? valorMovimento(m) : (m.tipo === 'Sobra' ? -valorMovimento(m) : 0);
   const total = movs.reduce((t, m) => t + custoUso(m), 0);
+  const como = m => m.tipo === 'Compra direta para OS' ? 'Comprado' : m.tipo === 'Outros (sem efeito no estoque)' ? 'Despesa' : m.tipo === 'Sobra' ? 'Sobra devolvida' : fatorMovimentoMaterial(m.tipo) < 0 ? 'Do estoque' : m.tipo;
   box.innerHTML =
     '<div class="os-materiais-head"><h4>Materiais da OS</h4><div class="spacer"></div>' +
-      '<button type="button" class="btn-primary btn-sm" onclick="lancarNfParaOS()">🧾 Lançar NF para esta OS</button>' +
-      '<button type="button" class="btn-warning btn-sm" onclick="retirarParaOS()">📤 Retirar do estoque</button></div>' +
+      '<button type="button" class="btn-warning btn-sm" onclick="retirarParaOS()">📤 Retirar do estoque</button>' +
+      '<button type="button" class="btn-primary btn-sm" onclick="lancarNfParaOS()">🧾 Lançar NF</button></div>' +
     (movs.length
-      ? '<table class="data os-mat-tab"><thead><tr><th>Data</th><th>Como</th><th>Material</th><th>Qtd.</th><th>Origem</th><th style="text-align:right;">Custo</th></tr></thead><tbody>' +
+      ? '<table class="data os-mat-tab"><tbody>' +
         movs.map(m => {
           const mat = materialPorId(m.materialId);
-          return '<tr><td>' + escMelhoria(fmtDate(m.data)) + '</td><td>' + escMelhoria(m.tipo === 'Compra direta para OS' ? 'Comprado p/ a OS' : m.tipo === 'Outros (sem efeito no estoque)' ? 'Despesa / serviço' : m.tipo) + '</td>' +
-            '<td>' + escMelhoria(mat ? mat.codigo + ' — ' + mat.descricao : (m.observacao || '').split('|')[0]) + '</td>' +
-            '<td>' + numeroMaterial(m.quantidade) + ' ' + escMelhoria(mat ? mat.unidade : '') + '</td><td>' + escMelhoria(origemMovimento(m)) + '</td>' +
+          return '<tr><td>' + escMelhoria(fmtDate(m.data)) + '</td><td>' + escMelhoria(como(m)) + '</td>' +
+            '<td>' + escMelhoria(mat ? mat.descricao || mat.codigo : (m.observacao || '').split('|')[0]) + '</td>' +
+            '<td>' + (m.tipo === 'Sobra' ? '−' : '') + numeroMaterial(m.quantidade) + ' ' + escMelhoria(mat ? mat.unidade : '') + '</td>' +
             '<td style="text-align:right;">' + (valorMovimento(m) ? moedaNf(custoUso(m)) : '—') + '</td></tr>';
         }).join('') +
-        '</tbody><tfoot><tr><td colspan="5" style="text-align:right;"><strong>Custo de material da OS</strong></td><td style="text-align:right;"><strong>' + moedaNf(total) + '</strong></td></tr></tfoot></table>'
-      : '<div class="os-mat-vazio">Nenhum material lançado para esta OS. Compra específica → <em>Lançar NF</em>; material que já está no estoque → <em>Retirar do estoque</em>.</div>');
+        '</tbody><tfoot><tr><td colspan="4" style="text-align:right;"><strong>Custo de material</strong></td><td style="text-align:right;"><strong>' + moedaNf(total) + '</strong></td></tr></tfoot></table>'
+      : '<div class="os-mat-vazio">Nada lançado ainda.</div>');
 }
 window.renderMateriaisDaOSAtual = function () {
   const s = servicos.find(x => x.id === currentId);
@@ -744,24 +833,8 @@ function osAbertaNoPainel() {
   const s = servicos.find(x => x.id === currentId);
   return s ? { os: osItemServico(s), cliente: s.cliente || '' } : { os: '', cliente: '' };
 }
-function lancarNfParaOS() {
-  const { os, cliente } = osAbertaNoPainel();
-  switchTab('materiais');
-  switchMatSub('nf');
-  novaNf({ os, cliente });
-}
-function retirarParaOS() {
-  const { os, cliente } = osAbertaNoPainel();
-  switchTab('materiais');
-  switchMatSub('mov');
-  document.getElementById('mov-tipo').value = 'Retirada do estoque para OS';
-  document.getElementById('mov-os').value = os;
-  document.getElementById('mov-cliente').value = cliente;
-  document.getElementById('mov-data').value = hojeLocal();
-  atualizarCamposMovimentoMat();
-  document.getElementById('mov-material').focus();
-}
-
+/** Abre a NF por cima da própria OS (sem trocar de aba). */
+function lancarNfParaOS() { novaNf(osAbertaNoPainel()); }
 
 /* ======================= TIPOS DE MATERIAL (Cadastros) ======================= */
 /* Ex.: A-36, SAE 1045, SAE 1010 / 1016. Usados no campo Material da OS e no cadastro do estoque. */
@@ -886,8 +959,10 @@ function saldoPorTipo(nome) {
   }
   // Ao carregar materiais/movimentações em segundo plano, a OS aberta e as listas acompanham
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && nfEditorAberto()) fecharNf();
-    else if (e.key === 'Escape') { const h = document.getElementById('hist-modal'); if (h) h.style.display = 'none'; }
+    if (e.key !== 'Escape') return;
+    if (nfEditorAberto()) fecharNf();
+    else if (document.getElementById('ret-modal').style.display !== 'none') fecharRetirada();
+    else if (document.getElementById('hist-modal').style.display !== 'none') fecharMaterial();
   });
   atualizarAvisoBackendNf();
 })();
