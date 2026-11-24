@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.8] — 2026-11-24
+
+### Qualidade
+- **Checklist só aprova ou reprova com todos os itens marcados** (OK, NOK ou N/A). Se faltar algum, o sistema avisa quantos faltam, destaca os itens em vermelho e rola até o primeiro. "Salvar rascunho" continua livre.
+- Não dá para **aprovar** com item NOK — nesse caso, reprovar (retrabalho) ou corrigir a marcação.
+- Contador "X de Y itens marcados" ao lado dos botões.
+
 ## [Apps Script 1.5.5] — 2026-11-24
 
 ### Correção

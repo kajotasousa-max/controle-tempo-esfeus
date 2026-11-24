@@ -1905,7 +1905,7 @@ function renderChecklistBody(s) {
       sec.items.map(item => {
         const preview = item.preview ? item.preview(s) : '';
         const valor = qualiMarcacoes[item.key] || '';
-        return '<div class="ql-item">' +
+        return '<div class="ql-item" data-key="' + item.key + '">' +
           '<div class="ql-label"><strong>' + item.label + '</strong>' +
             (preview ? '<span class="ql-value-preview">→ ' + preview + '</span>' : '') +
           '</div>' +
@@ -1918,10 +1918,28 @@ function renderChecklistBody(s) {
       }).join('') +
     '</div>';
   }).join('');
+  atualizarProgressoChecklist();
 }
 
+function itensChecklist() {
+  return CHECKLIST_ITEMS.reduce((a, sec) => a.concat(sec.items), []);
+}
+function itensFaltando() {
+  return itensChecklist().filter(it => !qualiMarcacoes[it.key]);
+}
+function atualizarProgressoChecklist() {
+  const el = document.getElementById('ql-progresso');
+  if (!el) return;
+  const total = itensChecklist().length, falta = itensFaltando().length;
+  const nok = itensChecklist().filter(it => qualiMarcacoes[it.key] === 'NOK').length;
+  el.textContent = (total - falta) + ' de ' + total + ' itens marcados' + (nok ? ' · ' + nok + ' NOK' : '');
+  el.className = 'ql-progresso' + (falta ? '' : (nok ? ' nok' : ' ok'));
+}
 function marcarItem(key, val) {
   qualiMarcacoes[key] = val;
+  const row = document.querySelector('.ql-item[data-key="' + key + '"]');
+  if (row) row.classList.remove('ql-faltando');
+  atualizarProgressoChecklist();
 }
 
 async function adicionarFotos(files) {
@@ -1980,6 +1998,21 @@ function renderFotos() {
 
 async function salvarChecklist(situacao) {
   if (!qualiOSAtual) return;
+  if (situacao !== 'Rascunho') {
+    const faltam = itensFaltando();
+    if (faltam.length) {
+      document.querySelectorAll('.ql-item.ql-faltando').forEach(r => r.classList.remove('ql-faltando'));
+      faltam.forEach(it => { const r = document.querySelector('.ql-item[data-key="' + it.key + '"]'); if (r) r.classList.add('ql-faltando'); });
+      const primeiro = document.querySelector('.ql-item.ql-faltando');
+      if (primeiro) primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      alert('Marque todos os itens do checklist antes de ' + (situacao === 'Aprovado' ? 'aprovar' : 'reprovar') + '.\n\nFaltam ' + faltam.length + ' item(ns) — destacados em vermelho.');
+      return;
+    }
+    if (situacao === 'Aprovado' && itensChecklist().some(it => qualiMarcacoes[it.key] === 'NOK')) {
+      alert('Há item marcado como NOK. Não dá para aprovar — use "Reprovar (retrabalho)" ou corrija a marcação.');
+      return;
+    }
+  }
   const inspetor = document.getElementById('ql-inspetor').value;
   if (!inspetor && situacao !== 'Rascunho') {
     alert('Selecione o inspetor responsável.');
